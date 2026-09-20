@@ -19,7 +19,7 @@ The goal is to finish core development early enough to leave several days for te
 - [ ] Choose Next.js or Vite
 - [ ] Enable TypeScript strict mode
 - [ ] Add lint + format
-- [ ] Add environment variable template
+- [x] Add environment variable template
 - [ ] Create `main` and `dev` branch workflow
 - [ ] Add generated SpreadForge icon
 - [ ] Create basic CI build check
@@ -145,31 +145,31 @@ The goal is to finish core development early enough to leave several days for te
 
 ## Client
 
-- [ ] Install `@solana/kit`
-- [ ] Wallet Standard connection
-- [ ] Devnet RPC config
-- [ ] Show wallet state
-- [ ] Transaction status UX
+- [x] Install `@solana/kit`
+- [x] Wallet Standard connection
+- [x] Devnet RPC config
+- [x] Show wallet state
+- [ ] Transaction status UX (enabled after registry deployment)
 
 ## Anchor Program
 
-- [ ] Initialize Anchor workspace
-- [ ] Create Result account
-- [ ] Create submit_result instruction
-- [ ] PDA seed design
-- [ ] Custom error codes
-- [ ] Account validation
-- [ ] Schema version field
-- [ ] Program tests with LiteSVM
+- [x] Initialize Anchor workspace
+- [x] Create Result account
+- [x] Create submit_result instruction
+- [x] PDA seed design
+- [x] Custom error codes
+- [x] Account validation
+- [x] Schema version field
+- [x] Program tests with LiteSVM
 - [ ] Deploy to devnet
 - [ ] Save known-good program ID
 
 ## Result Verification
 
-- [ ] Canonicalize strategy config
-- [ ] Hash strategy config
-- [ ] Canonicalize final result
-- [ ] Hash result
+- [x] Canonicalize strategy config
+- [x] Hash strategy config
+- [x] Canonicalize final result
+- [x] Hash result
 - [ ] Submit transaction
 - [ ] Add explorer link
 - [ ] Retry failed transaction

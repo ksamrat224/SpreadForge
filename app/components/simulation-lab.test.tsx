@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runSimulation, SCENARIOS, DEFAULT_STRATEGY } from "../lib/simulation";
 import { scoreRun } from "../lib/simulation/score";
@@ -34,6 +34,7 @@ describe("Challenge Lab UI", () => {
     render(
       <Results
         scenario={result.scenario}
+        strategy={DEFAULT_STRATEGY}
         state={result.state}
         breakdown={scoreRun(
           result.state,
@@ -49,5 +50,28 @@ describe("Challenge Lab UI", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run again" }));
     expect(onAgain).toHaveBeenCalledOnce();
     expect(screen.getByText("CHALLENGE COMPLETE")).toBeTruthy();
+  });
+
+  it("prepares local hashes without requesting a wallet transaction", async () => {
+    const result = runSimulation(SCENARIOS["stable-market"], DEFAULT_STRATEGY);
+    const view = render(
+      <Results
+        scenario={result.scenario}
+        strategy={DEFAULT_STRATEGY}
+        state={result.state}
+        breakdown={result.score}
+        pnlCents={result.state.equityCents - result.state.startingEquityCents}
+        verified={false}
+        onAgain={vi.fn()}
+        onChallenges={vi.fn()}
+      />
+    );
+
+    const query = within(view.container);
+    fireEvent.click(
+      query.getByRole("button", { name: "Prepare verification" })
+    );
+    expect(await query.findByText(/hashed locally/i)).toBeTruthy();
+    expect(query.getByText("Result hash")).toBeTruthy();
   });
 });

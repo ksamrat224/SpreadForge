@@ -14,7 +14,7 @@
     "start": "next start",
     "test": "vitest run"
   },
-  "description": "Next.js, Tailwind, @solana/kit, Anchor vault program",
+  "description": "SpreadForge learning lab with a Solana result registry",
   "keywords": [
     "anchor",
     "kit",

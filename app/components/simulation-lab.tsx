@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "../lib/wallet/context";
 import {
+  createResultCommitment,
+  type ResultCommitment,
+} from "../lib/results/commitment";
+import {
   DEFAULT_STRATEGY,
   createSimulation,
   LocalSimulationRuntime,
@@ -103,6 +107,7 @@ export function SimulationLab() {
     return (
       <Results
         scenario={scenario}
+        strategy={strategy}
         state={state}
         breakdown={breakdown}
         pnlCents={pnlCents}
@@ -439,6 +444,7 @@ export function PriceChart({
 
 export function Results({
   scenario,
+  strategy,
   state,
   breakdown,
   pnlCents,
@@ -447,6 +453,7 @@ export function Results({
   onChallenges,
 }: {
   scenario: (typeof SCENARIOS)[ScenarioId];
+  strategy: StrategyConfig;
   state: SimulationState;
   breakdown: ReturnType<typeof scoreRun>;
   pnlCents: number;
@@ -454,6 +461,8 @@ export function Results({
   onAgain: () => void;
   onChallenges: () => void;
 }) {
+  const [commitment, setCommitment] = useState<ResultCommitment | null>(null);
+  const [commitmentError, setCommitmentError] = useState<string | null>(null);
   const insight =
     state.maxDrawdownBps > 200
       ? "Price movement caused meaningful drawdown. A lower inventory cap could reduce risk."
@@ -513,13 +522,68 @@ export function Results({
           Try another challenge
         </button>
         <button
-          disabled={!verified}
-          className="min-h-11 rounded-lg border border-primary/30 bg-secondary px-5 py-3 text-sm font-bold text-secondary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => {
+            setCommitmentError(null);
+            void createResultCommitment({
+              scenario,
+              strategy,
+              score: breakdown,
+              state,
+            })
+              .then(setCommitment)
+              .catch((error: unknown) =>
+                setCommitmentError(
+                  error instanceof Error
+                    ? error.message
+                    : "Could not prepare result verification."
+                )
+              );
+          }}
+          className="min-h-11 rounded-lg border border-primary/30 bg-secondary px-5 py-3 text-sm font-bold text-secondary-foreground transition hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {verified
-            ? "Verify on Solana (coming soon)"
-            : "Connect wallet to verify"}
+          Prepare verification
         </button>
+      </div>
+      <div
+        className="mt-5 rounded-xl border border-dashed border-primary/30 bg-secondary/40 p-4"
+        aria-live="polite"
+      >
+        <p className="text-sm font-bold">Solana result commitment</p>
+        {commitment ? (
+          <>
+            <p className="mt-1 text-sm text-muted">
+              Your deterministic result has been hashed locally. No wallet
+              request or transaction has been sent.
+            </p>
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="text-muted">Strategy hash</dt>
+                <dd className="mt-1 break-all font-mono text-foreground">
+                  {commitment.strategyHash}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted">Result hash</dt>
+                <dd className="mt-1 break-all font-mono text-foreground">
+                  {commitment.resultHash}
+                </dd>
+              </div>
+            </dl>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-muted">
+            Prepare the canonical hashes that a future devnet transaction will
+            store in the Result Registry PDA.
+          </p>
+        )}
+        {commitmentError && (
+          <p className="mt-2 text-sm text-destructive">{commitmentError}</p>
+        )}
+        <p className="mt-3 text-xs text-muted">
+          {verified
+            ? "Devnet registry deployment is still required before this result can be submitted."
+            : "Connect a wallet after deployment to submit this result on devnet."}
+        </p>
       </div>
     </section>
   );

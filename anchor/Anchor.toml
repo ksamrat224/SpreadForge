@@ -5,7 +5,9 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-vault = "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV"
+# Set this to the deployed registry address after the devnet deployment.
+# The source program keeps its current build identity until that deployment.
+result_registry = "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV"
 
 [provider]
 cluster = "devnet"

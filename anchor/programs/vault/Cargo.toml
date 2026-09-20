@@ -1,12 +1,12 @@
 [package]
-name = "vault"
+name = "result_registry"
 version = "0.1.0"
-description = "A simple SOL vault program"
+description = "SpreadForge immutable challenge result registry"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "vault"
+name = "result_registry"
 
 [features]
 default = []
