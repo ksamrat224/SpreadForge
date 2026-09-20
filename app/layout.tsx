@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   title: "SpreadForge — Learn. Simulate. Compete.",
   description: "A Solana DeFi market-making simulator with verifiable results.",
   icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 };
 

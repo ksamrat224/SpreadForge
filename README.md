@@ -1,5 +1,7 @@
 # SpreadForge
 
+![SpreadForge](app/SpreadForge.png)
+
 **Learn. Simulate. Compete.**
 
 SpreadForge is a Solana DeFi market-making laboratory. Users configure a simple liquidity strategy, run it against repeatable SOL/USDC scenarios, understand the effects of spread and inventory risk, and will verify compact run summaries on Solana devnet.
@@ -14,6 +16,7 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 - Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
 - Local deterministic runtime ready to sit behind the planned MagicBlock adapter
 - Wallet Standard connection is present; on-chain result submission and leaderboard are next milestones
+- MagicBlock account, routing, settlement, recovery, and validation design documented in [`docs/magicblock-architecture.md`](docs/magicblock-architecture.md)
 
 ## Run locally
 
