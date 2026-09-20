@@ -8,7 +8,7 @@ import { WalletButton } from "./components/wallet-button";
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#080b11] text-white">
+    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <GridBackground />
       <div className="relative z-10 mx-auto max-w-7xl px-5 pb-12 sm:px-8">
         <header className="flex items-center justify-between py-5">

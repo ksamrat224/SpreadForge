@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   useCallback,
   type ReactNode,
@@ -20,20 +21,22 @@ type ClusterContextValue = {
 const ClusterContext = createContext<ClusterContextValue | null>(null);
 
 const STORAGE_KEY = "solana-cluster";
-function getInitialCluster(): ClusterMoniker {
-  if (typeof window === "undefined") return "devnet";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored && CLUSTERS.includes(stored as ClusterMoniker)) {
-    return stored as ClusterMoniker;
-  }
-  return "devnet";
-}
-
 export { CLUSTERS };
 
 export function ClusterProvider({ children }: { children: ReactNode }) {
-  const [cluster, setClusterState] =
-    useState<ClusterMoniker>(getInitialCluster);
+  // Start with devnet on both server and client, then restore the preference
+  // after hydration so the cluster selector cannot mismatch server markup.
+  const [cluster, setClusterState] = useState<ClusterMoniker>("devnet");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && CLUSTERS.includes(stored as ClusterMoniker)) {
+        setClusterState(stored as ClusterMoniker);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const setCluster = useCallback((c: ClusterMoniker) => {
     setClusterState(c);
