@@ -2,11 +2,11 @@
 
 ## 1. Product Summary
 
-**SpreadForge** is a Solana-powered DeFi market-making simulator where users learn how liquidity works, configure simple automated strategies, run them against repeatable market scenarios, compare results, and save verifiable strategy outcomes on-chain.
+**SpreadForge** is a Solana DeFi trading playground where users practice with simulated funds against real market data, learn liquidity, build automated market-making strategies, and compete in deterministic, verifiable market challenges.
 
 **Tagline:** Learn. Simulate. Compete.
 
-SpreadForge is not a real-money trading product. The hackathon MVP is an educational and competitive simulation environment using fake balances and simulated fills.
+SpreadForge is not a real-money trading product. Every balance, order, fill, and P&L result is simulated; live data is used only as a market reference for practice.
 
 ## 2. Problem
 
@@ -14,7 +14,9 @@ Most beginner trading simulators teach only "buy low, sell high." They do not ex
 
 Important concepts such as spread, order-book depth, inventory risk, volatility, fill probability, and liquidity quality are difficult to understand from theory alone.
 
-Existing paper-trading tools also rarely provide:
+Existing paper-trading tools also rarely combine:
+
+- a live, manual practice environment with market-making-specific feedback,
 - market-making-specific challenges,
 - identical scenarios for fair strategy comparison,
 - real-time strategy execution,
@@ -23,25 +25,28 @@ Existing paper-trading tools also rarely provide:
 ## 3. Target Users
 
 ### Primary
+
 - Solana developers learning DeFi
 - university students and blockchain clubs
 - hackathon participants
 - beginner quantitative developers
 
 ### Secondary
+
 - DeFi communities
 - educators
 - protocols that want market-making training environments
 - developer communities running competitions
 
 ### Initial Distribution
+
 Nepal is the first community focus through universities, Superteam-style communities, workshops, and student hackathons. The product itself is designed to scale globally.
 
 ## 4. User Promise
 
 A user should be able to understand this sentence immediately:
 
-> "SpreadForge lets me practice market making with fake funds, see exactly why my strategy wins or loses, and prove my result on Solana."
+> "SpreadForge lets me practice with live market data and fake funds, see exactly why my strategy wins or loses, and prove fair challenge results on Solana."
 
 ## 5. MVP Goals
 
@@ -49,13 +54,13 @@ By October 7–9, 2026, the MVP should allow a user to:
 
 1. Open SpreadForge.
 2. Connect a Solana wallet.
-3. Select a predefined simulation scenario.
-4. Configure a simple market-making strategy.
-5. Start a simulation.
-6. Watch price, orders, fills, inventory, P&L, and risk update live.
-7. Finish the simulation and receive a score.
-8. Commit a compact result record to Solana devnet.
-9. View a leaderboard of completed runs.
+3. Choose either Live Paper Desk or a predefined challenge.
+4. Practice manually with simulated SOL/USDC balances against a live SOL price reference.
+5. Configure a simple market-making strategy for a deterministic challenge.
+6. Watch candles, orders, fills, inventory, P&L, and risk update live.
+7. Finish a challenge and receive a score.
+8. Commit a compact challenge-result record to Solana devnet.
+9. View a leaderboard of comparable, verified challenge runs.
 
 ## 6. Non-Goals for MVP
 
@@ -77,10 +82,19 @@ Do not build these before the core demo works:
 ## 7. Core User Flow
 
 ### Step 1 — Connect
+
 User connects a Solana-compatible wallet.
 
-### Step 2 — Choose Challenge
+### Step 2 — Choose a Mode
+
+#### Live Paper Desk
+
+Practice manually with fake SOL and USDC against a live SOL/USD reference price. This mode shows candles, simulated buy/sell actions, quotes, fills, inventory, and P&L. It is educational only and is not leaderboard eligible.
+
+#### Challenge Lab
+
 Example challenges:
+
 - Stable Market
 - Volatility Spike
 - Whale Sell
@@ -89,19 +103,24 @@ Example challenges:
 For MVP, only 1–2 scenarios need to be fully implemented.
 
 ### Step 3 — Configure Strategy
+
 Beginner controls:
+
 - spread %
 - order size
 - max inventory
 - refresh interval / tick behavior
 - optional risk tolerance preset
 
-### Step 4 — Simulate
+### Step 4 — Simulate a Challenge
+
 The session begins with fake balances such as:
+
 - 100 SOL
 - 15,000 USDC
 
 The simulation updates:
+
 - reference price,
 - bid/ask,
 - open simulated orders,
@@ -111,7 +130,9 @@ The simulation updates:
 - score.
 
 ### Step 5 — Review
+
 At the end, show:
+
 - total fills,
 - spread capture,
 - inventory P&L,
@@ -122,6 +143,7 @@ At the end, show:
 - final total score.
 
 ### Step 6 — Verify
+
 User signs one transaction that records the run summary on Solana devnet.
 
 ## 8. Scoring Model
@@ -141,12 +163,23 @@ Keep the formula deterministic and documented.
 ## 9. Functional Requirements
 
 ### Wallet
+
 - Connect/disconnect wallet.
 - Show shortened public key.
 - Require wallet signature only for on-chain result submission.
 - Simulation should not require signing every action.
 
+### Live Paper Desk
+
+- Use fake SOL and USDC balances only.
+- Display a live SOL/USD reference price and freshness timestamp.
+- Aggregate received reference-price updates into readable candles.
+- Support simulated manual buy/sell and bid/ask quote placement, cancellation, and replacement.
+- Clearly label live practice results as simulated and not leaderboard eligible.
+- Keep any price-provider credential server-side; never expose it in the browser.
+
 ### Simulation
+
 - Deterministic scenario seed.
 - Fixed starting balances.
 - Discrete simulation ticks.
@@ -156,14 +189,23 @@ Keep the formula deterministic and documented.
 - P&L calculation.
 - Result scoring.
 
+### Competition Fairness
+
+- Only deterministic Challenge Lab runs are leaderboard eligible.
+- A challenge’s scenario version, seed, strategy configuration, and engine version must be stored or hashed for verification.
+- Live Paper Desk results must never be compared directly with deterministic challenge scores.
+
 ### MagicBlock
+
 - Use Ephemeral Rollup execution for real-time simulation state where practical.
 - Session state can be delegated for fast updates.
 - Final result must be committed or represented on Solana devnet.
 - The app must remain demoable if MagicBlock connectivity fails; local deterministic simulation is an acceptable development fallback.
 
 ### Solana Program
+
 Store only compact, verifiable run metadata:
+
 - owner wallet
 - scenario ID
 - strategy hash
@@ -174,6 +216,7 @@ Store only compact, verifiable run metadata:
 - version
 
 ### Leaderboard
+
 - Show recent verified runs.
 - Sort by total score for a selected scenario.
 - Show wallet short address, score, scenario, and timestamp.
@@ -181,6 +224,7 @@ Store only compact, verifiable run metadata:
 ## 10. Non-Functional Requirements
 
 - Simulation UI should respond within ~100 ms locally for visible actions.
+- A live market price must display its update time and a clear stale/unavailable state.
 - No private key material may be stored by the app.
 - No real funds are required beyond devnet transaction fees.
 - Simulation must be deterministic for a given scenario seed + strategy config.
@@ -192,28 +236,29 @@ Store only compact, verifiable run metadata:
 ## 11. Success Metrics for Hackathon MVP
 
 The MVP is successful when:
+
 - a new user can understand the app in under 30 seconds,
 - a complete simulation takes under 3 minutes,
 - one result can be verified on Solana devnet,
+- a user can complete a manual live-paper practice trade without using real funds,
 - the same scenario can be run by two users and compared,
 - the demo can show why one strategy performed differently from another.
 
 ## 12. Hackathon Demo Story
 
-1. "Market making is hard to learn from charts."
-2. Start the same SOL/USDC scenario.
-3. Configure spread and inventory limits.
-4. Run strategy.
-5. Trigger or reach a volatility event.
-6. Show fills and inventory risk changing live.
-7. Finish simulation.
-8. Submit result to Solana.
-9. Open leaderboard.
-10. Show that another strategy received a different score under the same scenario.
+1. "Market making is hard to learn from charts alone."
+2. Open Live Paper Desk and show live SOL movement, candles, and fake balances.
+3. Place a simulated quote or manual practice trade.
+4. Switch to the same deterministic SOL/USDC challenge every competitor receives.
+5. Configure spread and inventory limits and run the strategy.
+6. Show fills and inventory risk changing during the Whale Sell event.
+7. Finish the challenge, submit its result to Solana, and open the leaderboard.
+8. Show that another strategy received a different verified score under the same scenario.
 
 ## 13. Milestones
 
 ### Sep 20–22
+
 - finalize specification
 - repo setup
 - frontend shell
@@ -221,18 +266,21 @@ The MVP is successful when:
 - simulation data model
 
 ### Sep 23–27
+
 - deterministic simulation engine
 - strategy configuration
 - live dashboard
 - score calculation
 
 ### Sep 28–Oct 2
+
 - Anchor program
 - devnet result submission
 - MagicBlock integration
 - leaderboard
 
 ### Oct 3–6
+
 - polish
 - error handling
 - automated tests
@@ -240,6 +288,7 @@ The MVP is successful when:
 - deployment
 
 ### Oct 7–9
+
 - feature freeze
 - full end-to-end testing
 - demo recording
@@ -248,6 +297,7 @@ The MVP is successful when:
 - pitch assets
 
 ### Oct 10–13
+
 - buffer only
 - bug fixes
 - submission refinement
@@ -256,9 +306,10 @@ The MVP is successful when:
 
 SpreadForge should be described as:
 
-> A competitive Solana DeFi simulator for learning, testing, and verifying market-making strategies.
+> A Solana DeFi trading playground for practicing with live market data and competing in verifiable market-making challenges.
 
 Avoid positioning it as:
+
 - a trading bot,
 - an investment product,
 - a profit tool,

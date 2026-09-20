@@ -78,7 +78,7 @@ The goal is to finish core development early enough to leave several days for te
 
 ---
 
-# Phase 2 — UI Lab
+# Phase 2 — Challenge Lab UI
 
 **Target: Sep 24–27**
 
@@ -97,6 +97,26 @@ The goal is to finish core development early enough to leave several days for te
 - [ ] Responsive cleanup
 
 **Definition of done:** a non-Web3 user can complete a simulation and understand the result.
+
+---
+
+# Phase 2A — Live Paper Desk
+
+**Target: Sep 27–28**
+
+- [ ] Add Lab / Live Paper Desk navigation
+- [ ] Add live SOL/USD reference-price adapter
+- [ ] Show price update timestamp and stale/unavailable state
+- [ ] Aggregate reference prices into 1-minute candles
+- [ ] Build candle chart with simulated fills and quotes
+- [ ] Add fake SOL/USDC starting balances
+- [ ] Add simulated manual market buy/sell actions
+- [ ] Add simulated bid/ask placement and cancel/replace actions
+- [ ] Show manual trade and fill history
+- [ ] Label live-practice results as simulated and unranked
+- [ ] Add live-price adapter fallback for demo reliability
+
+**Definition of done:** a user can practice manually against a changing SOL price without real funds, while deterministic challenges remain separate and leaderboard eligible.
 
 ---
 

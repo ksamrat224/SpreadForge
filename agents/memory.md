@@ -7,14 +7,16 @@ This file is the source of truth for recurring project decisions. Update it when
 **Name:** SpreadForge  
 **Tagline:** Learn. Simulate. Compete.
 
-SpreadForge is a Solana-powered DeFi market-making simulator where users learn liquidity concepts, configure strategies, run deterministic simulations, compare performance, and record verifiable run summaries on Solana.
+SpreadForge is a Solana DeFi trading playground where users practice with simulated funds against live market data, learn liquidity concepts, configure strategies, run deterministic challenges, compare performance, and record verifiable challenge summaries on Solana.
 
 ## Product Category
 
 Primary:
+
 - DeFi
 
 Secondary:
+
 - Developer Tools
 - Education
 
@@ -22,9 +24,10 @@ Secondary:
 
 Do say:
 
-> SpreadForge is a competitive Solana DeFi simulator for learning, testing, and verifying market-making strategies.
+> SpreadForge is a Solana DeFi trading playground for practicing with live market data and competing in verifiable market-making challenges.
 
 Do not say:
+
 - real trading platform,
 - investment app,
 - HFT profit bot,
@@ -36,27 +39,31 @@ The important loop is:
 
 ```text
 Learn
+→ Practice live
 → Configure
-→ Simulate
+→ Simulate deterministically
 → Understand
 → Compete
 → Verify
 ```
 
-The product is not differentiated by "paper trading" alone.
+The product is not differentiated by paper trading alone: Live Paper Desk teaches active practice, while Challenge Lab provides fair competition and verification.
 
 ## Target User
 
 First:
+
 - students,
 - Solana developers,
 - hackathon builders,
 - beginner quant developers.
 
 Initial community:
+
 - Nepal / university / Solana builder ecosystem.
 
 Long-term:
+
 - global DeFi learners and developer communities.
 
 ## Hackathon Timeline
@@ -76,6 +83,7 @@ MVP must include:
 - wallet connect
 - guest simulation
 - SOL/USDC simulated market
+- Live Paper Desk with a real SOL/USD reference price, candles, and simulated manual trading
 - at least one deterministic scenario
 - simple market-making strategy
 - spread control
@@ -95,19 +103,19 @@ MVP must include:
 1. Stable Market
 2. Whale Sell
 
-Optional after core is done:
-3. Volatility Spike
-4. Liquidity Drain
+Optional after core is done: 3. Volatility Spike 4. Liquidity Drain
 
 ## Technology Decisions
 
 ### Frontend
+
 - TypeScript
 - React
 - Next.js or Vite
 - Tailwind CSS
 
 ### Solana
+
 - `@solana/kit` v7
 - Wallet Standard
 - `@solana/kit-plugin-wallet`
@@ -117,24 +125,35 @@ Optional after core is done:
 - PDA result registry
 
 ### Testing
+
 - Vitest
 - LiteSVM
 - Surfpool when needed
 
 ### Real-Time Execution
+
 - MagicBlock Ephemeral Rollups
 - local deterministic runtime must remain available as fallback
+
+### Live Market Data
+
+- Live Paper Desk uses a real SOL/USD reference price only; all balances and execution remain simulated.
+- Live market data must show freshness and a stale/unavailable state.
+- Provider API keys must remain server-side.
+- The live-practice adapter must have a demo-safe fallback.
 
 ## Architecture Decision
 
 Simulation actions are not all stored directly on Solana.
 
 MagicBlock / local runtime:
+
 - frequent simulation updates,
 - temporary state,
 - low-latency actions.
 
 Solana:
+
 - durable final result verification.
 
 Principle:
@@ -144,6 +163,7 @@ Principle:
 ## On-Chain Data
 
 Store a compact final result:
+
 - owner wallet
 - scenario ID/hash
 - strategy hash
@@ -160,6 +180,7 @@ Do not store the entire tick log on-chain for MVP.
 Runs should be deterministic.
 
 Same:
+
 - scenario version,
 - seed,
 - strategy config,
@@ -169,11 +190,14 @@ must produce the same output.
 
 This enables fair leaderboard comparisons.
 
+Live Paper Desk sessions are not leaderboard eligible because market conditions differ between users and times.
+
 ## Scoring Direction
 
 Score should reward market-making quality, not only P&L.
 
 Initial weighting:
+
 - 30% liquidity uptime
 - 25% spread efficiency
 - 20% inventory control
@@ -185,12 +209,14 @@ Final formula may be tuned, but must remain deterministic and documented.
 ## Brand
 
 Logo:
+
 - abstract "S"
 - bid/ask arrows
 - center execution spark
 - Solana-inspired green/purple visual direction.
 
 Tone:
+
 - technical
 - modern
 - competitive
@@ -225,6 +251,7 @@ Best demo:
 ## Open Decisions
 
 Resolve soon:
+
 - Next.js vs Vite
 - exact scoring formula
 - exact MagicBlock state delegation shape
@@ -235,6 +262,7 @@ Resolve soon:
 ## Official Technical Reference
 
 The project follows the current Solana development defaults from the Solana Foundation development skill:
+
 - modern `@solana/kit` client stack,
 - Wallet Standard,
 - Anchor as default program framework,
