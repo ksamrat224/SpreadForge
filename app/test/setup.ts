@@ -22,6 +22,14 @@ class MemoryStorage implements Storage {
 }
 
 const storage = new MemoryStorage();
+if (!HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
+}
 Object.defineProperty(globalThis, "localStorage", {
   configurable: true,
   value: storage,

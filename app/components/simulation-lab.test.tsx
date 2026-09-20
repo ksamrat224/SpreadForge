@@ -1,58 +1,105 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  cleanup,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runSimulation, SCENARIOS, DEFAULT_STRATEGY } from "../lib/simulation";
-import { scoreRun } from "../lib/simulation/score";
-import { SimulationLab, PriceChart, Results } from "./simulation-lab";
+import {
+  SimulationLab,
+  PriceChart,
+  Results,
+  ChallengeDrawer,
+} from "./simulation-lab";
 
-vi.mock("../lib/wallet/context", () => ({
-  useWallet: () => ({ status: "disconnected" }),
-}));
-
-describe("Challenge Lab UI", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("moves from the guided entry to the strategy lab", () => {
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+describe("Terminal strategy workspace", () => {
+  it("starts directly in the lab and exposes all strategy controls", () => {
     render(<SimulationLab />);
-    expect(screen.getByText("Learn in three simple steps.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Start challenge" }));
+    expect(screen.getByRole("heading", { name: "Quote & Risk" })).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: "Quote controls" })
-    ).toBeTruthy();
+      (screen.getByRole("slider", { name: "Spread" }) as HTMLInputElement).value
+    ).toBe("30");
+    fireEvent.change(screen.getByRole("slider", { name: "Refresh cycle" }), {
+      target: { value: "5" },
+    });
+    expect(
+      (
+        screen.getByRole("slider", {
+          name: "Refresh cycle",
+        }) as HTMLInputElement
+      ).value
+    ).toBe("5");
   });
-
-  it("renders fill markers from deterministic simulation data", () => {
+  it("pauses without advancing and resets a started session", () => {
+    vi.useFakeTimers();
+    render(<SimulationLab />);
+    fireEvent.click(screen.getByRole("button", { name: "Start Challenge" }));
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(screen.getByText("RUNNING")).toBeTruthy();
+    expect(
+      (screen.getByRole("slider", { name: "Spread" }) as HTMLInputElement)
+        .disabled
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    const before = screen.getByRole("log").textContent;
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByRole("log").textContent).toBe(before);
+    fireEvent.click(screen.getByRole("button", { name: "Reset simulation" }));
+    expect(screen.getByText("IDLE")).toBeTruthy();
+  });
+  it("completes at tick 60 and opens a dismissible result dialog", () => {
+    vi.useFakeTimers();
+    render(<SimulationLab />);
+    fireEvent.click(screen.getByRole("button", { name: "5×" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Challenge" }));
+    act(() => {
+      vi.advanceTimersByTime(4800);
+    });
+    expect(
+      screen.getByRole("dialog", { name: "Session debrief" })
+    ).toBeTruthy();
+    expect(screen.getByText("CHALLENGE COMPLETE")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Run again" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("IDLE")).toBeTruthy();
+  });
+  it("renders every fill from the actual deterministic result", () => {
     const result = runSimulation(SCENARIOS["whale-sell"], DEFAULT_STRATEGY);
-    render(<PriceChart state={result.state} scenario={result.scenario} />);
-    expect(screen.getAllByTitle(/fill at/).length).toBe(
+    const { container } = render(
+      <PriceChart state={result.state} scenario={result.scenario} />
+    );
+    expect(container.querySelectorAll("circle title")).toHaveLength(
       result.state.fills.length
     );
   });
-
-  it("shows completed results with a reset action", () => {
-    const result = runSimulation(SCENARIOS["stable-market"], DEFAULT_STRATEGY);
-    const onAgain = vi.fn();
+  it("selects the advanced challenge from the drawer", () => {
+    const select = vi.fn(),
+      close = vi.fn();
     render(
-      <Results
-        scenario={result.scenario}
-        strategy={DEFAULT_STRATEGY}
-        state={result.state}
-        breakdown={scoreRun(
-          result.state,
-          DEFAULT_STRATEGY,
-          result.scenario.durationTicks
-        )}
-        pnlCents={result.state.equityCents - result.state.startingEquityCents}
-        verified={false}
-        onAgain={onAgain}
-        onChallenges={vi.fn()}
+      <ChallengeDrawer
+        selected="whale-sell"
+        onSelect={select}
+        onClose={close}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Run again" }));
-    expect(onAgain).toHaveBeenCalledOnce();
-    expect(screen.getByText("CHALLENGE COMPLETE")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Flash Crash & Recovery/ })
+    );
+    expect(select).toHaveBeenCalledWith("flash-crash");
+    expect(close).toHaveBeenCalledOnce();
   });
-
-  it("prepares local hashes without requesting a wallet transaction", async () => {
+  it("prepares hashes and never claims that local verification is on-chain", async () => {
     const result = runSimulation(SCENARIOS["stable-market"], DEFAULT_STRATEGY);
     const view = render(
       <Results
@@ -60,18 +107,15 @@ describe("Challenge Lab UI", () => {
         strategy={DEFAULT_STRATEGY}
         state={result.state}
         breakdown={result.score}
-        pnlCents={result.state.equityCents - result.state.startingEquityCents}
-        verified={false}
+        pnlCents={0}
         onAgain={vi.fn()}
         onChallenges={vi.fn()}
       />
     );
-
     const query = within(view.container);
-    fireEvent.click(
-      query.getByRole("button", { name: "Prepare verification" })
-    );
-    expect(await query.findByText(/hashed locally/i)).toBeTruthy();
+    fireEvent.click(query.getByRole("button", { name: "Verify on Solana" }));
+    expect(await query.findByText(/Result hashed locally/)).toBeTruthy();
     expect(query.getByText("Result hash")).toBeTruthy();
+    expect(query.queryByText("Verified on Solana Devnet")).toBeNull();
   });
 });

@@ -25,11 +25,11 @@ export function SpreadForgeThemeProvider({
 }) {
   // Keep the first client render identical to the server render. The saved
   // preference is applied after hydration to avoid a mismatch.
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
+    const savedTheme = localStorage.getItem(STORAGE_KEY);
     const timer = window.setTimeout(() => {
-      const savedTheme = localStorage.getItem(STORAGE_KEY);
       if (savedTheme === "light" || savedTheme === "dark") {
         setTheme(savedTheme);
       }
