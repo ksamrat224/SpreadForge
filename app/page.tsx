@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { GridBackground } from "./components/grid-background";
+import { PaperTradingDesk } from "./components/paper-trading-desk";
 import { SimulationLab } from "./components/simulation-lab";
 import { ThemeToggle } from "./components/theme-toggle";
 import { WalletButton } from "./components/wallet-button";
 
 export default function Home() {
+  const [section, setSection] = useState<"paper" | "strategy">("strategy");
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <GridBackground />
@@ -22,20 +25,28 @@ export default function Home() {
           </a>
           <nav
             aria-label="Primary navigation"
-            className="hidden items-center gap-5 text-sm font-medium sm:flex"
+            className="hidden items-center gap-3 text-sm font-medium sm:flex"
           >
-            <a
-              className="rounded-md px-2 py-2 text-foreground transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-              href="#strategy-lab"
+            <button
+              onClick={() => setSection("paper")}
+              className={`min-h-10 rounded-md px-3 py-2 transition focus-visible:ring-2 focus-visible:ring-ring ${section === "paper" ? "bg-accent text-primary" : "text-muted hover:text-primary"}`}
+            >
+              Paper Trading
+            </button>
+            <button
+              onClick={() => setSection("strategy")}
+              className={`min-h-10 rounded-md px-3 py-2 transition focus-visible:ring-2 focus-visible:ring-ring ${section === "strategy" ? "bg-accent text-primary" : "text-muted hover:text-primary"}`}
             >
               Strategy Lab
-            </a>
-            <a
-              className="rounded-md px-2 py-2 text-muted transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-              href="#challenges"
-            >
-              Challenges
-            </a>
+            </button>
+            {section === "strategy" && (
+              <a
+                className="rounded-md px-2 py-2 text-muted transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                href="#challenges"
+              >
+                Challenges
+              </a>
+            )}
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -55,7 +66,7 @@ export default function Home() {
               moves, fills, and inventory risk change the outcome.
             </p>
           </section>
-          <SimulationLab />
+          {section === "paper" ? <PaperTradingDesk /> : <SimulationLab />}
         </main>
       </div>
     </div>

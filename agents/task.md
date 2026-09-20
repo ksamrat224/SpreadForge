@@ -104,17 +104,17 @@ The goal is to finish core development early enough to leave several days for te
 
 **Target: Sep 27–28**
 
-- [ ] Add Lab / Live Paper Desk navigation
-- [ ] Add live SOL/USD reference-price adapter
-- [ ] Show price update timestamp and stale/unavailable state
-- [ ] Aggregate reference prices into 1-minute candles
-- [ ] Build candle chart with simulated fills and quotes
-- [ ] Add fake SOL/USDC starting balances
-- [ ] Add simulated manual market buy/sell actions
-- [ ] Add simulated bid/ask placement and cancel/replace actions
-- [ ] Show manual trade and fill history
-- [ ] Label live-practice results as simulated and unranked
-- [ ] Add live-price adapter fallback for demo reliability
+- [x] Add Lab / Live Paper Desk navigation
+- [x] Add live SOL/USD reference-price adapter
+- [x] Show price update timestamp and stale/unavailable state
+- [x] Aggregate reference prices into 1-minute candles
+- [x] Build candle chart with simulated fills and quotes
+- [x] Add fake SOL/USDC starting balances
+- [x] Add simulated manual market buy/sell actions
+- [x] Add simulated bid/ask placement and cancel/replace actions
+- [x] Show manual trade and fill history
+- [x] Label live-practice results as simulated and unranked
+- [x] Add live-price adapter fallback for demo reliability
 
 **Definition of done:** a user can practice manually against a changing SOL price without real funds, while deterministic challenges remain separate and leaderboard eligible.
 
