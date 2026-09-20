@@ -10,6 +10,7 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 0 — Project Setup
+
 **Target: Sep 20**
 
 - [ ] Create GitHub repository
@@ -28,63 +29,70 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 1 — Simulation Core
+
 **Target: Sep 21–24**
 
 ## Scenario Engine
-- [ ] Define scenario schema
-- [ ] Implement seeded PRNG
-- [ ] Implement deterministic price path
-- [ ] Implement Stable Market scenario
-- [ ] Implement Whale Sell event
-- [ ] Version scenarios
+
+- [x] Define scenario schema
+- [x] Implement seeded PRNG
+- [x] Implement deterministic price path
+- [x] Implement Stable Market scenario
+- [x] Implement Whale Sell event
+- [x] Version scenarios
 
 ## Strategy
-- [ ] Define strategy config
-- [ ] Implement symmetric bid/ask quoting
-- [ ] Implement spread control
-- [ ] Implement order size
-- [ ] Implement max inventory protection
-- [ ] Implement refresh cycle
+
+- [x] Define strategy config
+- [x] Implement symmetric bid/ask quoting
+- [x] Implement spread control
+- [x] Implement order size
+- [x] Implement max inventory protection
+- [x] Implement refresh cycle
 
 ## Order Simulation
-- [ ] Define simulated order model
-- [ ] Define simulated fill model
-- [ ] Implement placement
-- [ ] Implement cancel/replace
-- [ ] Implement fill conditions
-- [ ] Update inventory after fills
+
+- [x] Define simulated order model
+- [x] Define simulated fill model
+- [x] Implement placement
+- [x] Implement cancel/replace
+- [x] Implement fill conditions
+- [x] Update inventory after fills
 
 ## Accounting
-- [ ] Track base balance
-- [ ] Track quote balance
-- [ ] Realized P&L
-- [ ] Unrealized P&L
-- [ ] Max drawdown
+
+- [x] Track base balance
+- [x] Track quote balance
+- [x] Realized P&L
+- [x] Unrealized P&L
+- [x] Max drawdown
 
 ## Tests
-- [ ] deterministic replay test
-- [ ] order fill test
-- [ ] inventory test
-- [ ] P&L test
+
+- [x] deterministic replay test
+- [x] order fill test
+- [x] inventory test
+- [x] P&L test
 
 **Definition of done:** simulation can run headlessly and return deterministic final results.
 
 ---
 
 # Phase 2 — UI Lab
+
 **Target: Sep 24–27**
 
-- [ ] Build app shell
+- [x] Build app shell
 - [ ] Add navigation
-- [ ] Build scenario selector
-- [ ] Build strategy controls
-- [ ] Build start/stop/reset state
-- [ ] Build price chart
-- [ ] Draw user bid/ask quotes
+- [x] Build scenario selector
+- [x] Build strategy controls
+- [x] Build start/stop/reset state
+- [x] Build price chart
+- [x] Draw user bid/ask quotes
 - [ ] Mark fills
-- [ ] Build live metric cards
-- [ ] Build activity feed
-- [ ] Add teaching feedback messages
+- [x] Build live metric cards
+- [x] Build activity feed
+- [x] Add teaching feedback messages
 - [ ] Build results screen
 - [ ] Responsive cleanup
 
@@ -93,6 +101,7 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 3 — Scoring
+
 **Target: Sep 27–28**
 
 - [ ] Define canonical score formula
@@ -111,9 +120,11 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 4 — Solana Integration
+
 **Target: Sep 28–Oct 1**
 
 ## Client
+
 - [ ] Install `@solana/kit`
 - [ ] Wallet Standard connection
 - [ ] Devnet RPC config
@@ -121,6 +132,7 @@ The goal is to finish core development early enough to leave several days for te
 - [ ] Transaction status UX
 
 ## Anchor Program
+
 - [ ] Initialize Anchor workspace
 - [ ] Create Result account
 - [ ] Create submit_result instruction
@@ -133,6 +145,7 @@ The goal is to finish core development early enough to leave several days for te
 - [ ] Save known-good program ID
 
 ## Result Verification
+
 - [ ] Canonicalize strategy config
 - [ ] Hash strategy config
 - [ ] Canonicalize final result
@@ -146,10 +159,11 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 5 — MagicBlock
+
 **Target: Oct 1–3**
 
-- [ ] Create runtime interface
-- [ ] Keep local runtime working
+- [x] Create runtime interface
+- [x] Keep local runtime working
 - [ ] Add MagicBlock devnet config
 - [ ] Delegate session state where appropriate
 - [ ] Implement MagicBlock runtime adapter
@@ -164,6 +178,7 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 6 — Leaderboard
+
 **Target: Oct 3–4**
 
 - [ ] Fetch verified result accounts
@@ -180,6 +195,7 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 7 — Product Polish
+
 **Target: Oct 4–6**
 
 - [ ] Landing page
@@ -200,6 +216,7 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 8 — Testing & Freeze
+
 **Target: Oct 7–9**
 
 - [ ] Full clean-browser test
@@ -219,6 +236,7 @@ The goal is to finish core development early enough to leave several days for te
 ---
 
 # Phase 9 — Submission
+
 **Target: Oct 9–12**
 
 - [ ] Final README
