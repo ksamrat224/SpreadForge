@@ -1,4 +1,4 @@
-# SpreadForge — Architecture
+ls# SpreadForge — Architecture
 
 ## 1. Architecture Goal
 
