@@ -1,6 +1,5 @@
 "use client";
 
-import { ClusterSelect } from "./components/cluster-select";
 import { GridBackground } from "./components/grid-background";
 import { SimulationLab } from "./components/simulation-lab";
 import { ThemeToggle } from "./components/theme-toggle";
@@ -10,35 +9,50 @@ export default function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <GridBackground />
-      <div className="relative z-10 mx-auto max-w-7xl px-5 pb-12 sm:px-8">
-        <header className="flex items-center justify-between py-5">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+        <header className="flex min-h-18 items-center justify-between gap-4 py-4">
           <a
-            className="flex items-center gap-2 font-semibold tracking-tight"
-            href="#lab"
+            className="flex items-center gap-2.5 font-bold tracking-tight"
+            href="#strategy-lab"
           >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#14f195] to-[#a17aff] font-black text-[#070a0f]">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-lg text-primary-foreground shadow-sm">
               S
             </span>
-            SpreadForge
+            <span>SpreadForge</span>
           </a>
+          <nav
+            aria-label="Primary navigation"
+            className="hidden items-center gap-5 text-sm font-medium sm:flex"
+          >
+            <a
+              className="rounded-md px-2 py-2 text-foreground transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+              href="#strategy-lab"
+            >
+              Strategy Lab
+            </a>
+            <a
+              className="rounded-md px-2 py-2 text-muted transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+              href="#challenges"
+            >
+              Challenges
+            </a>
+          </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <ClusterSelect />
             <WalletButton />
           </div>
         </header>
-        <main id="lab">
-          <section className="max-w-3xl py-10 sm:py-16">
-            <p className="text-sm font-semibold tracking-[.18em] text-[#14f195]">
-              LEARN · SIMULATE · COMPETE
+        <main id="strategy-lab">
+          <section className="mx-auto max-w-3xl py-8 text-center sm:py-12">
+            <p className="text-sm font-semibold tracking-[.16em] text-primary">
+              LEARN · PRACTICE · COMPETE
             </p>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">
-              Master market making without risking real money.
+            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+              Learn market making without risking real money.
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/60">
-              Build a liquidity strategy, run it through a repeatable SOL/USDC
-              scenario, and see exactly how spread, fills, and inventory risk
-              shape its score.
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted sm:text-lg">
+              Choose a challenge, tune a simple strategy, and see how price
+              moves, fills, and inventory risk change the outcome.
             </p>
           </section>
           <SimulationLab />

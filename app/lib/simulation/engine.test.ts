@@ -17,6 +17,21 @@ describe("SpreadForge deterministic simulation", () => {
     expect(first.score).toEqual(second.score);
   });
 
+  it("keeps a deterministic price history for chart rendering", () => {
+    const first = runSimulation(SCENARIOS["stable-market"], DEFAULT_STRATEGY);
+    const second = runSimulation(SCENARIOS["stable-market"], DEFAULT_STRATEGY);
+
+    expect(first.state.priceHistoryCents).toEqual(
+      second.state.priceHistoryCents
+    );
+    expect(first.state.priceHistoryCents[0]).toBe(
+      SCENARIOS["stable-market"].startingPriceCents
+    );
+    expect(first.state.priceHistoryCents).toHaveLength(
+      SCENARIOS["stable-market"].durationTicks + 1
+    );
+  });
+
   it("applies the Whale Sell event at its documented tick", () => {
     let state = createSimulation(SCENARIOS["whale-sell"], DEFAULT_STRATEGY);
     for (let tick = 0; tick < 32; tick += 1) {

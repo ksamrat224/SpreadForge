@@ -72,6 +72,7 @@ export function createSimulation(
   return {
     tick: 0,
     referencePriceCents: scenario.startingPriceCents,
+    priceHistoryCents: [scenario.startingPriceCents],
     bidCents,
     askCents,
     baseMilliSol: scenario.startingBaseMilliSol,
@@ -204,6 +205,7 @@ export function stepSimulation(
   return {
     tick,
     referencePriceCents,
+    priceHistoryCents: [...state.priceHistoryCents, referencePriceCents],
     bidCents,
     askCents,
     baseMilliSol,

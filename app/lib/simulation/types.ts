@@ -38,6 +38,7 @@ export type SimOrder = {
 export type SimulationState = {
   tick: number;
   referencePriceCents: number;
+  priceHistoryCents: number[];
   bidCents: number;
   askCents: number;
   baseMilliSol: number;

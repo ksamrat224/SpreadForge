@@ -83,18 +83,18 @@ The goal is to finish core development early enough to leave several days for te
 **Target: Sep 24–27**
 
 - [x] Build app shell
-- [ ] Add navigation
+- [x] Add navigation
 - [x] Build scenario selector
 - [x] Build strategy controls
 - [x] Build start/stop/reset state
 - [x] Build price chart
 - [x] Draw user bid/ask quotes
-- [ ] Mark fills
+- [x] Mark fills
 - [x] Build live metric cards
 - [x] Build activity feed
 - [x] Add teaching feedback messages
-- [ ] Build results screen
-- [ ] Responsive cleanup
+- [x] Build results screen
+- [x] Responsive cleanup
 
 **Definition of done:** a non-Web3 user can complete a simulation and understand the result.
 
