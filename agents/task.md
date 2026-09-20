@@ -124,16 +124,16 @@ The goal is to finish core development early enough to leave several days for te
 
 **Target: Sep 27–28**
 
-- [ ] Define canonical score formula
-- [ ] Liquidity uptime component
-- [ ] Spread efficiency component
-- [ ] Inventory control component
-- [ ] Drawdown component
-- [ ] P&L component
-- [ ] Normalize total to 0–10,000
-- [ ] Add score breakdown UI
-- [ ] Add scoring tests
-- [ ] Document score formula
+- [x] Define canonical score formula
+- [x] Liquidity uptime component
+- [x] Spread efficiency component
+- [x] Inventory control component
+- [x] Drawdown component
+- [x] P&L component
+- [x] Normalize total to 0–10,000
+- [x] Add score breakdown UI
+- [x] Add scoring tests
+- [x] Document score formula
 
 **Definition of done:** same run always produces same score.
 

@@ -7,6 +7,18 @@ import {
 const clamp = (value: number, min = 0, max = 100) =>
   Math.max(min, Math.min(max, value));
 
+/** Canonical scoring model, version 1. Every component is normalized to 0–100. */
+export const SCORE_WEIGHTS = {
+  liquidity: 0.3,
+  spreadEfficiency: 0.25,
+  inventoryControl: 0.2,
+  drawdownControl: 0.15,
+  pnl: 0.1,
+} as const;
+
+export const SCORE_MAX = 10_000;
+export const SCORE_VERSION = 1;
+
 export function scoreRun(
   state: SimulationState,
   strategy: StrategyConfig,
@@ -26,12 +38,12 @@ export function scoreRun(
     10_000;
   const pnl = clamp(50 + pnlBps / 4);
   const total = Math.round(
-    (liquidity * 0.3 +
-      spreadEfficiency * 0.25 +
-      inventoryControl * 0.2 +
-      drawdownControl * 0.15 +
-      pnl * 0.1) *
-      100
+    (liquidity * SCORE_WEIGHTS.liquidity +
+      spreadEfficiency * SCORE_WEIGHTS.spreadEfficiency +
+      inventoryControl * SCORE_WEIGHTS.inventoryControl +
+      drawdownControl * SCORE_WEIGHTS.drawdownControl +
+      pnl * SCORE_WEIGHTS.pnl) *
+      (SCORE_MAX / 100)
   );
   return {
     total,
