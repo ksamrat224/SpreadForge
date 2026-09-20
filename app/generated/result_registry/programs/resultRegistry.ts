@@ -17,7 +17,17 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  parseAdvanceSessionInstruction,
+  parseDelegateSessionInstruction,
+  parseFinalizeSessionInstruction,
+  parseInitializeSessionInstruction,
+  parseProcessUndelegationInstruction,
   parseSubmitResultInstruction,
+  type ParsedAdvanceSessionInstruction,
+  type ParsedDelegateSessionInstruction,
+  type ParsedFinalizeSessionInstruction,
+  type ParsedInitializeSessionInstruction,
+  type ParsedProcessUndelegationInstruction,
   type ParsedSubmitResultInstruction,
 } from "../instructions";
 
@@ -26,6 +36,7 @@ export const RESULT_REGISTRY_PROGRAM_ADDRESS =
 
 export enum ResultRegistryAccount {
   ResultRecord,
+  SessionState,
 }
 
 export function identifyResultRegistryAccount(
@@ -43,12 +54,28 @@ export function identifyResultRegistryAccount(
   ) {
     return ResultRegistryAccount.ResultRecord;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([81, 115, 163, 194, 253, 90, 118, 39]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.SessionState;
+  }
   throw new Error(
     "The provided account could not be identified as a resultRegistry account.",
   );
 }
 
 export enum ResultRegistryInstruction {
+  AdvanceSession,
+  DelegateSession,
+  FinalizeSession,
+  InitializeSession,
+  ProcessUndelegation,
   SubmitResult,
 }
 
@@ -56,6 +83,61 @@ export function identifyResultRegistryInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ResultRegistryInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([44, 179, 239, 129, 67, 34, 6, 236]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.AdvanceSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([82, 83, 119, 119, 196, 219, 5, 197]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.DelegateSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([34, 148, 144, 47, 37, 130, 206, 161]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.FinalizeSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([69, 130, 92, 236, 107, 231, 159, 129]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.InitializeSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([196, 28, 41, 206, 48, 37, 51, 167]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.ProcessUndelegation;
+  }
   if (
     containsBytes(
       data,
@@ -74,15 +156,66 @@ export function identifyResultRegistryInstruction(
 
 export type ParsedResultRegistryInstruction<
   TProgram extends string = "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV",
-> = {
-  instructionType: ResultRegistryInstruction.SubmitResult;
-} & ParsedSubmitResultInstruction<TProgram>;
+> =
+  | ({
+      instructionType: ResultRegistryInstruction.AdvanceSession;
+    } & ParsedAdvanceSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.DelegateSession;
+    } & ParsedDelegateSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.FinalizeSession;
+    } & ParsedFinalizeSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.InitializeSession;
+    } & ParsedInitializeSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.ProcessUndelegation;
+    } & ParsedProcessUndelegationInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.SubmitResult;
+    } & ParsedSubmitResultInstruction<TProgram>);
 
 export function parseResultRegistryInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedResultRegistryInstruction<TProgram> {
   const instructionType = identifyResultRegistryInstruction(instruction);
   switch (instructionType) {
+    case ResultRegistryInstruction.AdvanceSession: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.AdvanceSession,
+        ...parseAdvanceSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.DelegateSession: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.DelegateSession,
+        ...parseDelegateSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.FinalizeSession: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.FinalizeSession,
+        ...parseFinalizeSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.InitializeSession: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.InitializeSession,
+        ...parseInitializeSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.ProcessUndelegation: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.ProcessUndelegation,
+        ...parseProcessUndelegationInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.SubmitResult: {
       assertIsInstructionWithAccounts(instruction);
       return {

@@ -6,4 +6,9 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./advanceSession";
+export * from "./delegateSession";
+export * from "./finalizeSession";
+export * from "./initializeSession";
+export * from "./processUndelegation";
 export * from "./submitResult";

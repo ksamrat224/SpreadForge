@@ -134,6 +134,9 @@ Optional after core is done: 3. Volatility Spike 4. Liquidity Drain
 
 - MagicBlock Ephemeral Rollups
 - local deterministic runtime must remain available as fallback
+- A delegated session is a bounded Result Registry PDA (`["session", authority, nonce]`), never a result record or asset account.
+- Use an application-scoped, non-extractable session signer held only in browser memory. It is limited on-chain to sequential tick updates and finalization before expiry; it never has result-submission or asset authority.
+- Do not enable MagicBlock in the public UI until the session-enabled registry program is deployed to devnet and the router/ER/settlement flow is demonstrated end to end.
 
 ### Live Market Data
 
@@ -254,7 +257,6 @@ Resolve soon:
 
 - Next.js vs Vite
 - exact scoring formula
-- exact MagicBlock state delegation shape
 - whether leaderboard uses direct RPC only or a small indexer
 - chart library
 - exact result-account schema size

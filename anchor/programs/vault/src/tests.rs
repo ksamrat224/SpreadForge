@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::{constants::RESULT_SEED, ID as PROGRAM_ID};
+    use crate::{
+        constants::{RESULT_SEED, SESSION_SEED},
+        ID as PROGRAM_ID,
+    };
     use anchor_lang::system_program;
     use litesvm::LiteSVM;
     use solana_sdk::{
@@ -54,6 +57,14 @@ mod tests {
         .0
     }
 
+    fn session_pda(authority: &Pubkey, run_nonce: u64) -> Pubkey {
+        Pubkey::find_program_address(
+            &[SESSION_SEED, authority.as_ref(), &run_nonce.to_le_bytes()],
+            &PROGRAM_ID,
+        )
+        .0
+    }
+
     fn submit_ix(authority: &Pubkey, result: &Pubkey, args: &SubmitArgs) -> Instruction {
         let digest = hash(b"global:submit_result").to_bytes();
         let mut data = digest[..8].to_vec();
@@ -73,6 +84,50 @@ mod tests {
                 AccountMeta::new(*authority, true),
                 AccountMeta::new(*result, false),
                 AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data,
+        }
+    }
+
+    fn initialize_session_ix(
+        authority: &Pubkey,
+        session: &Pubkey,
+        session_signer: &Pubkey,
+        run_nonce: u64,
+    ) -> Instruction {
+        let digest = hash(b"global:initialize_session").to_bytes();
+        let mut data = digest[..8].to_vec();
+        data.extend_from_slice(&[4; 32]); // scenario hash
+        data.extend_from_slice(&[5; 32]); // strategy hash
+        data.extend_from_slice(&[6; 32]); // initial state hash
+        data.extend_from_slice(session_signer.as_ref());
+        data.extend_from_slice(&2_u16.to_le_bytes());
+        data.extend_from_slice(&i64::MAX.to_le_bytes());
+        data.push(1); // schema version
+        data.extend_from_slice(&run_nonce.to_le_bytes());
+
+        Instruction {
+            program_id: PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new(*authority, true),
+                AccountMeta::new(*session, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data,
+        }
+    }
+
+    fn advance_session_ix(actor: &Pubkey, session: &Pubkey, tick: u16) -> Instruction {
+        let digest = hash(b"global:advance_session").to_bytes();
+        let mut data = digest[..8].to_vec();
+        data.extend_from_slice(&tick.to_le_bytes());
+        data.extend_from_slice(&[7; 32]);
+
+        Instruction {
+            program_id: PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new(*actor, true),
+                AccountMeta::new(*session, false),
             ],
             data,
         }
@@ -161,6 +216,48 @@ mod tests {
             .send_transaction(signed_tx(
                 &authority,
                 submit_ix(&authority.pubkey(), &result, &invalid_schema),
+                &svm,
+            ))
+            .is_err());
+    }
+
+    #[test]
+    fn scoped_session_signer_advances_only_its_own_active_session() {
+        let mut svm = svm();
+        let authority = Keypair::new();
+        let session_signer = Keypair::new();
+        let attacker = Keypair::new();
+        svm.airdrop(&authority.pubkey(), LAMPORTS_PER_SOL).unwrap();
+        svm.airdrop(&session_signer.pubkey(), LAMPORTS_PER_SOL)
+            .unwrap();
+        svm.airdrop(&attacker.pubkey(), LAMPORTS_PER_SOL).unwrap();
+        let run_nonce = 99;
+        let session = session_pda(&authority.pubkey(), run_nonce);
+
+        svm.send_transaction(signed_tx(
+            &authority,
+            initialize_session_ix(
+                &authority.pubkey(),
+                &session,
+                &session_signer.pubkey(),
+                run_nonce,
+            ),
+            &svm,
+        ))
+        .unwrap();
+
+        svm.send_transaction(signed_tx(
+            &session_signer,
+            advance_session_ix(&session_signer.pubkey(), &session, 1),
+            &svm,
+        ))
+        .unwrap();
+        assert_eq!(svm.get_account(&session).unwrap().data.len(), 191);
+
+        assert!(svm
+            .send_transaction(signed_tx(
+                &attacker,
+                advance_session_ix(&attacker.pubkey(), &session, 2),
                 &svm,
             ))
             .is_err());

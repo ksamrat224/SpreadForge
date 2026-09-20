@@ -4,7 +4,7 @@
 
 **Learn. Simulate. Compete.**
 
-SpreadForge is a Solana DeFi market-making laboratory. Users configure a simple liquidity strategy, run it against repeatable SOL/USDC scenarios, understand the effects of spread and inventory risk, and will verify compact run summaries on Solana devnet.
+SpreadForge is a Solana DeFi trading playground. Users practice manually with simulated SOL/USDC funds against a live reference price, configure a simple liquidity strategy, run repeatable market-making challenges, and can verify compact run summaries on Solana devnet once the registry is deployed.
 
 This is an educational simulation: balances, P&L, orders, and fills are simulated. It does not trade or custody real assets.
 
@@ -14,10 +14,11 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 - Stable Market and Whale Sell scenarios
 - Spread, order-size, inventory-cap, and refresh-cycle strategy controls
 - Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
-- Local deterministic runtime ready to sit behind the planned MagicBlock adapter
+- Live Paper Desk: real SOL/USD reference-price updates, one-minute candles, and simulated market/limit actions — clearly simulated and unranked
+- Local deterministic runtime plus a MagicBlock runtime adapter with deterministic local fallback
 - Wallet Standard connection, devnet RPC configuration, canonical SHA-256 result commitments, and a typed Anchor Result Registry client are ready
 - The registry source has LiteSVM happy-path and failure-path coverage; devnet deployment, wallet-signing UI, and leaderboard reads remain gated until a real registry program ID is deployed
-- MagicBlock account, routing, settlement, recovery, and validation design documented in [`docs/magicblock-architecture.md`](docs/magicblock-architecture.md)
+- MagicBlock session source includes bounded PDA delegation, an in-memory scoped signer, router-discovered ER routing, and terminal commit-and-undelegate; the devnet end-to-end test remains gated on deployment
 
 ## Run locally
 
@@ -36,7 +37,7 @@ npm run lint
 
 ## Architecture
 
-Local deterministic execution is the current implementation and the fallback for demo reliability. The intended production path will place it behind a runtime abstraction, delegate ephemeral session state to MagicBlock, then record only the final, hashed run summary in a compact Solana devnet result-registry PDA.
+Local deterministic execution is the current demo-safe path. The deployed production path is implemented behind a runtime abstraction: it delegates only a bounded ephemeral session to MagicBlock, then records only the final, hashed run summary in a compact Solana devnet Result Registry PDA. It is disabled until the deployed program ID and end-to-end validation are available.
 
 The detailed product, architecture, engineering rules, and plan live in [`agents/`](agents/).
 The current Result Registry schema, PDA, verification boundary, and safe devnet deployment checklist are documented in [`docs/result-registry.md`](docs/result-registry.md).

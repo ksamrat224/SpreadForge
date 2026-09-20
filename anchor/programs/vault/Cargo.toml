@@ -20,6 +20,7 @@ custom-panic = []
 
 [dependencies]
 anchor-lang = "1.1.2"
+ephemeral-rollups-sdk = { version = "0.16.2", features = ["anchor"] }
 
 [dev-dependencies]
 litesvm = "0.10.0"

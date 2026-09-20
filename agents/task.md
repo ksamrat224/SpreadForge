@@ -184,16 +184,16 @@ The goal is to finish core development early enough to leave several days for te
 
 - [x] Create runtime interface
 - [x] Keep local runtime working
-- [ ] Add MagicBlock devnet config
-- [ ] Delegate session state where appropriate
-- [ ] Implement MagicBlock runtime adapter
-- [ ] Evaluate session keys
-- [ ] Ensure no repeated wallet prompts during simulation
-- [ ] Commit / settle final session state
-- [ ] Add MagicBlock failure fallback
+- [x] Add MagicBlock devnet config
+- [x] Delegate bounded session state in the registry program
+- [x] Implement MagicBlock runtime adapter
+- [x] Use an in-memory, application-scoped session signer
+- [x] Ensure the session design avoids per-tick wallet prompts
+- [x] Commit / settle final session state through terminal undelegation
+- [x] Add MagicBlock failure fallback
 - [ ] End-to-end integration test
 
-**Definition of done:** live simulation can run through MagicBlock in demo environment, with local fallback retained.
+**Definition of done:** live simulation can run through MagicBlock in a deployed devnet demo environment, with local fallback retained. The implementation is ready for this validation, but the registry has not yet been deployed and no devnet wallet transaction has been authorized.
 
 ---
 

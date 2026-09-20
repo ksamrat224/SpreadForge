@@ -20,11 +20,35 @@ export const RESULT_REGISTRY_ERROR__INVALID_SCORE = 0x1770; // 6000
 export const RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION = 0x1771; // 6001
 /** InvalidHash: Scenario, strategy, and result hashes must not be all zeroes. */
 export const RESULT_REGISTRY_ERROR__INVALID_HASH = 0x1772; // 6002
+/** InvalidSessionDuration: A session must contain between 1 and 60 ticks. */
+export const RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION = 0x1773; // 6003
+/** InvalidSessionAuthorization: The session signer or expiry is invalid. */
+export const RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION = 0x1774; // 6004
+/** SessionExpired: The session has expired. */
+export const RESULT_REGISTRY_ERROR__SESSION_EXPIRED = 0x1775; // 6005
+/** UnauthorizedSessionActor: Only the wallet authority or the scoped session signer may advance this session. */
+export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR = 0x1776; // 6006
+/** InvalidSessionTick: The submitted tick does not advance the active session by exactly one. */
+export const RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK = 0x1777; // 6007
+/** SessionNotActive: The session is not active. */
+export const RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE = 0x1778; // 6008
+/** SessionNotComplete: The session can be finalized only after all ticks are complete. */
+export const RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE = 0x1779; // 6009
+/** UnsupportedSessionSchemaVersion: The session schema version is not supported. */
+export const RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION = 0x177a; // 6010
 
 export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INVALID_HASH
   | typeof RESULT_REGISTRY_ERROR__INVALID_SCORE
-  | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION;
+  | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION
+  | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION
+  | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK
+  | typeof RESULT_REGISTRY_ERROR__SESSION_EXPIRED
+  | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE
+  | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE
+  | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR
+  | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION
+  | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION;
 
 let resultRegistryErrorMessages:
   Record<ResultRegistryError, string> | undefined;
@@ -32,7 +56,15 @@ if (process.env.NODE_ENV !== "production") {
   resultRegistryErrorMessages = {
     [RESULT_REGISTRY_ERROR__INVALID_HASH]: `Scenario, strategy, and result hashes must not be all zeroes.`,
     [RESULT_REGISTRY_ERROR__INVALID_SCORE]: `The result score must be between 0 and 10,000.`,
+    [RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION]: `The session signer or expiry is invalid.`,
+    [RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION]: `A session must contain between 1 and 60 ticks.`,
+    [RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK]: `The submitted tick does not advance the active session by exactly one.`,
+    [RESULT_REGISTRY_ERROR__SESSION_EXPIRED]: `The session has expired.`,
+    [RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE]: `The session is not active.`,
+    [RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE]: `The session can be finalized only after all ticks are complete.`,
+    [RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR]: `Only the wallet authority or the scoped session signer may advance this session.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION]: `This result schema version is not supported.`,
+    [RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION]: `The session schema version is not supported.`,
   };
 }
 

@@ -50,3 +50,22 @@ submission button:
 The UI currently prepares the exact commitments without requesting a wallet
 signature or sending a transaction. This prevents a result from being presented
 as verified before a real devnet program exists.
+
+## MagicBlock session account
+
+The same program also defines a bounded, delegated `SessionState` PDA:
+
+```text
+["session", authority_pubkey, run_nonce_le_u64]
+```
+
+It holds the authority, an application-scoped session signer public key,
+scenario/strategy/current-state hashes, sequential tick state, expiry, status,
+schema version, nonce, and bump. The authority creates and delegates it; the
+scoped signer can only advance the next tick or finalize that exact session
+before expiry. Finalization requires the terminal tick and performs
+commit-and-undelegate. The account neither holds assets nor authorizes result
+submission.
+
+This path is source-tested but not live yet: deployment, router discovery, ER
+transactions, and terminal settlement still require an authorized devnet test.
