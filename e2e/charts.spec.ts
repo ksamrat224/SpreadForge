@@ -10,9 +10,11 @@ test("paper chart supports crosshair, wheel zoom, drag, intervals and mobile lay
     .getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Paper Trading" })
     .click();
+  await page.locator(".paper-chart-trigger").click();
   await page
-    .getByRole("combobox", { name: "Paper trading chart view" })
-    .selectOption("candles");
+    .getByRole("listbox", { name: "Paper trading chart view" })
+    .getByRole("option", { name: "Candles" })
+    .click();
   const widget = page.locator(".market-chart-widget:visible");
   await expect(widget.locator("canvas").first()).toBeVisible();
   await expect(widget.getByLabel("Chart values")).toContainText("O ");
@@ -33,14 +35,18 @@ test("paper chart supports crosshair, wheel zoom, drag, intervals and mobile lay
     .getByRole("combobox", { name: "Candle interval" })
     .selectOption("15");
   for (const view of ["ohlc", "heikin", "area", "line"]) {
+    await page.locator(".paper-chart-trigger").click();
     await page
-      .getByRole("combobox", { name: "Paper trading chart view" })
-      .selectOption(view);
+      .getByRole("listbox", { name: "Paper trading chart view" })
+      .getByRole("option", { name: new RegExp(view, "i") })
+      .click();
     await expect(widget.locator("canvas").first()).toBeVisible();
   }
+  await page.locator(".paper-chart-trigger").click();
   await page
-    .getByRole("combobox", { name: "Paper trading chart view" })
-    .selectOption("candles");
+    .getByRole("listbox", { name: "Paper trading chart view" })
+    .getByRole("option", { name: "Candles" })
+    .click();
   await page.screenshot({ path: "test-results/interactive-paper-chart.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect

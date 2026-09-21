@@ -1599,21 +1599,25 @@
 }
 .timeframes {
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: 4px;
   border-block: 1px solid var(--border);
-  padding: 9px 16px;
+  padding: 8px 16px;
 }
 .timeframes button {
-  padding: 5px 10px;
+  min-width: 36px;
+  padding: 7px 10px;
   border: 0;
-  background: none;
+  background: transparent;
   color: var(--muted-foreground);
-  font: 400 10px var(--font-mono);
-  border-radius: 3px;
+  font: 500 10px var(--font-mono);
+  border-radius: 5px;
 }
 .timeframes button.active {
-  background: var(--accent);
-  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 16%, var(--secondary));
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--primary) 25%, transparent);
 }
 .paper-chart {
   height: 288px;
@@ -1625,26 +1629,32 @@
 }
 .market-chart-controls {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  justify-content: flex-end;
+  gap: 4px;
 }
 .market-chart-controls button,
 .market-chart-controls select {
   border: 1px solid var(--border);
   background: var(--background);
   color: var(--foreground);
-  border-radius: 4px;
-  padding: 5px 9px;
+  border-radius: 5px;
+  padding: 5px;
+  min-width: 30px;
   min-height: 30px;
   font: 11px var(--font-mono);
   cursor: pointer;
 }
-.market-chart-controls label {
+.market-chart-controls .candle-interval {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font: 10px var(--font-mono);
   color: var(--muted-foreground);
-  margin-right: auto;
+}
+.market-chart-controls .candle-interval select {
+  min-width: 54px;
+  padding: 5px 7px;
 }
 .market-chart-controls button:focus-visible,
 .market-chart-canvas:focus-visible {
@@ -1662,12 +1672,93 @@
   width: 100%;
   height: 320px;
 }
-.market-chart-help,
-.chart-attribution {
-  display: block;
-  padding: 4px 12px;
+.market-chart-toolbar {
+  position: relative;
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.paper-chart-picker {
+  position: relative;
+}
+.paper-chart-trigger {
+  display: grid;
+  gap: 3px;
+  border: 0;
+  padding: 0;
+  color: var(--foreground);
+  background: transparent;
+  text-align: left;
+}
+.paper-chart-trigger .eyebrow {
+  margin: 0;
+}
+.paper-chart-trigger strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 12px var(--font-sans);
+}
+.paper-chart-trigger strong svg:last-child {
   color: var(--muted-foreground);
-  font: 9px/1.6 var(--font-mono);
+  margin-left: 1px;
+}
+.paper-chart-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 190px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--popover);
+  box-shadow: 0 14px 32px rgb(0 0 0 / 28%);
+}
+.paper-chart-menu > div + div {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.paper-chart-menu > div > span {
+  display: block;
+  padding: 3px 7px;
+  color: var(--muted-foreground);
+  font: 500 8px var(--font-mono);
+}
+.paper-chart-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 7px;
+  color: var(--foreground);
+  background: transparent;
+  font: 500 11px var(--font-sans);
+  text-align: left;
+}
+.paper-chart-menu button:hover,
+.paper-chart-menu button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--primary);
+}
+.analytics-toolbar {
+  border-top: 0;
+}
+@media (max-width: 600px) {
+  .market-chart-toolbar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+  .market-chart-controls {
+    gap: 2px;
+  }
+  .market-chart-controls .candle-interval > span {
+    display: none;
+  }
 }
 .market-chart-widget:fullscreen {
   display: flex;

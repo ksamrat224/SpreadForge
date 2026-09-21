@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  IconArrowsMaximize,
+  IconFocusCentered,
+  IconMinus,
+  IconPlus,
+  IconRefresh,
+} from "@tabler/icons-react";
 import type { IChartApi, Time, UTCTimestamp } from "lightweight-charts";
 import { buildCandles, heikinAshi, type ChartSample } from "../lib/chart-data";
 
@@ -12,6 +19,7 @@ type Props = {
   label: string;
   ticks?: boolean;
   timeLabelPrefix?: string;
+  toolbarStart?: ReactNode;
   unit?: string;
   markers?: Marker[];
 };
@@ -22,6 +30,7 @@ export function InteractiveMarketChart({
   label,
   ticks = false,
   timeLabelPrefix,
+  toolbarStart,
   unit = "$",
   markers = [],
 }: Props) {
@@ -81,7 +90,9 @@ export function InteractiveMarketChart({
             : timeLabelPrefix
               ? {
                   tickMarkFormatter: (time: Time) =>
-                    `${timeLabelPrefix} ${Number(time)}`,
+                    timeLabelPrefix === "Sample"
+                      ? `S${Number(time)}`
+                      : `${timeLabelPrefix} ${Number(time)}`,
                 }
               : {}),
         },
@@ -276,6 +287,65 @@ export function InteractiveMarketChart({
       to: last + 0.5,
     });
   };
+  const controls = (
+    <>
+      {candleView && (
+        <label className="candle-interval">
+          <span>Interval</span>
+          <select
+            aria-label="Candle interval"
+            value={interval}
+            onChange={(event) => setInterval(Number(event.target.value))}
+          >
+            {(ticks ? [2, 4, 8] : [5, 15, 30, 60]).map((value) => (
+              <option key={value} value={value}>
+                {value}
+                {ticks ? " ticks" : "s"}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <button
+        type="button"
+        onClick={() => zoom(0.8)}
+        aria-label="Zoom in chart"
+        title="Zoom in"
+      >
+        <IconPlus size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoom(1.25)}
+        aria-label="Zoom out chart"
+        title="Zoom out"
+      >
+        <IconMinus size={14} />
+      </button>
+      <button type="button" onClick={fit} aria-label="Fit" title="Fit chart">
+        <IconFocusCentered size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={goToLatest}
+        aria-label="Latest chart point"
+        title="Latest point"
+      >
+        <IconRefresh size={14} />
+      </button>
+      <button
+        aria-label="Fullscreen chart"
+        title="Fullscreen"
+        type="button"
+        onClick={() => {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void root.current?.requestFullscreen?.();
+        }}
+      >
+        <IconArrowsMaximize size={14} />
+      </button>
+    </>
+  );
   return (
     <div
       className="market-chart-widget"
@@ -287,41 +357,14 @@ export function InteractiveMarketChart({
         followFullWidth.current = false;
       }}
     >
-      <div className="market-chart-controls">
-        {candleView && (
-          <label>
-            Bar interval{" "}
-            <select
-              aria-label="Candle interval"
-              value={interval}
-              onChange={(event) => setInterval(Number(event.target.value))}
-            >
-              {(ticks ? [2, 4, 8] : [5, 15, 30, 60]).map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                  {ticks ? " ticks" : "s"}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button onClick={() => zoom(0.8)} aria-label="Zoom in chart">
-          +
-        </button>
-        <button onClick={() => zoom(1.25)} aria-label="Zoom out chart">
-          −
-        </button>
-        <button onClick={fit}>Fit</button>
-        <button onClick={goToLatest}>Latest</button>
-        <button
-          onClick={() => {
-            if (document.fullscreenElement) void document.exitFullscreen();
-            else void root.current?.requestFullscreen?.();
-          }}
-        >
-          Fullscreen
-        </button>
-      </div>
+      {toolbarStart ? (
+        <div className="market-chart-toolbar">
+          {toolbarStart}
+          <div className="market-chart-controls">{controls}</div>
+        </div>
+      ) : (
+        <div className="market-chart-controls">{controls}</div>
+      )}
       <div
         ref={readout}
         className="market-chart-readout"
@@ -352,18 +395,6 @@ export function InteractiveMarketChart({
         }}
       />
       {error && <p role="alert">Unable to load chart: {error}</p>}
-      <div className="market-chart-help">
-        Drag to pan · Scroll / pinch to zoom · Drag an axis to scale ·
-        Double-click to fit{candleView && " · Wicks show sampled highs/lows"}
-      </div>
-      <a
-        className="chart-attribution"
-        href="https://www.tradingview.com/"
-        target="_blank"
-        rel="noreferrer"
-      >
-        Charts by TradingView · Lightweight Charts™
-      </a>
     </div>
   );
 }

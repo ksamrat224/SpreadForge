@@ -7,6 +7,7 @@ import {
   IconActivity,
   IconBolt,
   IconChevronDown,
+  IconChartLine,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -502,36 +503,55 @@ function PaperChartSwitcher({
   desk: PaperState;
 }) {
   const option = PAPER_CHART_OPTIONS.find((item) => item.value === view)!;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const chartPicker = (
+    <div className="paper-chart-picker">
+      <button
+        type="button"
+        className="paper-chart-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <span className="eyebrow">Paper market visualizer</span>
+        <strong>
+          <IconChartLine size={14} /> {option.label}{" "}
+          <IconChevronDown size={14} />
+        </strong>
+      </button>
+      {menuOpen && (
+        <div
+          className="paper-chart-menu"
+          role="listbox"
+          aria-label="Paper trading chart view"
+        >
+          {(["Price", "Analytics"] as const).map((group) => (
+            <div key={group}>
+              <span>{group}</span>
+              {PAPER_CHART_OPTIONS.filter((item) => item.group === group).map(
+                (item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    role="option"
+                    aria-selected={item.value === view}
+                    onClick={() => {
+                      onViewChange(item.value);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                )
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
   return (
     <>
-      <div className="chart-toolbar paper-chart-toolbar">
-        <div>
-          <span className="eyebrow">Paper market visualizer</span>
-          <strong>{option.label}</strong>
-        </div>
-        <label className="chart-select">
-          <span className="sr-only">Paper trading chart view</span>
-          <select
-            aria-label="Paper trading chart view"
-            value={view}
-            onChange={(event) =>
-              onViewChange(event.target.value as PaperChartView)
-            }
-          >
-            {(["Price", "Analytics"] as const).map((group) => (
-              <optgroup key={group} label={group}>
-                {PAPER_CHART_OPTIONS.filter((item) => item.group === group).map(
-                  (item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  )
-                )}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-      </div>
       {option.group === "Price" ? (
         <InteractiveMarketChart
           view={view as PriceView}
@@ -541,9 +561,15 @@ function PaperChartSwitcher({
           }))}
           label={`Paper ${option.label} price chart`}
           timeLabelPrefix="Sample"
+          toolbarStart={chartPicker}
         />
       ) : (
-        <PaperChart view={view} points={points} desk={desk} />
+        <>
+          <div className="market-chart-toolbar analytics-toolbar">
+            {chartPicker}
+          </div>
+          <PaperChart view={view} points={points} desk={desk} />
+        </>
       )}
       <div className="chart-legend">
         {view === "depth" ? (
