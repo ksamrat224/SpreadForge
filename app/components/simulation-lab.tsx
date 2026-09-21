@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import {
   IconSettings,
   IconPlayerPlay,
@@ -78,6 +78,32 @@ const tier = (score: number) =>
       : score >= 5500
         ? "Gold"
         : "Developing";
+
+type ChartView =
+  | "line"
+  | "area"
+  | "candles"
+  | "ohlc"
+  | "heikin"
+  | "depth"
+  | "spread"
+  | "inventory"
+  | "pnl"
+  | "drawdown";
+
+const CHART_OPTIONS: Array<{ value: ChartView; label: string; group: string }> =
+  [
+    { value: "line", label: "Line", group: "Price" },
+    { value: "area", label: "Area", group: "Price" },
+    { value: "candles", label: "Candles", group: "Price" },
+    { value: "ohlc", label: "OHLC bars", group: "Price" },
+    { value: "heikin", label: "Heikin-Ashi", group: "Price" },
+    { value: "depth", label: "Order book depth", group: "Analytics" },
+    { value: "spread", label: "Bid / ask spread", group: "Analytics" },
+    { value: "inventory", label: "Inventory", group: "Analytics" },
+    { value: "pnl", label: "P&L / equity", group: "Analytics" },
+    { value: "drawdown", label: "Drawdown", group: "Analytics" },
+  ];
 
 export function ChallengeDrawer({
   selected,
@@ -163,6 +189,7 @@ export function SimulationLab({
   const [speed, setSpeed] = useState(1);
   const [dismissed, setDismissed] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [chartView, setChartView] = useState<ChartView>("line");
   const finished = state.tick >= scenario.durationTicks;
   const breakdown = scoreRun(state, strategy, scenario.durationTicks);
   const meta = CHALLENGE_META[scenarioId];
@@ -434,25 +461,13 @@ export function SimulationLab({
                       : "IDLE"}
               </b>
             </div>
-            <PriceChart state={state} scenario={scenario} />
-            <div className="chart-legend">
-              <span>
-                <i className="legend-dot profit" />
-                Reference price
-              </span>
-              <span>
-                <i className="legend-dot profit" />
-                Buy fill
-              </span>
-              <span>
-                <i className="legend-dot loss" />
-                Sell fill
-              </span>
-              <span>
-                <i className="legend-dot warning" />
-                Market event
-              </span>
-            </div>
+            <ChartSwitcher
+              view={chartView}
+              onViewChange={setChartView}
+              state={state}
+              scenario={scenario}
+              strategy={strategy}
+            />
           </section>
           <div className="hud-grid">
             <Metric
@@ -669,6 +684,427 @@ function Control({
         <span>{ends[1]}</span>
       </span>
     </label>
+  );
+}
+
+function replaySnapshots(
+  scenario: Scenario,
+  strategy: StrategyConfig,
+  tick: number
+) {
+  const snapshots = [createSimulation(scenario, strategy)];
+  while (snapshots[snapshots.length - 1].tick < tick) {
+    snapshots.push(
+      stepSimulation(snapshots[snapshots.length - 1], scenario, strategy)
+    );
+  }
+  return snapshots;
+}
+
+function ChartSwitcher({
+  view,
+  onViewChange,
+  state,
+  scenario,
+  strategy,
+}: {
+  view: ChartView;
+  onViewChange: (view: ChartView) => void;
+  state: SimulationState;
+  scenario: Scenario;
+  strategy: StrategyConfig;
+}) {
+  const snapshots = useMemo(
+    () => replaySnapshots(scenario, strategy, state.tick),
+    [scenario, strategy, state.tick]
+  );
+  const option = CHART_OPTIONS.find((item) => item.value === view)!;
+  const isPrice = option.group === "Price";
+  const isAlternativePrice = ["area", "candles", "ohlc", "heikin"].includes(
+    view
+  );
+
+  return (
+    <>
+      <div className="chart-toolbar">
+        <div>
+          <span className="eyebrow">Market visualizer</span>
+          <strong>{option.label}</strong>
+        </div>
+        <label className="chart-select">
+          <span className="sr-only">Chart view</span>
+          <select
+            aria-label="Chart view"
+            value={view}
+            onChange={(event) => onViewChange(event.target.value as ChartView)}
+          >
+            {["Price", "Analytics"].map((group) => (
+              <optgroup key={group} label={group}>
+                {CHART_OPTIONS.filter((item) => item.group === group).map(
+                  (item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  )
+                )}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+      </div>
+      {view === "line" ? (
+        <PriceChart state={state} scenario={scenario} />
+      ) : isAlternativePrice ? (
+        <PriceStyleChart
+          view={view as "area" | "candles" | "ohlc" | "heikin"}
+          state={state}
+          scenario={scenario}
+        />
+      ) : (
+        <AnalyticsChart
+          view={view as "depth" | "spread" | "inventory" | "pnl" | "drawdown"}
+          snapshots={snapshots}
+          state={state}
+          strategy={strategy}
+        />
+      )}
+      <div className="chart-legend">
+        {view === "depth" ? (
+          <>
+            <span className="profit">
+              <i className="legend-dot" /> Bids
+            </span>
+            <span className="loss">
+              <i className="legend-dot" /> Asks
+            </span>
+            <span>cumulative simulated liquidity</span>
+          </>
+        ) : isPrice ? (
+          <>
+            <span className="primary">
+              <i className="legend-dot" /> SOL / USDC
+            </span>
+            <span className="profit">
+              <i className="legend-dot" /> Buy fill
+            </span>
+            <span className="loss">
+              <i className="legend-dot" /> Sell fill
+            </span>
+          </>
+        ) : (
+          <span>Derived from this deterministic simulation run</span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function PriceStyleChart({
+  view,
+  state,
+  scenario,
+}: {
+  view: Exclude<
+    ChartView,
+    "line" | "depth" | "spread" | "inventory" | "pnl" | "drawdown"
+  >;
+  state: SimulationState;
+  scenario: Scenario;
+}) {
+  const values = state.priceHistoryCents;
+  const candles = useMemo(() => {
+    const result: Array<{
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+    }> = [];
+    for (let index = 0; index < values.length; index += 4) {
+      const chunk = values.slice(index, index + 4);
+      result.push({
+        open: chunk[0],
+        high: Math.max(...chunk),
+        low: Math.min(...chunk),
+        close: chunk[chunk.length - 1],
+      });
+    }
+    if (view !== "heikin") return result;
+    return result.map((candle, index) => {
+      const previous = result[index - 1];
+      const close = Math.round(
+        (candle.open + candle.high + candle.low + candle.close) / 4
+      );
+      const open = previous
+        ? Math.round((previous.open + previous.close) / 2)
+        : Math.round((candle.open + candle.close) / 2);
+      return {
+        open,
+        close,
+        high: Math.max(candle.high, open, close),
+        low: Math.min(candle.low, open, close),
+      };
+    });
+  }, [values, view]);
+  const flattened = candles.flatMap((candle) => [candle.high, candle.low]);
+  const min = Math.min(...flattened) - 15;
+  const max = Math.max(...flattened) + 15;
+  const y = (value: number) =>
+    195 - ((value - min) / Math.max(1, max - min)) * 175;
+  const x = (index: number) => ((index + 0.5) / candles.length) * 720;
+  const points = values
+    .map(
+      (value, index) => `${(index / scenario.durationTicks) * 720},${y(value)}`
+    )
+    .join(" ");
+  const name =
+    view === "area"
+      ? "Area price chart"
+      : view === "candles"
+        ? "Candlestick price chart"
+        : view === "ohlc"
+          ? "OHLC price chart"
+          : "Heikin-Ashi price chart";
+
+  return (
+    <div className="price-chart alternative-chart">
+      <svg
+        viewBox="0 0 720 210"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={name}
+      >
+        {view === "area" && (
+          <polygon points={`0,210 ${points} 720,210`} className="chart-area" />
+        )}
+        {view === "area" ? (
+          <polyline
+            points={points}
+            className="chart-line"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : (
+          candles.map((candle, index) => {
+            const center = x(index);
+            const rising = candle.close >= candle.open;
+            const top = y(Math.max(candle.open, candle.close));
+            const height = Math.max(
+              2,
+              Math.abs(y(candle.open) - y(candle.close))
+            );
+            const className = rising ? "candle-up" : "candle-down";
+            return (
+              <g key={index} className={className}>
+                <line
+                  x1={center}
+                  x2={center}
+                  y1={y(candle.high)}
+                  y2={y(candle.low)}
+                  className="candle-wick"
+                  vectorEffect="non-scaling-stroke"
+                />
+                {view === "ohlc" ? (
+                  <>
+                    <line
+                      x1={center - 8}
+                      x2={center}
+                      y1={y(candle.open)}
+                      y2={y(candle.open)}
+                      className="candle-wick"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <line
+                      x1={center}
+                      x2={center + 8}
+                      y1={y(candle.close)}
+                      y2={y(candle.close)}
+                      className="candle-wick"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </>
+                ) : (
+                  <rect
+                    x={center - Math.min(10, 220 / candles.length)}
+                    y={top}
+                    width={Math.min(20, 440 / candles.length)}
+                    height={height}
+                    className="candle-body"
+                  />
+                )}
+              </g>
+            );
+          })
+        )}
+      </svg>
+      <div className="price-axis">
+        <span>{money(max)}</span>
+        <span>{money((max + min) / 2)}</span>
+        <span>{money(min)}</span>
+      </div>
+      <ChartTimeAxis />
+    </div>
+  );
+}
+
+function ChartTimeAxis() {
+  return (
+    <div className="time-axis">
+      {[0, 10, 20, 30, 40, 50, 60].map((tick) => (
+        <span key={tick}>T{tick.toString().padStart(2, "0")}</span>
+      ))}
+    </div>
+  );
+}
+
+function AnalyticsChart({
+  view,
+  snapshots,
+  state,
+  strategy,
+}: {
+  view: "depth" | "spread" | "inventory" | "pnl" | "drawdown";
+  snapshots: SimulationState[];
+  state: SimulationState;
+  strategy: StrategyConfig;
+}) {
+  if (view === "depth") return <DepthChart state={state} strategy={strategy} />;
+  const series = snapshots.map((snapshot) => {
+    if (view === "spread") return (snapshot.askCents - snapshot.bidCents) * 100;
+    if (view === "inventory") return snapshot.baseMilliSol / 1000;
+    if (view === "pnl")
+      return (snapshot.equityCents - snapshot.startingEquityCents) / 100;
+    return (
+      -(
+        (snapshot.peakEquityCents - snapshot.equityCents) /
+        snapshot.peakEquityCents
+      ) * 100
+    );
+  });
+  const label =
+    view === "spread"
+      ? "Bid / ask spread (basis points)"
+      : view === "inventory"
+        ? "Inventory (SOL)"
+        : view === "pnl"
+          ? "P&L / equity chart"
+          : "Drawdown chart";
+  return <SeriesChart values={series} label={label} tone={view} />;
+}
+
+function SeriesChart({
+  values,
+  label,
+  tone,
+}: {
+  values: number[];
+  label: string;
+  tone: string;
+}) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const floor = min === max ? min - 1 : min;
+  const ceiling = min === max ? max + 1 : max;
+  const y = (value: number) =>
+    195 - ((value - floor) / (ceiling - floor)) * 175;
+  const points = values
+    .map(
+      (value, index) =>
+        `${(index / Math.max(1, values.length - 1)) * 720},${y(value)}`
+    )
+    .join(" ");
+  return (
+    <div className={`price-chart analytics-chart ${tone}`}>
+      <svg
+        viewBox="0 0 720 210"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={label}
+      >
+        <line
+          x1="0"
+          x2="720"
+          y1={y(0)}
+          y2={y(0)}
+          className="chart-baseline"
+          vectorEffect="non-scaling-stroke"
+        />
+        <polyline
+          points={points}
+          className="chart-line"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      <div className="price-axis">
+        <span>{ceiling.toFixed(2)}</span>
+        <span>{((ceiling + floor) / 2).toFixed(2)}</span>
+        <span>{floor.toFixed(2)}</span>
+      </div>
+      <ChartTimeAxis />
+    </div>
+  );
+}
+
+function DepthChart({
+  state,
+  strategy,
+}: {
+  state: SimulationState;
+  strategy: StrategyConfig;
+}) {
+  const levels = [1, 2, 3, 4, 5];
+  return (
+    <div className="price-chart depth-chart">
+      <svg
+        viewBox="0 0 720 210"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Order book depth chart"
+      >
+        <line
+          x1="360"
+          x2="360"
+          y1="10"
+          y2="200"
+          className="chart-baseline"
+          vectorEffect="non-scaling-stroke"
+        />
+        {levels.map((level) => {
+          const size = Math.round((strategy.orderSizeMilliSol / 1000) * level);
+          const width = level * 55;
+          const y = 200 - level * 34;
+          return (
+            <g key={level}>
+              <rect
+                x={360 - width}
+                y={y}
+                width={width}
+                height={25}
+                className="depth-bid"
+              />
+              <rect
+                x="360"
+                y={y}
+                width={width}
+                height={25}
+                className="depth-ask"
+              />
+              <text x={350 - width} y={y + 16} className="depth-label">
+                {size} SOL
+              </text>
+              <text x={370 + width - 8} y={y + 16} className="depth-label">
+                {size} SOL
+              </text>
+            </g>
+          );
+        })}
+        <text x="274" y="205" className="depth-price">
+          BID {money(state.bidCents)}
+        </text>
+        <text x="377" y="205" className="depth-price">
+          ASK {money(state.askCents)}
+        </text>
+      </svg>
+      <ChartTimeAxis />
+    </div>
   );
 }
 

@@ -83,6 +83,16 @@ describe("Terminal strategy workspace", () => {
       result.state.fills.length
     );
   });
+  it("switches between price and market-making chart views", () => {
+    render(<SimulationLab />);
+    const chartView = screen.getByRole("combobox", { name: "Chart view" });
+    fireEvent.change(chartView, { target: { value: "candles" } });
+    expect(
+      screen.getByRole("img", { name: "Candlestick price chart" })
+    ).toBeTruthy();
+    fireEvent.change(chartView, { target: { value: "inventory" } });
+    expect(screen.getByRole("img", { name: "Inventory (SOL)" })).toBeTruthy();
+  });
   it("selects the advanced challenge from the drawer", () => {
     const select = vi.fn(),
       close = vi.fn();
