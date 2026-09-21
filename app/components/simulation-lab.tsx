@@ -1,5 +1,14 @@
 "use client";
-import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import {
   IconSettings,
   IconPlayerPlay,
@@ -758,7 +767,6 @@ function ChartSwitcher({
         <PriceStyleChart
           view={view as "area" | "candles" | "ohlc" | "heikin"}
           state={state}
-          scenario={scenario}
         />
       ) : (
         <AnalyticsChart
@@ -799,19 +807,107 @@ function ChartSwitcher({
   );
 }
 
+function useChartViewport(total: number) {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState(0);
+  const drag = useRef<{ x: number; offset: number } | null>(null);
+  const windowSize = Math.max(8, Math.min(total, Math.round(total / zoom)));
+  const maxOffset = Math.max(0, total - windowSize);
+  const start = Math.max(0, maxOffset - Math.min(maxOffset, offset));
+  const end = Math.min(total, start + windowSize);
+  const onWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    setZoom((current) =>
+      Math.max(
+        1,
+        Math.min(
+          Math.max(1, total / 8),
+          current * (event.deltaY < 0 ? 1.25 : 0.8)
+        )
+      )
+    );
+  };
+  const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    drag.current = { x: event.clientX, offset };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!drag.current) return;
+    const width = Math.max(
+      1,
+      event.currentTarget.getBoundingClientRect().width
+    );
+    const movedBars = Math.round(
+      ((drag.current.x - event.clientX) / width) * windowSize
+    );
+    setOffset(
+      Math.max(0, Math.min(maxOffset, drag.current.offset + movedBars))
+    );
+  };
+  const finishDrag = () => {
+    drag.current = null;
+  };
+  return {
+    start,
+    end,
+    zoom,
+    reset: () => {
+      setZoom(1);
+      setOffset(0);
+    },
+    zoomIn: () =>
+      setZoom((current) => Math.min(Math.max(1, total / 8), current * 1.25)),
+    zoomOut: () => setZoom((current) => Math.max(1, current * 0.8)),
+    svgEvents: {
+      onWheel,
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: finishDrag,
+      onPointerCancel: finishDrag,
+    },
+  };
+}
+
+function ChartNavigation({
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onReset,
+}: {
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="chart-navigation" aria-label="Chart navigation">
+      <button type="button" onClick={onZoomIn} aria-label="Zoom in chart">
+        +
+      </button>
+      <button type="button" onClick={onZoomOut} aria-label="Zoom out chart">
+        −
+      </button>
+      <button type="button" onClick={onReset} disabled={zoom === 1}>
+        Fit
+      </button>
+      <span>Scroll to zoom · drag to pan</span>
+    </div>
+  );
+}
+
 function PriceStyleChart({
   view,
   state,
-  scenario,
 }: {
   view: Exclude<
     ChartView,
     "line" | "depth" | "spread" | "inventory" | "pnl" | "drawdown"
   >;
   state: SimulationState;
-  scenario: Scenario;
 }) {
   const values = state.priceHistoryCents;
+  const viewport = useChartViewport(values.length);
+  const visibleValues = values.slice(viewport.start, viewport.end);
   const candles = useMemo(() => {
     const result: Array<{
       open: number;
@@ -819,13 +915,26 @@ function PriceStyleChart({
       low: number;
       close: number;
     }> = [];
-    for (let index = 0; index < values.length; index += 4) {
-      const chunk = values.slice(index, index + 4);
+    const bucketSize = Math.max(1, Math.ceil(visibleValues.length / 32));
+    for (let index = 0; index < visibleValues.length; index += bucketSize) {
+      const chunk = visibleValues.slice(index, index + bucketSize);
+      const open = chunk[0];
+      const close = chunk[chunk.length - 1];
+      const observedHigh = Math.max(...chunk);
+      const observedLow = Math.min(...chunk);
+      // The simulator publishes one reference price per tick rather than a
+      // full exchange OHLC bar. Keep its actual open/close, then expose a
+      // small deterministic intratick range so every candle has readable wicks.
+      const wickSize = Math.max(
+        2,
+        Math.ceil(Math.abs(close - open) * 0.4),
+        Math.ceil((observedHigh - observedLow) * 0.25)
+      );
       result.push({
-        open: chunk[0],
-        high: Math.max(...chunk),
-        low: Math.min(...chunk),
-        close: chunk[chunk.length - 1],
+        open,
+        high: observedHigh + wickSize,
+        low: observedLow - wickSize,
+        close,
       });
     }
     if (view !== "heikin") return result;
@@ -844,16 +953,17 @@ function PriceStyleChart({
         low: Math.min(candle.low, open, close),
       };
     });
-  }, [values, view]);
+  }, [visibleValues, view]);
   const flattened = candles.flatMap((candle) => [candle.high, candle.low]);
   const min = Math.min(...flattened) - 15;
   const max = Math.max(...flattened) + 15;
   const y = (value: number) =>
     195 - ((value - min) / Math.max(1, max - min)) * 175;
   const x = (index: number) => ((index + 0.5) / candles.length) * 720;
-  const points = values
+  const points = visibleValues
     .map(
-      (value, index) => `${(index / scenario.durationTicks) * 720},${y(value)}`
+      (value, index) =>
+        `${(index / Math.max(1, visibleValues.length - 1)) * 720},${y(value)}`
     )
     .join(" ");
   const name =
@@ -872,6 +982,8 @@ function PriceStyleChart({
         preserveAspectRatio="none"
         role="img"
         aria-label={name}
+        className="interactive-chart"
+        {...viewport.svgEvents}
       >
         {view === "area" && (
           <polygon points={`0,210 ${points} 720,210`} className="chart-area" />
@@ -941,6 +1053,12 @@ function PriceStyleChart({
         <span>{money(min)}</span>
       </div>
       <ChartTimeAxis />
+      <ChartNavigation
+        zoom={viewport.zoom}
+        onZoomIn={viewport.zoomIn}
+        onZoomOut={viewport.zoomOut}
+        onReset={viewport.reset}
+      />
     </div>
   );
 }

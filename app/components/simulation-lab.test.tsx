@@ -90,6 +90,8 @@ describe("Terminal strategy workspace", () => {
     expect(
       screen.getByRole("img", { name: "Candlestick price chart" })
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Zoom in chart" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Fit" })).toBeTruthy();
     fireEvent.change(chartView, { target: { value: "inventory" } });
     expect(screen.getByRole("img", { name: "Inventory (SOL)" })).toBeTruthy();
   });

@@ -838,6 +838,44 @@
   height: 100%;
   overflow: visible;
 }
+.interactive-chart {
+  cursor: grab;
+  touch-action: none;
+}
+.interactive-chart:active {
+  cursor: grabbing;
+}
+.chart-navigation {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  right: 66px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted-foreground);
+  font: 400 8px var(--font-mono);
+  pointer-events: none;
+}
+.chart-navigation button {
+  min-width: 22px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  color: var(--foreground);
+  font: 500 10px var(--font-mono);
+  pointer-events: auto;
+}
+.chart-navigation button:disabled {
+  opacity: 0.4;
+}
+.chart-navigation span {
+  margin-left: 4px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--background) 84%, transparent);
+}
 .chart-line {
   fill: none;
   stroke: var(--primary);
