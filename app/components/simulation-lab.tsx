@@ -147,9 +147,11 @@ export function ChallengeDrawer({
 export function SimulationLab({
   initialScenario = "whale-sell",
   onScenarioChange,
+  active = true,
 }: {
   initialScenario?: ScenarioId;
   onScenarioChange?: (id: ScenarioId) => void;
+  active?: boolean;
 }) {
   const [scenarioId, setScenarioId] = useState<ScenarioId>(initialScenario);
   const [strategy, setStrategy] = useState<StrategyConfig>(DEFAULT_STRATEGY);
@@ -166,14 +168,14 @@ export function SimulationLab({
   const meta = CHALLENGE_META[scenarioId];
   const pnl = state.equityCents - state.startingEquityCents;
   useEffect(() => {
-    if (!running || finished) return;
+    if (!running || finished || !active) return;
     const timer = window.setInterval(
       () =>
         setState((previous) => stepSimulation(previous, scenario, strategy)),
       400 / speed
     );
     return () => window.clearInterval(timer);
-  }, [running, finished, scenario, strategy, speed]);
+  }, [running, finished, scenario, strategy, speed, active]);
   function reset(nextScenario = scenario, nextStrategy = strategy) {
     setRunning(false);
     setDismissed(false);
@@ -583,7 +585,7 @@ export function SimulationLab({
           </div>
         </aside>
       </div>
-      {finished && !dismissed && (
+      {active && finished && !dismissed && (
         <Modal title="Session debrief" onClose={() => setDismissed(true)}>
           <Results
             scenario={scenario}
@@ -609,7 +611,7 @@ export function SimulationLab({
           View results
         </button>
       )}
-      {drawer && (
+      {active && drawer && (
         <ChallengeDrawer
           selected={scenarioId}
           onSelect={select}

@@ -115,7 +115,13 @@ export function WalletButton() {
                   onClick={() => void connect(connector.id)}
                 >
                   {connector.icon ? (
-                    <Image src={connector.icon} alt="" width={30} height={30} unoptimized />
+                    <Image
+                      src={connector.icon}
+                      alt=""
+                      width={30}
+                      height={30}
+                      unoptimized
+                    />
                   ) : (
                     <span className="wallet-placeholder">
                       {connector.name[0]}

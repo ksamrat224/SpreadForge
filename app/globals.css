@@ -2168,6 +2168,19 @@ tr:last-child td {
     padding: 22px;
   }
 }
+@media (min-width: 820px) and (max-width: 950px) {
+  .brand-word {
+    display: none;
+  }
+}
+@media (max-width: 380px) {
+  .brand-word {
+    display: none;
+  }
+  .topbar {
+    gap: 8px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

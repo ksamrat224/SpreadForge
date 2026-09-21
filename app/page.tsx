@@ -75,11 +75,18 @@ export default function Home() {
             key={session}
             initialScenario={scenario}
             onScenarioChange={setScenario}
+            active={tab === "strategy"}
           />
         </div>
-        {tab === "paper" && <PaperTradingDesk />}
-        {tab === "leaderboard" && <Leaderboard />}
-        {tab === "magicblock" && <Architecture />}
+        <div hidden={tab !== "paper"}>
+          <PaperTradingDesk active={tab === "paper"} />
+        </div>
+        <div hidden={tab !== "leaderboard"}>
+          <Leaderboard />
+        </div>
+        <div hidden={tab !== "magicblock"}>
+          <Architecture />
+        </div>
       </main>
       <footer className="app-footer">
         <span>

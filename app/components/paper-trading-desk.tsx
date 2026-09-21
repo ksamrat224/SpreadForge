@@ -17,7 +17,11 @@ import {
   type PricePoint,
 } from "../lib/simulation/paper";
 
-export function PaperTradingDesk() {
+export function PaperTradingDesk({
+  active: visible = true,
+}: {
+  active?: boolean;
+}) {
   const [desk, dispatch] = useReducer(
     paperReducer,
     undefined,
@@ -32,6 +36,7 @@ export function PaperTradingDesk() {
   const random = useRef(createPrng(7264));
   const lastToast = useRef(0);
   useEffect(() => {
+    if (!visible) return;
     if (source === "synthetic") {
       const timer = window.setInterval(
         () =>
@@ -80,7 +85,7 @@ export function PaperTradingDesk() {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [source]);
+  }, [source, visible]);
   useEffect(() => {
     const trade = desk.trades[0];
     if (trade && trade.id > lastToast.current) {

@@ -11,7 +11,8 @@ test("desktop workspace, challenge completion, and local verification", async ({
   ).toBeVisible();
   await expect(page.locator("html")).toHaveClass("dark");
   await page.screenshot({
-    path: "/tmp/spreadforge-desktop.png",
+    path: "test-results/spreadforge-desktop.png",
+    animations: "disabled",
     fullPage: true,
   });
   await page.getByRole("button", { name: "5×" }).click();
@@ -20,7 +21,8 @@ test("desktop workspace, challenge completion, and local verification", async ({
     page.getByRole("dialog", { name: "Session debrief" })
   ).toBeVisible({ timeout: 15000 });
   await page.screenshot({
-    path: "/tmp/spreadforge-results.png",
+    path: "test-results/spreadforge-results.png",
+    animations: "disabled",
     fullPage: true,
   });
   await page.getByRole("button", { name: "Verify on Solana" }).click();
@@ -53,15 +55,22 @@ test("paper trades, quote cancellation, rankings and architecture preview", asyn
     page.getByRole("button", { name: "Cancel", exact: true })
   ).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.screenshot({ path: "/tmp/spreadforge-paper.png", fullPage: true });
+  await page.screenshot({
+    path: "test-results/spreadforge-paper.png",
+    animations: "disabled",
+    fullPage: true,
+  });
   await nav.getByRole("button", { name: "Leaderboard" }).click();
   await expect(
     page.getByRole("heading", { name: "The Liquidity Gauntlet" })
   ).toBeVisible();
   await page.screenshot({
-    path: "/tmp/spreadforge-leaderboard.png",
+    path: "test-results/spreadforge-leaderboard.png",
+    animations: "disabled",
     fullPage: true,
   });
+  await nav.getByRole("button", { name: "Paper Trading" }).click();
+  await expect(page.getByText("11.00 SOL", { exact: true })).toBeVisible();
   await nav.getByRole("button", { name: "MagicBlock" }).click();
   await page.getByRole("button", { name: "Simulate session" }).click();
   await expect(
@@ -70,7 +79,8 @@ test("paper trades, quote cancellation, rankings and architecture preview", asyn
     )
   ).toBeVisible({ timeout: 10000 });
   await page.screenshot({
-    path: "/tmp/spreadforge-architecture.png",
+    path: "test-results/spreadforge-architecture.png",
+    animations: "disabled",
     fullPage: true,
   });
 });
@@ -89,7 +99,8 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
     )
   ).toBe(true);
   await page.screenshot({
-    path: "/tmp/spreadforge-mobile.png",
+    path: "test-results/spreadforge-mobile.png",
+    animations: "disabled",
     fullPage: true,
   });
   await page.getByRole("button", { name: "Choose challenge" }).click();
@@ -110,4 +121,31 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
       () => document.documentElement.scrollWidth <= innerWidth
     )
   ).toBe(true);
+});
+
+test("tablet and small mobile layouts fit the viewport", async ({ page }) => {
+  await page.goto("/");
+  for (const width of [320, 768, 820, 1024, 1200, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const overflowing = await page.locator("body *").evaluateAll((elements) =>
+      elements
+        .filter(
+          (element) => element.getBoundingClientRect().right > innerWidth + 1
+        )
+        .map((element) => element.tagName + "." + element.className)
+        .slice(0, 12)
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      ),
+      `horizontal overflow at ${width}px: ${overflowing.join(", ")}`
+    ).toBe(true);
+  }
+  await page.setViewportSize({ width: 1024, height: 1000 });
+  await page.screenshot({
+    path: "test-results/spreadforge-tablet.png",
+    fullPage: true,
+    animations: "disabled",
+  });
 });
