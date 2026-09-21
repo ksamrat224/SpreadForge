@@ -1,14 +1,5 @@
 "use client";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   IconArrowUpRight,
   IconArrowDownRight,
@@ -18,6 +9,10 @@ import {
   IconChevronDown,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import {
+  InteractiveMarketChart,
+  type PriceView,
+} from "./interactive-market-chart";
 import { createPrng } from "../lib/simulation/prng";
 import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
 import {
@@ -55,67 +50,6 @@ const PAPER_CHART_OPTIONS: Array<{
   { value: "pnl", label: "P&L / equity", group: "Analytics" },
   { value: "drawdown", label: "Drawdown", group: "Analytics" },
 ];
-
-function usePaperChartViewport(total: number) {
-  const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState(0);
-  const drag = useRef<{ x: number; offset: number } | null>(null);
-  const windowSize = Math.max(8, Math.min(total, Math.round(total / zoom)));
-  const maxOffset = Math.max(0, total - windowSize);
-  const start = Math.max(0, maxOffset - Math.min(maxOffset, offset));
-  const end = Math.min(total, start + windowSize);
-  const onWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
-    event.preventDefault();
-    setZoom((current) =>
-      Math.max(
-        1,
-        Math.min(
-          Math.max(1, total / 8),
-          current * (event.deltaY < 0 ? 1.25 : 0.8)
-        )
-      )
-    );
-  };
-  const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
-    drag.current = { x: event.clientX, offset };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (!drag.current) return;
-    const width = Math.max(
-      1,
-      event.currentTarget.getBoundingClientRect().width
-    );
-    const movedBars = Math.round(
-      ((drag.current.x - event.clientX) / width) * windowSize
-    );
-    setOffset(
-      Math.max(0, Math.min(maxOffset, drag.current.offset + movedBars))
-    );
-  };
-  const finishDrag = () => {
-    drag.current = null;
-  };
-  return {
-    start,
-    end,
-    zoom,
-    reset: () => {
-      setZoom(1);
-      setOffset(0);
-    },
-    zoomIn: () =>
-      setZoom((current) => Math.min(Math.max(1, total / 8), current * 1.25)),
-    zoomOut: () => setZoom((current) => Math.max(1, current * 0.8)),
-    svgEvents: {
-      onWheel,
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: finishDrag,
-      onPointerCancel: finishDrag,
-    },
-  };
-}
 
 export function PaperTradingDesk({
   active: visible = true,
@@ -598,7 +532,18 @@ function PaperChartSwitcher({
           </select>
         </label>
       </div>
-      <PaperChart view={view} points={points} desk={desk} />
+      {option.group === "Price" ? (
+        <InteractiveMarketChart
+          view={view as PriceView}
+          samples={points.map((point) => ({
+            time: point.at / 1000,
+            value: point.priceCents / 100,
+          }))}
+          label={`Paper ${option.label} price chart`}
+        />
+      ) : (
+        <PaperChart view={view} points={points} desk={desk} />
+      )}
       <div className="chart-legend">
         {view === "depth" ? (
           <>
@@ -633,8 +578,6 @@ function PaperChart({
   points: PricePoint[];
   desk: PaperState;
 }) {
-  const id = useId().replace(/:/g, "");
-  const [hover, setHover] = useState<number | null>(null);
   const sampled = points.filter(
     (_, i) => i % Math.max(1, Math.floor(points.length / 500)) === 0
   );
@@ -669,237 +612,7 @@ function PaperChart({
     );
   }
 
-  if (view !== "line") {
-    return (
-      <PaperPriceStyleChart
-        view={view as "area" | "candles" | "ohlc" | "heikin"}
-        values={values}
-      />
-    );
-  }
-  const min = Math.min(...values) - 15,
-    max = Math.max(...values) + 15;
-  const line = values
-    .map(
-      (v, i) =>
-        `${(i / Math.max(1, values.length - 1)) * 720},${195 - ((v - min) / (max - min)) * 180}`
-    )
-    .join(" ");
-  return (
-    <div className="price-chart paper-chart">
-      <svg
-        viewBox="0 0 720 210"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label="SOL paper trading price chart"
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          setHover(
-            Math.max(
-              0,
-              Math.min(
-                values.length - 1,
-                Math.round(
-                  ((e.clientX - rect.left) / rect.width) * (values.length - 1)
-                )
-              )
-            )
-          );
-        }}
-        onMouseLeave={() => setHover(null)}
-      >
-        <defs>
-          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity=".28" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon points={`0,210 ${line} 720,210`} fill={`url(#${id})`} />
-        <polyline
-          points={line}
-          className="chart-line"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-      <div className="price-axis">
-        <span>{money(max)}</span>
-        <span>{money((min + max) / 2)}</span>
-        <span>{money(min)}</span>
-      </div>
-      <div className="time-axis">
-        <span>SESSION HISTORY</span>
-        <span>{points.length} SAMPLES</span>
-        <span>NOW</span>
-      </div>
-      {hover !== null && (
-        <div className="chart-tooltip">{money(values[hover])}</div>
-      )}
-    </div>
-  );
-}
-
-function PaperPriceStyleChart({
-  view,
-  values,
-}: {
-  view: "area" | "candles" | "ohlc" | "heikin";
-  values: number[];
-}) {
-  const viewport = usePaperChartViewport(values.length);
-  const visibleValues = values.slice(viewport.start, viewport.end);
-  const candles = useMemo(() => {
-    const base: Array<{
-      open: number;
-      high: number;
-      low: number;
-      close: number;
-    }> = [];
-    const bucketSize = Math.max(1, Math.ceil(visibleValues.length / 40));
-    for (let index = 0; index < visibleValues.length; index += bucketSize) {
-      const chunk = visibleValues.slice(index, index + bucketSize);
-      base.push({
-        open: chunk[0],
-        high: Math.max(...chunk),
-        low: Math.min(...chunk),
-        close: chunk[chunk.length - 1],
-      });
-    }
-    if (view !== "heikin") return base;
-    return base.map((candle, index) => {
-      const previous = base[index - 1];
-      const close = Math.round(
-        (candle.open + candle.high + candle.low + candle.close) / 4
-      );
-      const open = previous
-        ? Math.round((previous.open + previous.close) / 2)
-        : Math.round((candle.open + candle.close) / 2);
-      return {
-        open,
-        close,
-        high: Math.max(candle.high, open, close),
-        low: Math.min(candle.low, open, close),
-      };
-    });
-  }, [visibleValues, view]);
-  const min = Math.min(...candles.map((candle) => candle.low)) - 15;
-  const max = Math.max(...candles.map((candle) => candle.high)) + 15;
-  const y = (value: number) =>
-    195 - ((value - min) / Math.max(1, max - min)) * 175;
-  const line = visibleValues
-    .map(
-      (value, index) =>
-        `${(index / Math.max(1, visibleValues.length - 1)) * 720},${y(value)}`
-    )
-    .join(" ");
-  const name =
-    view === "area"
-      ? "Paper area price chart"
-      : view === "candles"
-        ? "Paper candlestick price chart"
-        : view === "ohlc"
-          ? "Paper OHLC price chart"
-          : "Paper Heikin-Ashi price chart";
-  return (
-    <div className="price-chart paper-chart alternative-chart">
-      <svg
-        viewBox="0 0 720 210"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={name}
-        className="interactive-chart"
-        {...viewport.svgEvents}
-      >
-        {view === "area" ? (
-          <>
-            <polygon points={`0,210 ${line} 720,210`} className="chart-area" />
-            <polyline
-              points={line}
-              className="chart-line"
-              vectorEffect="non-scaling-stroke"
-            />
-          </>
-        ) : (
-          candles.map((candle, index) => {
-            const center = ((index + 0.5) / candles.length) * 720;
-            const rising = candle.close >= candle.open;
-            const top = y(Math.max(candle.open, candle.close));
-            const height = Math.max(
-              2,
-              Math.abs(y(candle.open) - y(candle.close))
-            );
-            return (
-              <g key={index} className={rising ? "candle-up" : "candle-down"}>
-                <line
-                  x1={center}
-                  x2={center}
-                  y1={y(candle.high)}
-                  y2={y(candle.low)}
-                  className="candle-wick"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {view === "ohlc" ? (
-                  <>
-                    <line
-                      x1={center - 6}
-                      x2={center}
-                      y1={y(candle.open)}
-                      y2={y(candle.open)}
-                      className="candle-wick"
-                    />
-                    <line
-                      x1={center}
-                      x2={center + 6}
-                      y1={y(candle.close)}
-                      y2={y(candle.close)}
-                      className="candle-wick"
-                    />
-                  </>
-                ) : (
-                  <rect
-                    x={center - Math.min(9, 210 / candles.length)}
-                    y={top}
-                    width={Math.min(18, 420 / candles.length)}
-                    height={height}
-                    className="candle-body"
-                  />
-                )}
-              </g>
-            );
-          })
-        )}
-      </svg>
-      <div className="price-axis">
-        <span>{money(max)}</span>
-        <span>{money((min + max) / 2)}</span>
-        <span>{money(min)}</span>
-      </div>
-      <PaperTimeAxis samples={visibleValues.length} />
-      <div className="chart-navigation" aria-label="Chart navigation">
-        <button
-          type="button"
-          onClick={viewport.zoomIn}
-          aria-label="Zoom in chart"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          onClick={viewport.zoomOut}
-          aria-label="Zoom out chart"
-        >
-          −
-        </button>
-        <button
-          type="button"
-          onClick={viewport.reset}
-          disabled={viewport.zoom === 1}
-        >
-          Fit
-        </button>
-        <span>Scroll to zoom · drag to pan</span>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 function PaperSeriesChart({
@@ -911,40 +624,21 @@ function PaperSeriesChart({
   label: string;
   tone: string;
 }) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const floor = min === max ? min - 1 : min;
-  const ceiling = min === max ? max + 1 : max;
-  const y = (value: number) =>
-    195 - ((value - floor) / (ceiling - floor)) * 175;
-  const line = values
-    .map(
-      (value, index) =>
-        `${(index / Math.max(1, values.length - 1)) * 720},${y(value)}`
-    )
-    .join(" ");
   return (
-    <div className={`price-chart paper-chart analytics-chart ${tone}`}>
-      <svg
-        viewBox="0 0 720 210"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={label}
-      >
-        <line x1="0" x2="720" y1={y(0)} y2={y(0)} className="chart-baseline" />
-        <polyline
-          points={line}
-          className="chart-line"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-      <div className="price-axis">
-        <span>{ceiling.toFixed(2)}</span>
-        <span>{((ceiling + floor) / 2).toFixed(2)}</span>
-        <span>{floor.toFixed(2)}</span>
-      </div>
-      <PaperTimeAxis samples={values.length} />
-    </div>
+    <InteractiveMarketChart
+      ticks
+      samples={values.map((value, time) => ({ time, value }))}
+      label={label}
+      unit={
+        tone === "inventory"
+          ? "SOL"
+          : tone === "spread"
+            ? "bps"
+            : tone === "drawdown"
+              ? "%"
+              : "$"
+      }
+    />
   );
 }
 
