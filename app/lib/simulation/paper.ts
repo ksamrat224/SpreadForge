@@ -1,5 +1,5 @@
 import { createPrng } from "./prng";
-export type PricePoint = { priceCents: number; at: number };
+export type PricePoint = { priceCents: number; at: number; sequence: number };
 type Side = "buy" | "sell";
 type Quote = {
   id: number;
@@ -39,7 +39,7 @@ export function createPaperState(): PaperState {
   let price = 14682;
   const points = Array.from({ length: 150 }, (_, i) => {
     price = Math.max(100, price + Math.round((random() - 0.5) * 20));
-    return { priceCents: price, at: (i - 149) * 400 };
+    return { priceCents: price, at: (i - 149) * 400, sequence: i };
   });
   const offset = 14682 - points[149].priceCents;
   points.forEach((p) => (p.priceCents += offset));
@@ -139,7 +139,14 @@ export function paperReducer(
     let next = {
       ...state,
       priceCents: price,
-      points: [...existing.slice(-35999), { priceCents: price, at: action.at }],
+      points: [
+        ...existing.slice(-35999),
+        {
+          priceCents: price,
+          at: action.at,
+          sequence: (existing.at(-1)?.sequence ?? -1) + 1,
+        },
+      ],
     };
     for (const quote of state.quotes) {
       if (

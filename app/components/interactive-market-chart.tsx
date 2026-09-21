@@ -11,6 +11,7 @@ type Props = {
   view?: PriceView;
   label: string;
   ticks?: boolean;
+  timeLabelPrefix?: string;
   unit?: string;
   markers?: Marker[];
 };
@@ -20,6 +21,7 @@ export function InteractiveMarketChart({
   view = "line",
   label,
   ticks = false,
+  timeLabelPrefix,
   unit = "$",
   markers = [],
 }: Props) {
@@ -28,6 +30,7 @@ export function InteractiveMarketChart({
   const readout = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const syncRef = useRef<(() => void) | null>(null);
+  const followFullWidth = useRef(true);
   const [interval, setInterval] = useState(ticks ? 4 : 5);
   const [error, setError] = useState("");
   const candleView = view === "candles" || view === "ohlc" || view === "heikin";
@@ -69,19 +72,26 @@ export function InteractiveMarketChart({
         timeScale: {
           timeVisible: true,
           secondsVisible: true,
-          rightOffset: 5,
+          rightOffset: 0,
           barSpacing: 9,
-          minBarSpacing: 2,
+          minBarSpacing: 0.5,
           borderVisible: false,
           ...(ticks
             ? { tickMarkFormatter: (time: Time) => `T${Number(time)}` }
-            : {}),
+            : timeLabelPrefix
+              ? {
+                  tickMarkFormatter: (time: Time) =>
+                    `${timeLabelPrefix} ${Number(time)}`,
+                }
+              : {}),
         },
         localization: {
           timeFormatter: (time: Time) =>
             ticks
               ? `Tick ${Number(time)}`
-              : new Date(Number(time) * 1000).toLocaleTimeString(),
+              : timeLabelPrefix
+                ? `${timeLabelPrefix} ${Number(time)}`
+                : new Date(Number(time) * 1000).toLocaleTimeString(),
           priceFormatter: (price: number) =>
             `${unit === "$" ? "$" : ""}${price.toFixed(2)}${unit === "$" ? "" : ` ${unit}`}`,
         },
@@ -135,7 +145,7 @@ export function InteractiveMarketChart({
         if (!readout.current) return;
         readout.current.textContent = !bar
           ? "Waiting for samples"
-          : `${ticks ? `T${bar.time}` : new Date(bar.time * 1000).toLocaleTimeString()}  ${"open" in bar ? `O ${format(bar.open)}  H ${format(bar.high)}  L ${format(bar.low)}  C ${format(bar.close)}` : format(bar.value)}`;
+          : `${ticks ? `T${bar.time}` : timeLabelPrefix ? `${timeLabelPrefix} ${bar.time}` : new Date(bar.time * 1000).toLocaleTimeString()}  ${"open" in bar ? `O ${format(bar.open)}  H ${format(bar.high)}  L ${format(bar.low)}  C ${format(bar.close)}` : format(bar.value)}`;
       };
       const sync = () => {
         const next = latest.current.data;
@@ -176,11 +186,10 @@ export function InteractiveMarketChart({
             .sort((a, b) => Number(a.time) - Number(b.time))
         );
         if (first && next.length) {
-          timeScale.setVisibleLogicalRange({
-            from: Math.max(-2, next.length - 70),
-            to: Math.max(30, next.length + 4),
-          });
+          timeScale.fitContent();
           first = false;
+        } else if (followFullWidth.current) {
+          timeScale.fitContent();
         } else if (!atLive && range) {
           timeScale.setVisibleLogicalRange(range);
         } else if (atLive) {
@@ -237,23 +246,47 @@ export function InteractiveMarketChart({
       disposed = true;
       cleanup();
     };
-  }, [view, ticks, unit, interval]);
+  }, [view, ticks, timeLabelPrefix, unit, interval]);
 
   const zoom = (factor: number) => {
     const scale = chartRef.current?.timeScale();
     const range = scale?.getVisibleLogicalRange();
     if (range) {
+      followFullWidth.current = false;
       const center = (range.from + range.to) / 2;
       const half = Math.max(3, ((range.to - range.from) * factor) / 2);
       scale?.setVisibleLogicalRange({ from: center - half, to: center + half });
     }
   };
   const fit = () => {
+    followFullWidth.current = true;
     chartRef.current?.priceScale("right").applyOptions({ autoScale: true });
     chartRef.current?.timeScale().fitContent();
   };
+  const goToLatest = () => {
+    const scale = chartRef.current?.timeScale();
+    const range = scale?.getVisibleLogicalRange();
+    const last = latest.current.data.length - 1;
+    if (!scale || last < 0) return;
+    followFullWidth.current = false;
+
+    const span = range ? Math.max(6, range.to - range.from) : 70;
+    scale.setVisibleLogicalRange({
+      from: last - span + 0.5,
+      to: last + 0.5,
+    });
+  };
   return (
-    <div className="market-chart-widget" ref={root}>
+    <div
+      className="market-chart-widget"
+      ref={root}
+      onWheelCapture={() => {
+        followFullWidth.current = false;
+      }}
+      onPointerDownCapture={() => {
+        followFullWidth.current = false;
+      }}
+    >
       <div className="market-chart-controls">
         {candleView && (
           <label>
@@ -279,11 +312,7 @@ export function InteractiveMarketChart({
           −
         </button>
         <button onClick={fit}>Fit</button>
-        <button
-          onClick={() => chartRef.current?.timeScale().scrollToRealTime()}
-        >
-          Latest
-        </button>
+        <button onClick={goToLatest}>Latest</button>
         <button
           onClick={() => {
             if (document.fullscreenElement) void document.exitFullscreen();

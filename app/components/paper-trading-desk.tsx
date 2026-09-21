@@ -536,10 +536,11 @@ function PaperChartSwitcher({
         <InteractiveMarketChart
           view={view as PriceView}
           samples={points.map((point) => ({
-            time: point.at / 1000,
+            time: point.sequence,
             value: point.priceCents / 100,
           }))}
           label={`Paper ${option.label} price chart`}
+          timeLabelPrefix="Sample"
         />
       ) : (
         <PaperChart view={view} points={points} desk={desk} />

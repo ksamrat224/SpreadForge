@@ -82,6 +82,22 @@ describe("Paper funds and order reservations", () => {
     expect(state.startEquityCents).toBe(baseline);
     expect(state.startPriceCents).toBe(14682);
   });
+  it("assigns each price point a permanent increasing chart sequence", () => {
+    let state = createPaperState();
+    const firstSequence = state.points[0].sequence;
+    const lastSequence = state.points.at(-1)!.sequence;
+    state = paperReducer(state, {
+      type: "tick",
+      priceCents: 15000,
+      at: 100000,
+    });
+
+    expect(state.points[0].sequence).toBe(firstSequence);
+    expect(state.points.at(-1)!.sequence).toBe(lastSequence + 1);
+    expect(new Set(state.points.map((point) => point.sequence)).size).toBe(
+      state.points.length
+    );
+  });
   it("rejects invalid quotes without changing balances", () => {
     const initial = createPaperState();
     const state = paperReducer(initial, {
