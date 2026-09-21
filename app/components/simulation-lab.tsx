@@ -1,14 +1,5 @@
 "use client";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import {
   IconSettings,
   IconPlayerPlay,
@@ -33,6 +24,10 @@ import {
   type Scenario,
 } from "../lib/simulation";
 import { scoreRun } from "../lib/simulation/score";
+import {
+  InteractiveMarketChart,
+  type PriceView,
+} from "./interactive-market-chart";
 import {
   createResultCommitment,
   type ResultCommitment,
@@ -729,9 +724,6 @@ function ChartSwitcher({
   );
   const option = CHART_OPTIONS.find((item) => item.value === view)!;
   const isPrice = option.group === "Price";
-  const isAlternativePrice = ["area", "candles", "ohlc", "heikin"].includes(
-    view
-  );
 
   return (
     <>
@@ -761,12 +753,25 @@ function ChartSwitcher({
           </select>
         </label>
       </div>
-      {view === "line" ? (
-        <PriceChart state={state} scenario={scenario} />
-      ) : isAlternativePrice ? (
-        <PriceStyleChart
-          view={view as "area" | "candles" | "ohlc" | "heikin"}
-          state={state}
+      {isPrice ? (
+        <InteractiveMarketChart
+          key={scenario.id}
+          view={view as PriceView}
+          ticks
+          samples={state.priceHistoryCents.map((value, time) => ({
+            time,
+            value: value / 100,
+          }))}
+          markers={state.fills.map((fill) => ({
+            time: fill.tick,
+            side: fill.side,
+            text: `${fill.side} ${money(fill.priceCents)}`,
+          }))}
+          label={
+            view === "candles"
+              ? "Candlestick price chart"
+              : `${option.label} price chart`
+          }
         />
       ) : (
         <AnalyticsChart
@@ -807,262 +812,6 @@ function ChartSwitcher({
   );
 }
 
-function useChartViewport(total: number) {
-  const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState(0);
-  const drag = useRef<{ x: number; offset: number } | null>(null);
-  const windowSize = Math.max(8, Math.min(total, Math.round(total / zoom)));
-  const maxOffset = Math.max(0, total - windowSize);
-  const start = Math.max(0, maxOffset - Math.min(maxOffset, offset));
-  const end = Math.min(total, start + windowSize);
-  const onWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
-    event.preventDefault();
-    setZoom((current) =>
-      Math.max(
-        1,
-        Math.min(
-          Math.max(1, total / 8),
-          current * (event.deltaY < 0 ? 1.25 : 0.8)
-        )
-      )
-    );
-  };
-  const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
-    drag.current = { x: event.clientX, offset };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (!drag.current) return;
-    const width = Math.max(
-      1,
-      event.currentTarget.getBoundingClientRect().width
-    );
-    const movedBars = Math.round(
-      ((drag.current.x - event.clientX) / width) * windowSize
-    );
-    setOffset(
-      Math.max(0, Math.min(maxOffset, drag.current.offset + movedBars))
-    );
-  };
-  const finishDrag = () => {
-    drag.current = null;
-  };
-  return {
-    start,
-    end,
-    zoom,
-    reset: () => {
-      setZoom(1);
-      setOffset(0);
-    },
-    zoomIn: () =>
-      setZoom((current) => Math.min(Math.max(1, total / 8), current * 1.25)),
-    zoomOut: () => setZoom((current) => Math.max(1, current * 0.8)),
-    svgEvents: {
-      onWheel,
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: finishDrag,
-      onPointerCancel: finishDrag,
-    },
-  };
-}
-
-function ChartNavigation({
-  zoom,
-  onZoomIn,
-  onZoomOut,
-  onReset,
-}: {
-  zoom: number;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onReset: () => void;
-}) {
-  return (
-    <div className="chart-navigation" aria-label="Chart navigation">
-      <button type="button" onClick={onZoomIn} aria-label="Zoom in chart">
-        +
-      </button>
-      <button type="button" onClick={onZoomOut} aria-label="Zoom out chart">
-        −
-      </button>
-      <button type="button" onClick={onReset} disabled={zoom === 1}>
-        Fit
-      </button>
-      <span>Scroll to zoom · drag to pan</span>
-    </div>
-  );
-}
-
-function PriceStyleChart({
-  view,
-  state,
-}: {
-  view: Exclude<
-    ChartView,
-    "line" | "depth" | "spread" | "inventory" | "pnl" | "drawdown"
-  >;
-  state: SimulationState;
-}) {
-  const values = state.priceHistoryCents;
-  const viewport = useChartViewport(values.length);
-  const visibleValues = values.slice(viewport.start, viewport.end);
-  const candles = useMemo(() => {
-    const result: Array<{
-      open: number;
-      high: number;
-      low: number;
-      close: number;
-    }> = [];
-    const bucketSize = Math.max(1, Math.ceil(visibleValues.length / 32));
-    for (let index = 0; index < visibleValues.length; index += bucketSize) {
-      const chunk = visibleValues.slice(index, index + bucketSize);
-      const open = chunk[0];
-      const close = chunk[chunk.length - 1];
-      const observedHigh = Math.max(...chunk);
-      const observedLow = Math.min(...chunk);
-      // The simulator publishes one reference price per tick rather than a
-      // full exchange OHLC bar. Keep its actual open/close, then expose a
-      // small deterministic intratick range so every candle has readable wicks.
-      const wickSize = Math.max(
-        2,
-        Math.ceil(Math.abs(close - open) * 0.4),
-        Math.ceil((observedHigh - observedLow) * 0.25)
-      );
-      result.push({
-        open,
-        high: observedHigh + wickSize,
-        low: observedLow - wickSize,
-        close,
-      });
-    }
-    if (view !== "heikin") return result;
-    return result.map((candle, index) => {
-      const previous = result[index - 1];
-      const close = Math.round(
-        (candle.open + candle.high + candle.low + candle.close) / 4
-      );
-      const open = previous
-        ? Math.round((previous.open + previous.close) / 2)
-        : Math.round((candle.open + candle.close) / 2);
-      return {
-        open,
-        close,
-        high: Math.max(candle.high, open, close),
-        low: Math.min(candle.low, open, close),
-      };
-    });
-  }, [visibleValues, view]);
-  const flattened = candles.flatMap((candle) => [candle.high, candle.low]);
-  const min = Math.min(...flattened) - 15;
-  const max = Math.max(...flattened) + 15;
-  const y = (value: number) =>
-    195 - ((value - min) / Math.max(1, max - min)) * 175;
-  const x = (index: number) => ((index + 0.5) / candles.length) * 720;
-  const points = visibleValues
-    .map(
-      (value, index) =>
-        `${(index / Math.max(1, visibleValues.length - 1)) * 720},${y(value)}`
-    )
-    .join(" ");
-  const name =
-    view === "area"
-      ? "Area price chart"
-      : view === "candles"
-        ? "Candlestick price chart"
-        : view === "ohlc"
-          ? "OHLC price chart"
-          : "Heikin-Ashi price chart";
-
-  return (
-    <div className="price-chart alternative-chart">
-      <svg
-        viewBox="0 0 720 210"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={name}
-        className="interactive-chart"
-        {...viewport.svgEvents}
-      >
-        {view === "area" && (
-          <polygon points={`0,210 ${points} 720,210`} className="chart-area" />
-        )}
-        {view === "area" ? (
-          <polyline
-            points={points}
-            className="chart-line"
-            vectorEffect="non-scaling-stroke"
-          />
-        ) : (
-          candles.map((candle, index) => {
-            const center = x(index);
-            const rising = candle.close >= candle.open;
-            const top = y(Math.max(candle.open, candle.close));
-            const height = Math.max(
-              2,
-              Math.abs(y(candle.open) - y(candle.close))
-            );
-            const className = rising ? "candle-up" : "candle-down";
-            return (
-              <g key={index} className={className}>
-                <line
-                  x1={center}
-                  x2={center}
-                  y1={y(candle.high)}
-                  y2={y(candle.low)}
-                  className="candle-wick"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {view === "ohlc" ? (
-                  <>
-                    <line
-                      x1={center - 8}
-                      x2={center}
-                      y1={y(candle.open)}
-                      y2={y(candle.open)}
-                      className="candle-wick"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                    <line
-                      x1={center}
-                      x2={center + 8}
-                      y1={y(candle.close)}
-                      y2={y(candle.close)}
-                      className="candle-wick"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  </>
-                ) : (
-                  <rect
-                    x={center - Math.min(10, 220 / candles.length)}
-                    y={top}
-                    width={Math.min(20, 440 / candles.length)}
-                    height={height}
-                    className="candle-body"
-                  />
-                )}
-              </g>
-            );
-          })
-        )}
-      </svg>
-      <div className="price-axis">
-        <span>{money(max)}</span>
-        <span>{money((max + min) / 2)}</span>
-        <span>{money(min)}</span>
-      </div>
-      <ChartTimeAxis />
-      <ChartNavigation
-        zoom={viewport.zoom}
-        onZoomIn={viewport.zoomIn}
-        onZoomOut={viewport.zoomOut}
-        onReset={viewport.reset}
-      />
-    </div>
-  );
-}
-
 function ChartTimeAxis() {
   return (
     <div className="time-axis">
@@ -1086,7 +835,12 @@ function AnalyticsChart({
 }) {
   if (view === "depth") return <DepthChart state={state} strategy={strategy} />;
   const series = snapshots.map((snapshot) => {
-    if (view === "spread") return (snapshot.askCents - snapshot.bidCents) * 100;
+    if (view === "spread")
+      return (
+        ((snapshot.askCents - snapshot.bidCents) /
+          snapshot.referencePriceCents) *
+        10000
+      );
     if (view === "inventory") return snapshot.baseMilliSol / 1000;
     if (view === "pnl")
       return (snapshot.equityCents - snapshot.startingEquityCents) / 100;
@@ -1117,47 +871,21 @@ function SeriesChart({
   label: string;
   tone: string;
 }) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const floor = min === max ? min - 1 : min;
-  const ceiling = min === max ? max + 1 : max;
-  const y = (value: number) =>
-    195 - ((value - floor) / (ceiling - floor)) * 175;
-  const points = values
-    .map(
-      (value, index) =>
-        `${(index / Math.max(1, values.length - 1)) * 720},${y(value)}`
-    )
-    .join(" ");
   return (
-    <div className={`price-chart analytics-chart ${tone}`}>
-      <svg
-        viewBox="0 0 720 210"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={label}
-      >
-        <line
-          x1="0"
-          x2="720"
-          y1={y(0)}
-          y2={y(0)}
-          className="chart-baseline"
-          vectorEffect="non-scaling-stroke"
-        />
-        <polyline
-          points={points}
-          className="chart-line"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-      <div className="price-axis">
-        <span>{ceiling.toFixed(2)}</span>
-        <span>{((ceiling + floor) / 2).toFixed(2)}</span>
-        <span>{floor.toFixed(2)}</span>
-      </div>
-      <ChartTimeAxis />
-    </div>
+    <InteractiveMarketChart
+      ticks
+      samples={values.map((value, time) => ({ time, value }))}
+      label={label}
+      unit={
+        tone === "inventory"
+          ? "SOL"
+          : tone === "spread"
+            ? "bps"
+            : tone === "drawdown"
+              ? "%"
+              : "$"
+      }
+    />
   );
 }
 
