@@ -258,6 +258,15 @@
   animation: forge-pulse 2.8s infinite;
   flex-shrink: 0;
 }
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  filter: drop-shadow(
+    0 0 7px color-mix(in oklab, var(--primary) 48%, transparent)
+  );
+  flex-shrink: 0;
+}
 .forge-flame {
   position: absolute;
 }
@@ -2051,7 +2060,8 @@ tr:last-child td {
   .brand {
     font-size: 14px;
   }
-  .brand .forge-mark {
+  .brand .forge-mark,
+  .brand .brand-logo {
     width: 26px;
   }
   .brand .forge-mark > svg:first-child {

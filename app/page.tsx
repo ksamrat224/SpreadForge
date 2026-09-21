@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import {
   IconFlame,
   IconActivity,
@@ -14,7 +15,6 @@ import { Architecture, Leaderboard } from "./components/community-pages";
 import { WalletButton } from "./components/wallet-button";
 import { ThemeToggle } from "./components/theme-toggle";
 import { ClusterSelect } from "./components/cluster-select";
-import { ForgeMark } from "./components/terminal-ui";
 import { type ScenarioId } from "./lib/simulation";
 const tabs = [
   { id: "strategy", label: "Strategy Lab", Icon: IconFlame },
@@ -36,7 +36,14 @@ export default function Home() {
           onClick={() => setTab("strategy")}
           aria-label="SpreadForge home"
         >
-          <ForgeMark />
+          <Image
+            src="/SpreadForge.png"
+            alt=""
+            width={34}
+            height={34}
+            priority
+            className="brand-logo"
+          />
           <span className="brand-word">
             <b>SPREAD</b>FORGE
           </span>

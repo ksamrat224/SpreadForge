@@ -1,6 +1,6 @@
 # SpreadForge
 
-![SpreadForge](app/SpreadForge.png)
+![SpreadForge](public/SpreadForge.png)
 
 **Learn. Simulate. Compete.**
 
