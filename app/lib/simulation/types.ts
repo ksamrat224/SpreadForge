@@ -1,4 +1,4 @@
-export type ScenarioId = "stable-market" | "whale-sell";
+export type ScenarioId = "stable-market" | "whale-sell" | "flash-crash";
 
 export type Scenario = {
   id: ScenarioId;

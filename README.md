@@ -1,6 +1,6 @@
 # SpreadForge
 
-![SpreadForge](app/SpreadForge.png)
+![SpreadForge](public/SpreadForge.png)
 
 **Learn. Simulate. Compete.**
 
@@ -11,10 +11,13 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 ## Current MVP slice
 
 - Deterministic integer-based simulation engine; no `Math.random()` in core logic
-- Stable Market and Whale Sell scenarios
+- Stable Market, Whale Sell, and Flash Crash & Recovery scenarios
 - Spread, order-size, inventory-cap, and refresh-cycle strategy controls
 - Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
-- Live Paper Desk: real SOL/USD reference-price updates, one-minute candles, and simulated market/limit actions — clearly simulated and unranked
+- Dark terminal UI with DM Sans, JetBrains Mono, Tabler icons, responsive desktop/tablet/mobile layouts, and a persistent theme preference
+- Paper Desk: 400ms synthetic price feed, optional live Pyth reference, timeframe charts, variable-size limit orders, reserved balances, and simulated trade history
+- Interactive demo leaderboard and MagicBlock settlement walkthrough; sample rankings and proof badges are labelled as demos
+- Challenge drawer, speed controls, radial score meter, execution feed, illustrative depth ladder, and completion dialog
 - Local deterministic runtime plus a MagicBlock runtime adapter with deterministic local fallback
 - Wallet Standard connection, devnet RPC configuration, canonical SHA-256 result commitments, and a typed Anchor Result Registry client are ready
 - The registry source has LiteSVM happy-path and failure-path coverage; devnet deployment, wallet-signing UI, and leaderboard reads remain gated until a real registry program ID is deployed
@@ -33,7 +36,19 @@ npm run dev
 npm run test
 npx tsc --noEmit
 npm run lint
+
+# Browser checks against an isolated production server on port 3100:
+npm run build
+npm run test:e2e
 ```
+
+Browser tests use Chromium at `/usr/bin/chromium` when available. Set
+`CHROMIUM_PATH` for another executable, or install Playwright's browser with
+`npx playwright install chromium`. Screenshots are saved under `test-results/`.
+
+The UI follows [the design specification](docs/SpreadForge-Design-Specification.md).
+Wallet connection uses real detected browser wallets. The result dialog prepares
+local SHA-256 commitments; it does not claim on-chain verification or submit funds.
 
 ## Architecture
 

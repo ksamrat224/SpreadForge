@@ -9,14 +9,14 @@ describe("ThemeToggle", () => {
     document.documentElement.className = "";
   });
 
-  it("defaults to the bright theme and toggles dark mode", () => {
+  it("defaults to the dark terminal theme and toggles light mode", () => {
     render(
       <SpreadForgeThemeProvider>
         <ThemeToggle />
       </SpreadForgeThemeProvider>
     );
-    expect(document.documentElement.classList.contains("dark")).toBe(false);
-    fireEvent.click(screen.getByLabelText("Toggle theme"));
     expect(document.documentElement.classList.contains("dark")).toBe(true);
+    fireEvent.click(screen.getByLabelText("Toggle theme"));
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 });

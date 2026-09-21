@@ -1,6 +1,21 @@
 import { type Scenario, type ScenarioId } from "./types";
 
 export const SCENARIOS: Record<ScenarioId, Scenario> = {
+  "flash-crash": {
+    id: "flash-crash",
+    name: "Flash Crash & Recovery",
+    version: 1,
+    seed: 729_413,
+    durationTicks: 60,
+    startingPriceCents: 15_000,
+    startingBaseMilliSol: 100_000,
+    startingQuoteCents: 1_500_000,
+    events: [
+      { tick: 20, label: "Flash crash", priceMoveBps: -1200 },
+      { tick: 28, label: "Liquidity returns", priceMoveBps: 500 },
+      { tick: 40, label: "Recovery", priceMoveBps: 650 },
+    ],
+  },
   "stable-market": {
     id: "stable-market",
     name: "Stable Market",
