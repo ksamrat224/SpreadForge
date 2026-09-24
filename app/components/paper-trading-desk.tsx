@@ -31,6 +31,7 @@ import { ThemedSelect } from "./themed-select";
 import { SolanaLogo } from "./solana-logo";
 import {
   createPaperState,
+  createPaperSessionSeed,
   paperReducer,
   type PricePoint,
   type PaperState,
@@ -76,10 +77,19 @@ export function PaperTradingDesk({
   const [size, setSize] = useState("1");
   const [timeframe, setTimeframe] = useState(1);
   const [chartView, setChartView] = useState<PaperChartView>("line");
-  const [source, setSource] = useState<"synthetic" | "pyth">("synthetic");
+  const [source, setSource] = useState<"synthetic" | "pyth" | "replay">("synthetic");
   const [feedStatus, setFeedStatus] = useState("SYNTHETIC");
   const random = useRef(createPrng(7264));
+  const replay = useRef<PricePoint[]>([]);
+  const sessionStarted = useRef(false);
   const lastToast = useRef(0);
+  useEffect(() => {
+    if (!visible || sessionStarted.current) return;
+    const seed = createPaperSessionSeed();
+    random.current = createPrng(seed ^ 0x9e3779b9);
+    dispatch({ type: "reset", seed });
+    sessionStarted.current = true;
+  }, [visible]);
   useEffect(() => {
     if (!visible) return;
     if (source === "synthetic") {
@@ -93,6 +103,58 @@ export function PaperTradingDesk({
         400
       );
       return () => window.clearInterval(timer);
+    }
+    if (source === "replay") {
+      let active = true;
+      let timer: number | undefined;
+      const controller = new AbortController();
+      setFeedStatus("LOADING REPLAY");
+      async function startReplay() {
+        try {
+          const response = await fetch("/api/market/sol-usd/history", {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("unavailable");
+          const data = (await response.json()) as {
+            candles?: Array<{ at: number; priceCents: number }>;
+          };
+          const candles = data.candles?.filter(
+            (candle) => Number.isFinite(candle.at) && Number.isSafeInteger(candle.priceCents) && candle.priceCents > 0,
+          ) ?? [];
+          const historyLength = 150;
+          const remainingLength = 60;
+          const starts = candles.length - historyLength - remainingLength;
+          if (starts < 1) throw new Error("not enough history");
+          const start = historyLength - 1 + (createPaperSessionSeed() % starts);
+          const history = candles
+            .slice(start - historyLength + 1, start + 1)
+            .map((candle, sequence) => ({ ...candle, sequence }));
+          replay.current = candles
+            .slice(start + 1)
+            .map((candle, sequence) => ({ ...candle, sequence }));
+          if (!active) return;
+          dispatch({ type: "load-history", points: history });
+          setFeedStatus("HISTORICAL REPLAY");
+          timer = window.setInterval(() => {
+            const next = replay.current.shift();
+            if (!next) {
+              if (timer) window.clearInterval(timer);
+              setFeedStatus("REPLAY COMPLETE");
+              return;
+            }
+            dispatch({ type: "tick", priceCents: next.priceCents, at: next.at });
+          }, 400);
+        } catch {
+          if (active) setFeedStatus("REPLAY UNAVAILABLE");
+        }
+      }
+      void startReplay();
+      return () => {
+        active = false;
+        controller.abort();
+        if (timer) window.clearInterval(timer);
+      };
     }
     let active = true;
     const controller = new AbortController();
@@ -154,6 +216,14 @@ export function PaperTradingDesk({
     [desk.points, cutoff]
   );
   const change = (desk.priceCents / desk.startPriceCents - 1) * 100;
+  const isHistoricalReplay =
+    source === "replay" && (desk.points[0]?.at ?? 0) > 1_000_000_000_000;
+  const replayRange = isHistoricalReplay
+    ? `${new Date(desk.points[0].at).toLocaleString()} — ${new Date(desk.points.at(-1)!.at).toLocaleString()}`
+    : null;
+  const tradingPaused =
+    (source === "pyth" && feedStatus !== "PYTH LIVE") ||
+    (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
   function place(e: React.FormEvent) {
     e.preventDefault();
     dispatch({ type: "quote", side, priceCents, sizeMilliSol, at: Date.now() });
@@ -171,8 +241,10 @@ export function PaperTradingDesk({
         <div>
           <p className="eyebrow">
             {source === "synthetic"
-              ? "SYNTHETIC PYTH-STYLE FEED · 400MS"
-              : "PYTH REFERENCE FEED · 5S"}
+              ? "SYNTHETIC MARKET MODEL · 400MS"
+              : source === "replay"
+                ? "HISTORICAL SOL / USD REPLAY · 1M CANDLES"
+                : "PYTH REFERENCE FEED · 5S"}
           </p>
           <h1>Paper Trading Desk</h1>
           <p className="tip">
@@ -219,6 +291,12 @@ export function PaperTradingDesk({
           synthetic feed to continue.
         </div>
       )}
+      {feedStatus === "REPLAY UNAVAILABLE" && (
+        <div role="status" className="notice">
+          Historical SOL/USD data is temporarily unavailable. Switch to the
+          synthetic feed or try the replay again shortly.
+        </div>
+      )}
       <div className="paper-grid">
         <section className="panel">
           <div className="market-header">
@@ -230,7 +308,9 @@ export function PaperTradingDesk({
                   <small>
                     {source === "synthetic"
                       ? "SYNTHETIC REFERENCE"
-                      : "PYTH REFERENCE"}{" "}
+                      : source === "replay"
+                        ? "HISTORICAL REPLAY"
+                        : "PYTH REFERENCE"}{" "}
                     · PAPER MARKET
                   </small>
                 </div>
@@ -249,11 +329,19 @@ export function PaperTradingDesk({
               value={source}
               options={[
                 { value: "synthetic", label: "Synthetic feed", icon: <IconChartLine size={14} /> },
+                { value: "replay", label: "Historical replay", icon: <IconHistory size={14} /> },
                 { value: "pyth", label: "Live Pyth", icon: <IconActivity size={14} /> },
               ]}
               onChange={(value) => {
                 setSource(value);
-                setFeedStatus(value === "synthetic" ? "SYNTHETIC" : "CONNECTING");
+                if (value === "replay") setTimeframe(240);
+                setFeedStatus(
+                  value === "synthetic"
+                    ? "SYNTHETIC"
+                    : value === "replay"
+                      ? "LOADING REPLAY"
+                      : "CONNECTING",
+                );
               }}
             />
           </div>
@@ -275,7 +363,7 @@ export function PaperTradingDesk({
               </button>
             ))}
             <span className="control-hint" style={{ marginLeft: "auto" }}>
-              Available session data
+              {replayRange ? `Replay: ${replayRange}` : "Available session data"}
             </span>
           </div>
           <PaperChartSwitcher
@@ -283,11 +371,12 @@ export function PaperTradingDesk({
             onViewChange={setChartView}
             points={points}
             desk={desk}
+            useTimestampAxis={isHistoricalReplay}
           />
           <div className="quick-trade">
             <button
               className="btn buy"
-              disabled={source === "pyth" && feedStatus !== "PYTH LIVE"}
+              disabled={tradingPaused}
               onClick={() =>
                 dispatch({
                   type: "market",
@@ -302,7 +391,7 @@ export function PaperTradingDesk({
             </button>
             <button
               className="btn sell"
-              disabled={source === "pyth" && feedStatus !== "PYTH LIVE"}
+              disabled={tradingPaused}
               onClick={() =>
                 dispatch({
                   type: "market",
@@ -405,7 +494,7 @@ export function PaperTradingDesk({
             </div>
             <button
               className={`btn wide ${side === "buy" ? "buy" : "sell"}`}
-              disabled={source === "pyth" && feedStatus !== "PYTH LIVE"}
+              disabled={tradingPaused}
               type="submit"
             >
               Place {side} quote
@@ -516,11 +605,13 @@ function PaperChartSwitcher({
   onViewChange,
   points,
   desk,
+  useTimestampAxis,
 }: {
   view: PaperChartView;
   onViewChange: (view: PaperChartView) => void;
   points: PricePoint[];
   desk: PaperState;
+  useTimestampAxis: boolean;
 }) {
   const option = PAPER_CHART_OPTIONS.find((item) => item.value === view)!;
   const chartPicker = (
@@ -538,11 +629,12 @@ function PaperChartSwitcher({
         <InteractiveMarketChart
           view={view as PriceView}
           samples={points.map((point) => ({
-            time: point.sequence,
+            time: useTimestampAxis ? Math.floor(point.at / 1000) : point.sequence,
             value: point.priceCents / 100,
           }))}
           label={`Paper ${option.label} price chart`}
-          timeLabelPrefix="Sample"
+          ticks={!useTimestampAxis}
+          timeLabelPrefix={useTimestampAxis ? undefined : "Sample"}
           toolbarStart={chartPicker}
         />
       ) : (

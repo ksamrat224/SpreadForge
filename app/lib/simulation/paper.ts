@@ -10,6 +10,7 @@ type Quote = {
 };
 type Trade = Quote & { source: "MARKET" | "LIMIT" };
 export type PaperState = {
+  marketSeed: number;
   priceCents: number;
   startPriceCents: number;
   startEquityCents: number;
@@ -24,6 +25,8 @@ export type PaperState = {
   nextId: number;
 };
 export type PaperAction =
+  | { type: "reset"; seed: number }
+  | { type: "load-history"; points: PricePoint[] }
   | { type: "tick"; delta?: number; priceCents?: number; at: number }
   | { type: "market"; side: Side; sizeMilliSol: number; at: number }
   | {
@@ -34,23 +37,39 @@ export type PaperAction =
       at: number;
     }
   | { type: "cancel"; id: number };
-export function createPaperState(): PaperState {
-  const random = createPrng(149);
+/**
+ * Produces an unpredictable seed for a new Paper Trade session. The seeded
+ * simulation remains repeatable for the lifetime of that session.
+ */
+export function createPaperSessionSeed() {
+  const value = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(value);
+  return value[0];
+}
+
+export function createPaperState(seed = 149, historicalPoints?: PricePoint[]): PaperState {
+  const random = createPrng(seed);
   let price = 14682;
-  const points = Array.from({ length: 150 }, (_, i) => {
-    price = Math.max(100, price + Math.round((random() - 0.5) * 20));
-    return { priceCents: price, at: (i - 149) * 400, sequence: i };
-  });
-  const offset = 14682 - points[149].priceCents;
-  points.forEach((p) => (p.priceCents += offset));
+  const points = historicalPoints?.length
+    ? historicalPoints.map((point, sequence) => ({ ...point, sequence }))
+    : Array.from({ length: 150 }, (_, i) => {
+        price = Math.max(100, price + Math.round((random() - 0.5) * 20));
+        return { priceCents: price, at: (i - 149) * 400, sequence: i };
+      });
+  if (!historicalPoints?.length) {
+    const offset = 14682 - points[149].priceCents;
+    points.forEach((point) => (point.priceCents += offset));
+  }
+  const startPriceCents = points.at(-1)?.priceCents ?? 14682;
   return {
-    priceCents: 14682,
-    startPriceCents: 14682,
-    startEquityCents: 296820,
+    marketSeed: seed,
+    priceCents: startPriceCents,
+    startPriceCents,
+    startEquityCents: 150000 + startPriceCents * 10,
     points,
     solMilli: 10000,
     usdcCents: 150000,
-    inventoryCostCents: 146820,
+    inventoryCostCents: startPriceCents * 10,
     realizedPnlCents: 0,
     quotes: [],
     trades: [],
@@ -121,6 +140,9 @@ export function paperReducer(
   state: PaperState,
   action: PaperAction
 ): PaperState {
+  if (action.type === "reset") return createPaperState(action.seed);
+  if (action.type === "load-history")
+    return createPaperState(state.marketSeed, action.points);
   if (action.type === "cancel")
     return {
       ...state,
