@@ -16,11 +16,11 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 - Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
 - Dark terminal UI with DM Sans, JetBrains Mono, Tabler icons, responsive desktop/tablet/mobile layouts, and a persistent theme preference
 - Paper Desk: 400ms synthetic price feed, optional live Pyth reference, timeframe charts, variable-size limit orders, reserved balances, and simulated trade history
-- Interactive demo leaderboard and MagicBlock settlement walkthrough; sample rankings and proof badges are labelled as demos
+- Personal browser-backed run history plus a devnet wallet-committed leaderboard (All-time and Weekly); no score is presented as independently verified
 - Challenge drawer, speed controls, radial score meter, execution feed, illustrative depth ladder, and completion dialog
 - Local deterministic runtime plus a MagicBlock runtime adapter with deterministic local fallback
 - Wallet Standard connection, devnet RPC configuration, canonical SHA-256 result commitments, and a typed Anchor Result Registry client are ready
-- The registry source has LiteSVM happy-path and failure-path coverage; devnet deployment, wallet-signing UI, and leaderboard reads remain gated until a real registry program ID is deployed
+- Global leaderboard reads and explicit wallet-commit UI activate only after the schema-v2 Result Registry is deployed and `NEXT_PUBLIC_RESULT_REGISTRY_PROGRAM_ID` is configured for devnet
 - MagicBlock session source includes bounded PDA delegation, an in-memory scoped signer, router-discovered ER routing, and terminal commit-and-undelegate; the devnet end-to-end test remains gated on deployment
 
 ## Run locally
@@ -56,6 +56,10 @@ Local deterministic execution is the current demo-safe path. The deployed produc
 
 The detailed product, architecture, engineering rules, and plan live in [`agents/`](agents/).
 The current Result Registry schema, PDA, verification boundary, and safe devnet deployment checklist are documented in [`docs/result-registry.md`](docs/result-registry.md).
+
+### Leaderboard devnet setup
+
+Deploy the schema-v2 Result Registry to devnet, configure `NEXT_PUBLIC_RESULT_REGISTRY_PROGRAM_ID` with that program address, and select **devnet** in the app. A wallet needs enough devnet SOL to pay the account-creation rent and transaction fee. The leaderboard reads the configured program directly through the devnet RPC and its proof links open the devnet Solana Explorer. Browser-local results work without a wallet and remain only on that browser.
 
 ## Why Solana and MagicBlock
 

@@ -13,11 +13,12 @@ Each immutable `ResultRecord` PDA uses these stable seeds:
 ```
 
 The account stores the authority, SHA-256 scenario/strategy/result hashes,
-score, normalized P&L, drawdown, fill count, schema version, timestamp, nonce,
-and PDA bump. Its fixed serialized size is 164 bytes.
+score, normalized P&L, drawdown, fill count, schema version, client-reported
+completion timestamp, chain-authoritative submission timestamp, nonce, and PDA
+bump. Schema version 2 has a fixed serialized size of 172 bytes.
 
 `submit_result` requires the authority to sign, creates (rather than mutates)
-the PDA, rejects scores above 10,000, requires schema version `1`, and rejects
+the PDA, rejects scores above 10,000, requires schema version `2`, and rejects
 zeroed hashes. These checks make accounts wallet-owned and immutable, but they
 do not make a frontend-provided score independently trustworthy.
 
@@ -47,9 +48,25 @@ submission button:
 6. Simulate every submission before requesting a wallet signature, then show
    transaction status, errors, retry, and an Explorer link.
 
-The UI currently prepares the exact commitments without requesting a wallet
-signature or sending a transaction. This prevents a result from being presented
-as verified before a real devnet program exists.
+The UI saves a completed run locally first. When the schema-v2 registry is
+configured on devnet, it offers a separate explicit wallet-signing action to
+publish the commitment. It never presents the resulting record as verified.
+
+## Leaderboard release model
+
+The v1 leaderboard has two layers. Completed simulations are saved locally in
+the browser, while a player may explicitly sign a separate devnet transaction
+to create an immutable public ResultRecord. Global rankings use the best
+supported scenario result per wallet, with All-time and Monday-to-Monday UTC
+Weekly views. Ties are resolved by score, P&L, lower drawdown, earlier
+`submitted_at`, then PDA address.
+
+`submitted_at` must be populated by `Clock::get()?.unix_timestamp` inside the
+on-chain program and must never be accepted from the browser. The account field
+is required for reliable weekly eligibility. Clients only display schema-v2
+records whose scenario hashes equal the canonical built-in SpreadForge
+scenarios. They must always call records **wallet-committed simulation results**,
+not verified results.
 
 ## MagicBlock session account
 

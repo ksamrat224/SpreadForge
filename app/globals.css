@@ -2126,6 +2126,45 @@ tr:last-child td {
   color: var(--primary);
   font-size: 11px;
 }
+.leaderboard-skeleton {
+  overflow: hidden;
+}
+.leaderboard-skeleton td {
+  height: 65px;
+}
+.skeleton-line,
+.skeleton-avatar {
+  display: inline-block;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--accent) 82%, transparent) 20%,
+    color-mix(in oklab, var(--muted) 38%, transparent) 45%,
+    color-mix(in oklab, var(--accent) 82%, transparent) 70%
+  );
+  background-size: 220% 100%;
+  animation: leaderboard-shimmer 1.35s ease-in-out infinite;
+}
+.skeleton-avatar {
+  width: 29px;
+  height: 29px;
+}
+.skeleton-line {
+  height: 10px;
+}
+.skeleton-rank { width: 22px; }
+.skeleton-wallet { width: 106px; display: block; }
+.skeleton-time { width: 72px; height: 7px; display: block; margin-top: 6px; }
+.skeleton-score { width: 54px; }
+.skeleton-scenario { width: 88px; }
+.skeleton-proof { width: 94px; height: 27px; }
+@keyframes leaderboard-shimmer {
+  to { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line,
+  .skeleton-avatar { animation: none; }
+}
 .rank-table tr.you {
   background: color-mix(in oklab, var(--primary) 4%, transparent);
 }

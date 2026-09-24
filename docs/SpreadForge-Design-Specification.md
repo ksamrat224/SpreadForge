@@ -331,7 +331,7 @@ Interactive visualization demonstrating high-speed Ephemeral Rollups to permanen
 - **"Learn in 3 steps" Guide:**
   1. `Configure` — Set quote and risk parameters.
   2. `Simulate` — React to deterministic market events.
-  3. `Debrief` — Study your score and verified proof.
+  3. `Debrief` — Study your score and an optional wallet-committed proof.
 - **Challenge Cards:**
   - `Stable Market` (Beginner, Mint tag)
   - `Whale Sell` (Intermediate, Amber tag)

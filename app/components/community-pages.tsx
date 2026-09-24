@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   IconArrowRight,
   IconBolt,
@@ -10,14 +10,27 @@ import {
   IconCheck,
   IconPlayerPlay,
   IconRefresh,
-  IconRocket,
   IconShieldCheck,
   IconTrophy,
   IconUsers,
   IconWallet,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { PanelHeading, money } from "./terminal-ui";
+import { PanelHeading } from "./terminal-ui";
+import { useCluster } from "./cluster-context";
+import { ellipsify } from "../lib/explorer";
+import {
+  clearLocalRuns,
+  createRpcLeaderboardRepository,
+  getSupportedScenarioHashes,
+  LOCAL_RUNS_UPDATED_EVENT,
+  listLocalRuns,
+  rankRecords,
+  type LeaderboardEntry,
+  type LeaderboardPeriod,
+  type LocalSimulationRun,
+} from "../lib/leaderboard";
+import { getResultRegistryProgramAddress } from "../lib/results/registry";
 const terminalSteps = [
   "Initializing delegated account…",
   "Deriving deterministic scenario hash…",
@@ -232,146 +245,78 @@ function FlowItem({
     </>
   );
 }
-const demoRows = [
-  {
-    name: "solstice.sol",
-    address: "7aK4…m9Qp",
-    score: 9726,
-    pnl: 18243,
-    scenario: "Whale Sell",
-    initial: "S",
-  },
-  {
-    name: "liquidity.zen",
-    address: "4mR2…x8Vt",
-    score: 9451,
-    pnl: 14682,
-    scenario: "Whale Sell",
-    initial: "L",
-  },
-  {
-    name: "Your demo trader",
-    address: "8xK4…v9Qp",
-    score: 9184,
-    pnl: 9834,
-    scenario: "Whale Sell",
-    initial: "Y",
-  },
-  {
-    name: "quantum.sol",
-    address: "9dG5…k2Ls",
-    score: 8996,
-    pnl: 8462,
-    scenario: "Whale Sell",
-    initial: "Q",
-  },
-  {
-    name: "mint.condition",
-    address: "2wP8…n6Bx",
-    score: 8810,
-    pnl: 7205,
-    scenario: "Whale Sell",
-    initial: "M",
-  },
-  {
-    name: "delta.neutral",
-    address: "5sT1…r3Fc",
-    score: 8642,
-    pnl: 5631,
-    scenario: "Whale Sell",
-    initial: "D",
-  },
-  {
-    name: "blocksmith",
-    address: "6hJ9…a7Xe",
-    score: 8507,
-    pnl: 4189,
-    scenario: "Whale Sell",
-    initial: "B",
-  },
-  {
-    name: "spread.operator",
-    address: "3cN6…z4Wu",
-    score: 8312,
-    pnl: 2974,
-    scenario: "Whale Sell",
-    initial: "O",
-  },
-];
-export function Leaderboard() {
-  const [tab, setTab] = useState("Weekly");
-  const [remaining, setRemaining] = useState(
-    3 * 86400 + 14 * 3600 + 27 * 60 + 42
-  );
+export function Leaderboard({ active = true }: { active?: boolean }) {
+  const [tab, setTab] = useState<"global" | "friends">("global");
+  const [period, setPeriod] = useState<LeaderboardPeriod>("weekly");
+  const [localRuns, setLocalRuns] = useState<LocalSimulationRun[]>([]);
+  const [rows, setRows] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { cluster } = useCluster();
+  const programAddress = getResultRegistryProgramAddress();
+  const localBest = useMemo(() => [...localRuns].sort((a, b) => b.commitment.totalScore - a.commitment.totalScore).slice(0, 5), [localRuns]);
+  const refresh = async () => {
+    setLocalRuns(listLocalRuns());
+    if (!programAddress || cluster !== "devnet") return;
+    setLoading(true);
+    setError("");
+    try {
+      const [records, hashes] = await Promise.all([
+        createRpcLeaderboardRepository({ programAddress, cluster: "devnet" }).listRecords(),
+        getSupportedScenarioHashes(),
+      ]);
+      setRows(rankRecords({ records, period, scenarioHashes: hashes, cluster: "devnet" }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load devnet rankings.");
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const timer = window.setInterval(
-      () => setRemaining((value) => Math.max(0, value - 1)),
-      1000
-    );
-    return () => window.clearInterval(timer);
+    if (!active) return;
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
+  }, [active, period, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const syncLocalRuns = () => setLocalRuns(listLocalRuns());
+    window.addEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
+    return () => window.removeEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
   }, []);
-  const clock = [
-    Math.floor(remaining / 86400),
-    Math.floor(remaining / 3600) % 24,
-    Math.floor(remaining / 60) % 60,
-    remaining % 60,
-  ];
-  const rows =
-    tab === "All time"
-      ? demoRows.map((r, i) => ({
-          ...r,
-          score: Math.min(10000, r.score + 100 - i * 5),
-          scenario: "Stable Market",
-        }))
-      : demoRows;
   return (
     <section className="page-shell" aria-label="Leaderboard">
       <div className="workspace-top">
         <span>
-          <strong>Good strategies deserve a stage.</strong> · Compete under
-          identical conditions.
+          <strong>Compare your strategy runs.</strong> · Global entries are public wallet commitments on Solana devnet.
         </span>
-        <span className="tag warning">DEMO RANKINGS</span>
+        <span className="tag warning">DEVNET</span>
       </div>
       <div className="context-banner tournament-banner">
         <div>
           <IconTrophy className="tournament-icon" size={28} />
-          <p className="eyebrow">WEEKLY TOURNAMENT · SEASON 07 · DEMO</p>
-          <h1>The Liquidity Gauntlet</h1>
+          <p className="eyebrow">WALLET-COMMITTED SIMULATION RESULTS</p>
+          <h1>Strategy leaderboard</h1>
           <p className="tip">
-            $5,000 simulated prize pool · Whale Sell challenge · Top 100 qualify
+            Best result per wallet across Stable Market, Whale Sell, and Flash Crash.
           </p>
         </div>
-        <div>
-          <p className="eyebrow" style={{ marginBottom: 10 }}>
-            DEMO ROUND ENDS IN
-          </p>
-          <div className="countdown">
-            {clock.map((value, i) => (
-              <div key={i}>
-                <b>{String(value).padStart(2, "0")}</b>
-                <small>{["DAYS", "HRS", "MIN", "SEC"][i]}</small>
-              </div>
-            ))}
-          </div>
-        </div>
+        <p className="control-hint">No prizes or financial rewards are attached to these rankings.</p>
       </div>
+      <section className="panel rankings" style={{ marginBottom: 16 }}>
+        <PanelHeading eyebrow="THIS BROWSER" title="Your local runs">
+          <button className="btn ghost" onClick={() => { if (window.confirm("Clear all local simulation runs from this browser?")) { clearLocalRuns(); setLocalRuns([]); } }} disabled={!localRuns.length}>Clear history</button>
+        </PanelHeading>
+        {localBest.length ? <div className="table-scroll"><table className="rank-table"><thead><tr><th>Scenario</th><th>Score</th><th>P&L</th><th>Status</th><th>Completed</th></tr></thead><tbody>{localBest.map((run) => <tr key={run.id}><td>{run.scenarioId.replaceAll("-", " ")}</td><td className="mono profit">{run.commitment.totalScore.toLocaleString()}</td><td className="mono">{(run.commitment.pnlBps / 100).toFixed(2)}%</td><td><span className="tag">{run.status}</span></td><td className="mono muted">{new Date(run.completedAt).toLocaleString()}</td></tr>)}</tbody></table></div> : <div className="empty-state">Complete a Strategy Lab session to save your first private local result.</div>}
+      </section>
       <section className="panel rankings">
         <PanelHeading eyebrow="THE BEST OF THE LAB" title="Global rankings">
           <div className="rank-tabs">
-            {["Weekly", "All time", "Friends"].map((label) => (
-              <button
-                key={label}
-                className={tab === label ? "active" : ""}
-                aria-pressed={tab === label}
-                onClick={() => setTab(label)}
-              >
-                {label}
-              </button>
-            ))}
+            <button className={tab === "global" && period === "weekly" ? "active" : ""} onClick={() => { setTab("global"); setPeriod("weekly"); }}>Weekly</button>
+            <button className={tab === "global" && period === "all-time" ? "active" : ""} onClick={() => { setTab("global"); setPeriod("all-time"); }}>All time</button>
+            <button className={tab === "friends" ? "active" : ""} onClick={() => setTab("friends")}>Friends · soon</button>
+            <button className="icon-button" aria-label="Refresh rankings" onClick={() => void refresh()}><IconRefresh size={15} /></button>
           </div>
         </PanelHeading>
-        {tab === "Friends" ? (
+        {tab === "friends" ? (
           <div className="empty-state" style={{ padding: 70 }}>
             <IconUsers size={32} />
             <h3
@@ -383,24 +328,30 @@ export function Leaderboard() {
             >
               Build your trading circle
             </h3>
-            Friend rankings will appear when social competitions are connected.
+            Friend rankings are coming later. SpreadForge does not yet store profiles or friend lists.
           </div>
-        ) : (
+        ) : !programAddress ? <div className="empty-state" style={{ padding: 50 }}>The Result Registry is not configured. Your local browser history is still available above.</div>
+        : cluster !== "devnet" ? <div className="empty-state" style={{ padding: 50 }}>Switch to Solana devnet to view global wallet-committed results.</div>
+        : loading ? <LeaderboardSkeleton />
+        : error ? <div className="empty-state" style={{ padding: 50 }} role="alert">{error}</div>
+        : !rows.length ? <div className="empty-state" style={{ padding: 50 }}>No matching devnet commitments exist for this period yet.</div>
+        : (
           <div className="table-scroll">
             <table className="rank-table">
               <thead>
                 <tr>
                   <th>Rank</th>
-                  <th>Trader</th>
+                  <th>Wallet</th>
                   <th>Score</th>
                   <th>Best scenario</th>
                   <th>Net P&L</th>
-                  <th>Proof (demo)</th>
+                  <th>Drawdown</th>
+                  <th>Proof</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, i) => (
-                  <tr className={i === 2 ? "you" : ""} key={row.name}>
+                  <tr key={row.resultAddress}>
                     <td>
                       {i < 3 ? (
                         <span className="rank-medal">{i + 1}</span>
@@ -412,9 +363,9 @@ export function Leaderboard() {
                     </td>
                     <td>
                       <div className="trader">
-                        <span className="avatar">{row.initial}</span>
+                        <span className="avatar">{row.walletAddress.slice(0, 1)}</span>
                         <div>
-                          <strong>{row.name}</strong>
+                          <strong>{ellipsify(row.walletAddress)}</strong>
                           <small
                             className="mono muted"
                             style={{
@@ -423,27 +374,19 @@ export function Leaderboard() {
                               marginTop: 4,
                             }}
                           >
-                            {row.address}
+                            {new Date(row.submittedAt * 1000).toLocaleString()}
                           </small>
                         </div>
-                        {i === 2 && (
-                          <span className="tag profit">YOU · DEMO</span>
-                        )}
                       </div>
                     </td>
                     <td className="mono profit">
                       {row.score.toLocaleString("en-US")}
                     </td>
-                    <td>{row.scenario}</td>
-                    <td className="mono profit">+{money(row.pnl)}</td>
+                    <td>{row.scenarioName}</td>
+                    <td className={`mono ${row.pnlBps >= 0 ? "profit" : "loss"}`}>{row.pnlBps >= 0 ? "+" : ""}{(row.pnlBps / 100).toFixed(2)}%</td>
+                    <td className="mono">{(row.maxDrawdownBps / 100).toFixed(2)}%</td>
                     <td>
-                      <span
-                        className="tag profit"
-                        title="Illustrative badge; not an on-chain proof"
-                      >
-                        <IconShieldCheck size={12} />
-                        VERIFIED · DEMO
-                      </span>
+                      <a className="btn ghost" href={row.proofUrl} target="_blank" rel="noreferrer">View commitment</a>
                     </td>
                   </tr>
                 ))}
@@ -452,12 +395,37 @@ export function Leaderboard() {
           </div>
         )}
         <p className="sample-note">
-          <IconRocket size={12} style={{ display: "inline" }} />
-          Preview with sample traders, scores, proof badges and a simulated
-          countdown. Real result indexing and tournament rewards are not
-          connected.
+          Rankings are wallet-committed simulation results. The current registry stores immutable commitments but does not replay or independently verify browser-executed scores.
         </p>
       </section>
     </section>
+  );
+}
+
+function LeaderboardSkeleton() {
+  return (
+    <div className="table-scroll leaderboard-skeleton" aria-busy="true" aria-label="Loading devnet rankings">
+      <table className="rank-table">
+        <thead>
+          <tr>
+            <th>Rank</th><th>Wallet</th><th>Score</th><th>Best scenario</th><th>Net P&amp;L</th><th>Drawdown</th><th>Proof</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }, (_, index) => (
+            <tr key={index}>
+              <td><span className="skeleton-line skeleton-rank" /></td>
+              <td><div className="trader"><span className="skeleton-avatar" /><div><span className="skeleton-line skeleton-wallet" /><span className="skeleton-line skeleton-time" /></div></div></td>
+              <td><span className="skeleton-line skeleton-score" /></td>
+              <td><span className="skeleton-line skeleton-scenario" /></td>
+              <td><span className="skeleton-line skeleton-score" /></td>
+              <td><span className="skeleton-line skeleton-score" /></td>
+              <td><span className="skeleton-line skeleton-proof" /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <span className="sr-only">Loading devnet result records.</span>
+    </div>
   );
 }

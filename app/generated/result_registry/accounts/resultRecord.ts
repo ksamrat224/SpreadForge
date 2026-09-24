@@ -67,6 +67,7 @@ export type ResultRecord = {
   fills: number;
   schemaVersion: number;
   completedAt: bigint;
+  submittedAt: bigint;
   runNonce: bigint;
   bump: number;
 };
@@ -82,6 +83,7 @@ export type ResultRecordArgs = {
   fills: number;
   schemaVersion: number;
   completedAt: number | bigint;
+  submittedAt: number | bigint;
   runNonce: number | bigint;
   bump: number;
 };
@@ -101,6 +103,7 @@ export function getResultRecordEncoder(): FixedSizeEncoder<ResultRecordArgs> {
       ["fills", getU16Encoder()],
       ["schemaVersion", getU8Encoder()],
       ["completedAt", getI64Encoder()],
+      ["submittedAt", getI64Encoder()],
       ["runNonce", getU64Encoder()],
       ["bump", getU8Encoder()],
     ]),
@@ -122,6 +125,7 @@ export function getResultRecordDecoder(): FixedSizeDecoder<ResultRecord> {
     ["fills", getU16Decoder()],
     ["schemaVersion", getU8Decoder()],
     ["completedAt", getI64Decoder()],
+    ["submittedAt", getI64Decoder()],
     ["runNonce", getU64Decoder()],
     ["bump", getU8Decoder()],
   ]);
@@ -189,5 +193,5 @@ export async function fetchAllMaybeResultRecord(
 }
 
 export function getResultRecordSize(): number {
-  return 164;
+  return 172;
 }
