@@ -85,15 +85,7 @@ export function PaperTradingDesk({
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const random = useRef(createPrng(7264));
   const replay = useRef<PricePoint[]>([]);
-  const sessionStarted = useRef(false);
   const lastToast = useRef(0);
-  useEffect(() => {
-    if (!visible || sessionStarted.current) return;
-    const seed = createPaperSessionSeed();
-    random.current = createPrng(seed ^ 0x9e3779b9);
-    dispatch({ type: "reset", seed });
-    sessionStarted.current = true;
-  }, [visible]);
   useEffect(() => {
     if (!visible) return;
     if (source === "synthetic") {

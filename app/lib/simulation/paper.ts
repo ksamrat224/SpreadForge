@@ -38,8 +38,7 @@ export type PaperAction =
     }
   | { type: "cancel"; id: number };
 /**
- * Produces an unpredictable seed for a new Paper Trade session. The seeded
- * simulation remains repeatable for the lifetime of that session.
+ * Produces an unpredictable seed when choosing a Historical Replay window.
  */
 export function createPaperSessionSeed() {
   const value = new Uint32Array(1);
