@@ -201,16 +201,29 @@ The goal is to finish core development early enough to leave several days for te
 
 **Target: Oct 3–4**
 
-- [ ] Fetch verified result accounts
-- [ ] Filter by scenario version
-- [ ] Sort by score
-- [ ] Show wallet short address
-- [ ] Show verified badge
-- [ ] Show score and timestamp
-- [ ] Empty/error states
-- [ ] Cache reads if necessary
+- [x] Save completed Strategy Lab runs in browser-local history
+- [x] Retain local history safely and provide clear-history confirmation
+- [x] Add local-run status tracking: local, submitting, committed, and failed
+- [x] Implement direct devnet RPC repository for ResultRecord accounts
+- [x] Filter records by schema version and supported scenario hashes
+- [x] Rank one best result per wallet for All-time and Weekly periods
+- [x] Apply deterministic score, P&L, drawdown, timestamp, and PDA tie-breakers
+- [x] Show shortened wallet address, score, scenario, P&L, drawdown, fills, timestamp, and explorer proof link
+- [x] Add local, global, loading, empty, unavailable, and error states
+- [x] Keep Friends visible as a clearly labelled coming-soon feature with no mock rankings
+- [x] Add explicit, opt-in devnet result-commitment flow with retry-safe status feedback
+- [x] Add leaderboard storage, ranking, formatting, and component tests
 
-**Definition of done:** two verified users can be compared.
+## Remaining
+
+- [ ] Deploy the schema-v2 Result Registry program to Solana devnet
+- [ ] Set `NEXT_PUBLIC_RESULT_REGISTRY_PROGRAM_ID` and the devnet RPC endpoint for the deployed registry
+- [ ] Fund a test wallet with devnet SOL and complete an end-to-end result commitment
+- [ ] Confirm the submitted ResultRecord PDA appears in Global All-time and Weekly rankings
+- [ ] Confirm the explorer proof link opens the correct devnet account
+- [ ] Evaluate RPC read caching or an indexer once devnet account volume makes direct RPC reads slow
+
+**Definition of done:** two wallets that explicitly commit supported simulation results to the deployed devnet registry appear in the same global ranking, with their ResultRecord accounts available as public proof.
 
 ---
 
