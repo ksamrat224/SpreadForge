@@ -6,8 +6,18 @@ import {
   IconHistory,
   IconActivity,
   IconBolt,
-  IconChevronDown,
   IconChartLine,
+  IconChartAreaLine,
+  IconChartCandle,
+  IconChartBar,
+  IconChartHistogram,
+  IconChartDots,
+  IconArrowsExchange,
+  IconBox,
+  IconCurrencyDollar,
+  IconTrendingDown,
+  IconChevronUp,
+  IconChevronDown,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -16,6 +26,9 @@ import {
 } from "./interactive-market-chart";
 import { createPrng } from "../lib/simulation/prng";
 import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
+import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
+import { ThemedSelect } from "./themed-select";
+import { SolanaLogo } from "./solana-logo";
 import {
   createPaperState,
   paperReducer,
@@ -35,21 +48,17 @@ type PaperChartView =
   | "pnl"
   | "drawdown";
 
-const PAPER_CHART_OPTIONS: Array<{
-  value: PaperChartView;
-  label: string;
-  group: "Price" | "Analytics";
-}> = [
-  { value: "line", label: "Line", group: "Price" },
-  { value: "area", label: "Area", group: "Price" },
-  { value: "candles", label: "Candles", group: "Price" },
-  { value: "ohlc", label: "OHLC bars", group: "Price" },
-  { value: "heikin", label: "Heikin-Ashi", group: "Price" },
-  { value: "depth", label: "Order book depth", group: "Analytics" },
-  { value: "spread", label: "Bid / ask spread", group: "Analytics" },
-  { value: "inventory", label: "Inventory", group: "Analytics" },
-  { value: "pnl", label: "P&L / equity", group: "Analytics" },
-  { value: "drawdown", label: "Drawdown", group: "Analytics" },
+const PAPER_CHART_OPTIONS: ChartViewOption<PaperChartView>[] = [
+  { value: "line", label: "Line", group: "Price", Icon: IconChartLine },
+  { value: "area", label: "Area", group: "Price", Icon: IconChartAreaLine },
+  { value: "candles", label: "Candles", group: "Price", Icon: IconChartCandle },
+  { value: "ohlc", label: "OHLC bars", group: "Price", Icon: IconChartBar },
+  { value: "heikin", label: "Heikin-Ashi", group: "Price", Icon: IconChartHistogram },
+  { value: "depth", label: "Order book depth", group: "Analytics", Icon: IconChartDots },
+  { value: "spread", label: "Bid / ask spread", group: "Analytics", Icon: IconArrowsExchange },
+  { value: "inventory", label: "Inventory", group: "Analytics", Icon: IconBox },
+  { value: "pnl", label: "P&L / equity", group: "Analytics", Icon: IconCurrencyDollar },
+  { value: "drawdown", label: "Drawdown", group: "Analytics", Icon: IconTrendingDown },
 ];
 
 export function PaperTradingDesk({
@@ -215,7 +224,7 @@ export function PaperTradingDesk({
           <div className="market-header">
             <div>
               <div className="market-pair">
-                <span className="pair-icon">◎</span>
+                <span className="pair-icon"><SolanaLogo size={24} /></span>
                 <div>
                   <h2>SOL / USD</h2>
                   <small>
@@ -234,22 +243,19 @@ export function PaperTradingDesk({
                 </span>
               </div>
             </div>
-            <label className="cluster-select">
-              <select
-                aria-label="Price feed"
-                value={source}
-                onChange={(e) => {
-                  setSource(e.target.value as "synthetic" | "pyth");
-                  setFeedStatus(
-                    e.target.value === "synthetic" ? "SYNTHETIC" : "CONNECTING"
-                  );
-                }}
-              >
-                <option value="synthetic">Synthetic feed</option>
-                <option value="pyth">Live Pyth</option>
-              </select>
-              <IconChevronDown size={12} />
-            </label>
+            <ThemedSelect
+              className="cluster-select"
+              label="Price feed"
+              value={source}
+              options={[
+                { value: "synthetic", label: "Synthetic feed", icon: <IconChartLine size={14} /> },
+                { value: "pyth", label: "Live Pyth", icon: <IconActivity size={14} /> },
+              ]}
+              onChange={(value) => {
+                setSource(value);
+                setFeedStatus(value === "synthetic" ? "SYNTHETIC" : "CONNECTING");
+              }}
+            />
           </div>
           <div className="timeframes" aria-label="Chart timeframe">
             {[
@@ -335,7 +341,7 @@ export function PaperTradingDesk({
               </button>
             </div>
             <label className="field">
-              Limit price
+              <span className="field-label">Limit price <span className="field-unit">USDC</span></span>
               <div className="input-unit">
                 <input
                   aria-label="Limit price"
@@ -346,11 +352,18 @@ export function PaperTradingDesk({
                   value={limit}
                   onChange={(e) => setLimit(e.target.value)}
                 />
-                <span>USDC</span>
+                <div className="number-stepper" aria-label="Adjust limit price">
+                  <button type="button" aria-label="Increase limit price" onClick={() => setLimit((value) => Math.max(0.01, Number(value || 0) + 0.01).toFixed(2))}>
+                    <IconChevronUp size={13} />
+                  </button>
+                  <button type="button" aria-label="Decrease limit price" onClick={() => setLimit((value) => Math.max(0.01, Number(value || 0) - 0.01).toFixed(2))}>
+                    <IconChevronDown size={13} />
+                  </button>
+                </div>
               </div>
             </label>
             <label className="field">
-              Size
+              <span className="field-label">Size <span className="field-unit">SOL</span></span>
               <div className="input-unit">
                 <input
                   aria-label="Size"
@@ -361,7 +374,14 @@ export function PaperTradingDesk({
                   value={size}
                   onChange={(e) => setSize(e.target.value)}
                 />
-                <span>SOL</span>
+                <div className="number-stepper" aria-label="Adjust size">
+                  <button type="button" aria-label="Increase size" onClick={() => setSize((value) => Math.max(0.001, Number(value || 0) + 0.001).toFixed(3))}>
+                    <IconChevronUp size={13} />
+                  </button>
+                  <button type="button" aria-label="Decrease size" onClick={() => setSize((value) => Math.max(0.001, Number(value || 0) - 0.001).toFixed(3))}>
+                    <IconChevronDown size={13} />
+                  </button>
+                </div>
               </div>
             </label>
             <div className="quote-estimates">
@@ -503,52 +523,14 @@ function PaperChartSwitcher({
   desk: PaperState;
 }) {
   const option = PAPER_CHART_OPTIONS.find((item) => item.value === view)!;
-  const [menuOpen, setMenuOpen] = useState(false);
   const chartPicker = (
-    <div className="paper-chart-picker">
-      <button
-        type="button"
-        className="paper-chart-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        <span className="eyebrow">Paper market visualizer</span>
-        <strong>
-          <IconChartLine size={14} /> {option.label}{" "}
-          <IconChevronDown size={14} />
-        </strong>
-      </button>
-      {menuOpen && (
-        <div
-          className="paper-chart-menu"
-          role="listbox"
-          aria-label="Paper trading chart view"
-        >
-          {(["Price", "Analytics"] as const).map((group) => (
-            <div key={group}>
-              <span>{group}</span>
-              {PAPER_CHART_OPTIONS.filter((item) => item.group === group).map(
-                (item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    role="option"
-                    aria-selected={item.value === view}
-                    onClick={() => {
-                      onViewChange(item.value);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                )
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <ChartViewPicker
+      view={view}
+      options={PAPER_CHART_OPTIONS}
+      onViewChange={onViewChange}
+      eyebrow="Paper market visualizer"
+      label="Paper trading chart view"
+    />
   );
   return (
     <>

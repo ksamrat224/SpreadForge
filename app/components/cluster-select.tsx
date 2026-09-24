@@ -1,24 +1,30 @@
 "use client";
-import { IconChevronDown } from "@tabler/icons-react";
+import { IconCode, IconFlask, IconServer, IconWorld } from "@tabler/icons-react";
 import { useCluster, CLUSTERS } from "./cluster-context";
 import type { ClusterMoniker } from "../lib/solana-client";
+import { ThemedSelect } from "./themed-select";
 export function ClusterSelect() {
   const { cluster, setCluster } = useCluster();
   return (
-    <label className="cluster-select">
-      <span className="status-dot" />
-      <select
-        aria-label="Solana cluster"
-        value={cluster}
-        onChange={(e) => setCluster(e.target.value as ClusterMoniker)}
-      >
-        {CLUSTERS.map((c) => (
-          <option key={c} value={c}>
-            {c[0].toUpperCase() + c.slice(1)}
-          </option>
-        ))}
-      </select>
-      <IconChevronDown size={12} />
-    </label>
+    <ThemedSelect
+      className="cluster-select"
+      label="Solana cluster"
+      value={cluster}
+      onChange={(value) => setCluster(value as ClusterMoniker)}
+      options={CLUSTERS.map((clusterName) => {
+        const ClusterIcon = {
+          localnet: IconCode,
+          devnet: IconFlask,
+          testnet: IconServer,
+          mainnet: IconWorld,
+        }[clusterName];
+        return {
+          value: clusterName,
+          label: clusterName[0].toUpperCase() + clusterName.slice(1),
+          icon: <ClusterIcon size={14} />,
+        };
+      })}
+      prefix={<span className="status-dot" />}
+    />
   );
 }

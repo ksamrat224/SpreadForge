@@ -12,6 +12,16 @@ import {
   IconBrandDatabricks,
   IconGauge,
   IconCheck,
+  IconChartLine,
+  IconChartAreaLine,
+  IconChartCandle,
+  IconChartBar,
+  IconChartHistogram,
+  IconChartDots,
+  IconArrowsExchange,
+  IconBox,
+  IconCurrencyDollar,
+  IconTrendingDown,
 } from "@tabler/icons-react";
 import {
   DEFAULT_STRATEGY,
@@ -28,6 +38,9 @@ import {
   InteractiveMarketChart,
   type PriceView,
 } from "./interactive-market-chart";
+import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
+import { ThemedSelect } from "./themed-select";
+import { SolanaLogo } from "./solana-logo";
 import {
   createResultCommitment,
   type ResultCommitment,
@@ -100,19 +113,18 @@ type ChartView =
   | "pnl"
   | "drawdown";
 
-const CHART_OPTIONS: Array<{ value: ChartView; label: string; group: string }> =
-  [
-    { value: "line", label: "Line", group: "Price" },
-    { value: "area", label: "Area", group: "Price" },
-    { value: "candles", label: "Candles", group: "Price" },
-    { value: "ohlc", label: "OHLC bars", group: "Price" },
-    { value: "heikin", label: "Heikin-Ashi", group: "Price" },
-    { value: "depth", label: "Order book depth", group: "Analytics" },
-    { value: "spread", label: "Bid / ask spread", group: "Analytics" },
-    { value: "inventory", label: "Inventory", group: "Analytics" },
-    { value: "pnl", label: "P&L / equity", group: "Analytics" },
-    { value: "drawdown", label: "Drawdown", group: "Analytics" },
-  ];
+const CHART_OPTIONS: ChartViewOption<ChartView>[] = [
+  { value: "line", label: "Line", group: "Price", Icon: IconChartLine },
+  { value: "area", label: "Area", group: "Price", Icon: IconChartAreaLine },
+  { value: "candles", label: "Candles", group: "Price", Icon: IconChartCandle },
+  { value: "ohlc", label: "OHLC bars", group: "Price", Icon: IconChartBar },
+  { value: "heikin", label: "Heikin-Ashi", group: "Price", Icon: IconChartHistogram },
+  { value: "depth", label: "Order book depth", group: "Analytics", Icon: IconChartDots },
+  { value: "spread", label: "Bid / ask spread", group: "Analytics", Icon: IconArrowsExchange },
+  { value: "inventory", label: "Inventory", group: "Analytics", Icon: IconBox },
+  { value: "pnl", label: "P&L / equity", group: "Analytics", Icon: IconCurrencyDollar },
+  { value: "drawdown", label: "Drawdown", group: "Analytics", Icon: IconTrendingDown },
+];
 
 export function ChallengeDrawer({
   selected,
@@ -285,27 +297,25 @@ export function SimulationLab({
       </div>
       <div className="lab-grid">
         <aside className="panel controls-panel">
-          <PanelHeading eyebrow="PARAMETERS" title="Quote & Risk">
-            <IconSettings size={17} />
-          </PanelHeading>
+          <PanelHeading eyebrow="PARAMETERS" title="Quote & Risk" />
           <div className="control-body">
-            <label className="field">
-              Scenario
-              <select
-                aria-label="Scenario"
+            <div className="field">
+              <span>Scenario</span>
+              <ThemedSelect
+                label="Scenario"
                 value={scenarioId}
                 disabled={running && !finished}
-                onChange={(e) => select(e.target.value as ScenarioId)}
-              >
-                {(
-                  ["stable-market", "whale-sell", "flash-crash"] as ScenarioId[]
-                ).map((id) => (
-                  <option key={id} value={id}>
-                    {SCENARIOS[id].name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={(value) => select(value as ScenarioId)}
+                options={(["stable-market", "whale-sell", "flash-crash"] as ScenarioId[]).map((id) => {
+                  const ScenarioIcon = id === "stable-market"
+                    ? IconChartLine
+                    : id === "whale-sell"
+                      ? IconTrendingDown
+                      : IconBolt;
+                  return { value: id, label: SCENARIOS[id].name, icon: <ScenarioIcon size={14} /> };
+                })}
+              />
+            </div>
             <div>
               <Control
                 label="Spread"
@@ -430,7 +440,7 @@ export function SimulationLab({
             <div className="market-header">
               <div>
                 <div className="market-pair">
-                  <span className="pair-icon">◎</span>
+                  <span className="pair-icon"><SolanaLogo size={24} /></span>
                   <div>
                     <h2>SOL / USDC</h2>
                     <small>DETERMINISTIC MARKET · SIMULATED</small>
@@ -585,6 +595,12 @@ export function SimulationLab({
               <IconCrown size={12} />
               {tier(breakdown.total).toUpperCase()} PACE
             </span>
+            {finished && dismissed && (
+              <button className="btn primary score-results-button" onClick={() => setDismissed(false)}>
+                <IconCrown size={15} />
+                View results
+              </button>
+            )}
           </section>
           <section className="panel breakdown">
             <div className="breakdown-heading">
@@ -617,7 +633,7 @@ export function SimulationLab({
         </aside>
       </div>
       {active && finished && !dismissed && (
-        <Modal title="Session debrief" onClose={() => setDismissed(true)}>
+        <Modal title="Session debrief" onClose={() => setDismissed(true)} scrollBody>
           <Results
             scenario={scenario}
             strategy={strategy}
@@ -632,16 +648,6 @@ export function SimulationLab({
             }}
           />
         </Modal>
-      )}
-      {finished && dismissed && (
-        <button
-          className="btn"
-          style={{ marginTop: 12 }}
-          onClick={() => setDismissed(false)}
-        >
-          <IconCrown size={15} />
-          View results
-        </button>
       )}
       {active && drawer && (
         <ChallengeDrawer
@@ -740,32 +746,6 @@ function ChartSwitcher({
 
   return (
     <>
-      <div className="chart-toolbar">
-        <div>
-          <span className="eyebrow">Market visualizer</span>
-          <strong>{option.label}</strong>
-        </div>
-        <label className="chart-select">
-          <span className="sr-only">Chart view</span>
-          <select
-            aria-label="Chart view"
-            value={view}
-            onChange={(event) => onViewChange(event.target.value as ChartView)}
-          >
-            {["Price", "Analytics"].map((group) => (
-              <optgroup key={group} label={group}>
-                {CHART_OPTIONS.filter((item) => item.group === group).map(
-                  (item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  )
-                )}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-      </div>
       {isPrice ? (
         <InteractiveMarketChart
           key={scenario.id}
@@ -785,14 +765,32 @@ function ChartSwitcher({
               ? "Candlestick price chart"
               : `${option.label} price chart`
           }
+          toolbarStart={
+            <ChartViewPicker
+              view={view}
+              options={CHART_OPTIONS}
+              onViewChange={onViewChange}
+              label="Strategy Lab chart view"
+            />
+          }
         />
       ) : (
-        <AnalyticsChart
-          view={view as "depth" | "spread" | "inventory" | "pnl" | "drawdown"}
-          snapshots={snapshots}
-          state={state}
-          strategy={strategy}
-        />
+        <>
+          <div className="market-chart-toolbar analytics-toolbar">
+            <ChartViewPicker
+              view={view}
+              options={CHART_OPTIONS}
+              onViewChange={onViewChange}
+              label="Strategy Lab chart view"
+            />
+          </div>
+          <AnalyticsChart
+            view={view as "depth" | "spread" | "inventory" | "pnl" | "drawdown"}
+            snapshots={snapshots}
+            state={state}
+            strategy={strategy}
+          />
+        </>
       )}
       <div className="chart-legend">
         {view === "depth" ? (

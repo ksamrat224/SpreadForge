@@ -91,14 +91,15 @@ describe("Terminal strategy workspace", () => {
   });
   it("switches between price and market-making chart views", () => {
     renderWithProviders(<SimulationLab />);
-    const chartView = screen.getByRole("combobox", { name: "Chart view" });
-    fireEvent.change(chartView, { target: { value: "candles" } });
+    fireEvent.click(screen.getByRole("button", { name: "Strategy Lab chart view" }));
+    fireEvent.click(screen.getByRole("option", { name: "Candles" }));
     expect(
       screen.getByRole("img", { name: "Candlestick price chart" })
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Zoom in chart" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Fit" })).toBeTruthy();
-    fireEvent.change(chartView, { target: { value: "inventory" } });
+    fireEvent.click(screen.getByRole("button", { name: "Strategy Lab chart view" }));
+    fireEvent.click(screen.getByRole("option", { name: "Inventory" }));
     expect(screen.getByRole("img", { name: "Inventory (SOL)" })).toBeTruthy();
   });
   it("selects the advanced challenge from the drawer", () => {

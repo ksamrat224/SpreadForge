@@ -136,6 +136,27 @@
     background: var(--card);
     color: var(--foreground);
   }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 58%, transparent) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--muted-foreground) 58%, transparent);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+    background-clip: padding-box;
+  }
   a {
     color: inherit;
     text-decoration: none;
@@ -319,6 +340,90 @@
   color: var(--foreground);
   font: 500 11px var(--font-mono);
   min-width: 52px;
+}
+.themed-select {
+  position: relative;
+  width: 100%;
+}
+.themed-select > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 34px;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: var(--secondary);
+  color: var(--foreground);
+  font: 500 10px var(--font-mono);
+  text-align: left;
+}
+.themed-select > button:hover,
+.themed-select > button[aria-expanded="true"] {
+  border-color: color-mix(in oklab, var(--primary) 48%, var(--border));
+}
+.themed-select > button > svg {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+}
+.themed-select-value {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+.themed-select-value > svg,
+.themed-select-menu button > svg {
+  flex: 0 0 auto;
+}
+.themed-select-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  min-width: max-content;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--popover);
+  box-shadow: 0 14px 32px rgb(0 0 0 / 28%);
+}
+.themed-select-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 9px;
+  background: transparent;
+  color: var(--foreground);
+  font: 500 11px var(--font-sans);
+  text-align: left;
+  white-space: nowrap;
+}
+.themed-select-menu button:hover,
+.themed-select-menu button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--primary);
+}
+.cluster-select.themed-select {
+  width: auto;
+  padding: 0;
+  gap: 0;
+}
+.cluster-select.themed-select > button {
+  min-height: 30px;
+  border: 0;
+  padding: 0 8px;
+  background: transparent;
+  font-size: 11px;
+}
+.cluster-select .status-dot {
+  flex: 0 0 auto;
 }
 .status-dot,
 .live i,
@@ -1203,6 +1308,10 @@
   border: 1px solid color-mix(in oklab, var(--primary) 20%, transparent);
   border-radius: 3px;
 }
+.score-results-button {
+  width: 100%;
+  margin-top: 14px;
+}
 .breakdown {
   padding: 16px;
 }
@@ -1300,7 +1409,9 @@
   border-radius: 12px;
   box-shadow: 0 25px 100px #0007;
   margin: auto;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: enter 0.2s ease;
 }
 .dialog.closing {
@@ -1328,6 +1439,7 @@
   align-items: center;
   margin-bottom: 24px;
   gap: 12px;
+  flex: 0 0 auto;
 }
 .dialog-heading h2 {
   font-size: 15px;
@@ -1336,6 +1448,26 @@
 .dialog-heading .icon-button {
   background: transparent;
   border: 0;
+}
+.dialog-body {
+  min-width: 0;
+}
+.dialog.scroll-body {
+  height: min(780px, calc(100dvh - 40px));
+}
+.dialog.scroll-body .dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-right: -20px;
+  padding-right: 20px;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 58%, transparent) transparent;
+}
+.dialog.scroll-body .dialog-body::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--muted-foreground) 58%, transparent);
+}
+.dialog.scroll-body .result-content {
+  padding-top: 10px;
 }
 .drawer {
   height: 100dvh;
@@ -1665,6 +1797,41 @@
   font: 11px var(--font-mono);
   cursor: pointer;
 }
+.market-chart-controls button {
+  display: grid;
+  place-items: center;
+}
+.market-chart-controls button svg {
+  display: block;
+}
+.market-chart-controls button[data-tooltip] {
+  position: relative;
+}
+.market-chart-controls button[data-tooltip]::after {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  top: calc(100% + 7px);
+  width: max-content;
+  max-width: 150px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--popover);
+  box-shadow: 0 8px 18px rgb(0 0 0 / 22%);
+  color: var(--foreground);
+  content: attr(data-tooltip);
+  font: 500 9px var(--font-mono);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.market-chart-controls button[data-tooltip]:hover::after,
+.market-chart-controls button[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
 .market-chart-controls .candle-interval {
   display: flex;
   align-items: center;
@@ -1672,8 +1839,10 @@
   font: 10px var(--font-mono);
   color: var(--muted-foreground);
 }
-.market-chart-controls .candle-interval select {
-  min-width: 54px;
+.market-chart-controls .candle-interval .themed-select { width: auto; }
+.market-chart-controls .candle-interval .themed-select > button {
+  min-width: 58px;
+  min-height: 30px;
   padding: 5px 7px;
 }
 .market-chart-controls button:focus-visible,
@@ -1684,6 +1853,8 @@
 .market-chart-readout {
   min-height: 34px;
   padding: 4px 12px;
+  display: flex;
+  align-items: center;
   color: var(--foreground);
   font: 10px/1.6 var(--font-mono);
   overflow-wrap: anywhere;
@@ -1703,6 +1874,9 @@
   border-bottom: 1px solid var(--border);
 }
 .paper-chart-picker {
+  position: relative;
+}
+.chart-view-picker {
   position: relative;
 }
 .paper-chart-trigger {
@@ -1751,6 +1925,9 @@
   font: 500 8px var(--font-mono);
 }
 .paper-chart-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   border: 0;
   border-radius: 4px;
@@ -1759,6 +1936,9 @@
   background: transparent;
   font: 500 11px var(--font-sans);
   text-align: left;
+}
+.market-chart-canvas #tv-attr-logo {
+  bottom: 2px !important;
 }
 .paper-chart-menu button:hover,
 .paper-chart-menu button[aria-selected="true"] {
@@ -1808,7 +1988,8 @@
   margin-top: 22px;
 }
 .input-unit {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
   align-items: center;
   gap: 6px;
 }
@@ -1820,6 +2001,64 @@
   border: 0;
   outline: 0;
   font-family: var(--font-mono);
+}
+.input-unit input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.input-unit input[type="number"]::-webkit-inner-spin-button,
+.input-unit input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+.number-stepper {
+  display: grid;
+  grid-template-rows: repeat(2, 15px);
+  align-self: center;
+  width: 24px;
+  justify-self: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--secondary);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.input-unit:hover .number-stepper,
+.input-unit:focus-within .number-stepper {
+  opacity: 1;
+}
+.number-stepper button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 15px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  line-height: 0;
+}
+.number-stepper button:first-child {
+  border-top: 0;
+}
+.number-stepper button:hover {
+  background: var(--accent);
+  color: var(--primary);
+}
+.number-stepper button svg {
+  display: block;
+  margin: auto;
+}
+.field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.field-unit {
+  color: var(--muted-foreground);
+  font: 400 9px var(--font-mono);
 }
 .input-unit:focus-within {
   outline: 2px solid var(--primary);

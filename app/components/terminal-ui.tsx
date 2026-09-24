@@ -18,11 +18,13 @@ export function Modal({
   children,
   onClose,
   drawer = false,
+  scrollBody = false,
 }: {
   title: string;
   children: ReactNode | ((requestClose: () => void) => ReactNode);
   onClose: () => void;
   drawer?: boolean;
+  scrollBody?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -47,7 +49,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`dialog ${drawer ? "drawer" : ""} ${closing ? "closing" : ""}`}
+      className={`dialog ${drawer ? "drawer" : ""} ${scrollBody ? "scroll-body" : ""} ${closing ? "closing" : ""}`}
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
@@ -76,7 +78,9 @@ export function Modal({
           <IconX size={18} />
         </button>
       </div>
-      {typeof children === "function" ? children(requestClose) : children}
+      <div className="dialog-body">
+        {typeof children === "function" ? children(requestClose) : children}
+      </div>
     </dialog>
   );
 }

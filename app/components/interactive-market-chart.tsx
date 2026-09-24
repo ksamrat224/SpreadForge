@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   IconArrowsMaximize,
+  IconChartCandle,
   IconFocusCentered,
   IconMinus,
   IconPlus,
@@ -10,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import type { IChartApi, Time, UTCTimestamp } from "lightweight-charts";
 import { buildCandles, heikinAshi, type ChartSample } from "../lib/chart-data";
+import { ThemedSelect } from "./themed-select";
 
 export type PriceView = "line" | "area" | "candles" | "ohlc" | "heikin";
 type Marker = { time: number; side: "buy" | "sell"; text: string };
@@ -290,27 +292,26 @@ export function InteractiveMarketChart({
   const controls = (
     <>
       {candleView && (
-        <label className="candle-interval">
+        <div className="candle-interval">
           <span>Interval</span>
-          <select
-            aria-label="Candle interval"
+          <ThemedSelect
+            label="Candle interval"
             value={interval}
-            onChange={(event) => setInterval(Number(event.target.value))}
-          >
-            {(ticks ? [2, 4, 8] : [5, 15, 30, 60]).map((value) => (
-              <option key={value} value={value}>
-                {value}
-                {ticks ? " ticks" : "s"}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={setInterval}
+            options={(ticks ? [2, 4, 8] : [5, 15, 30, 60]).map((value) => ({
+              value,
+              label: `${value}${ticks ? " ticks" : "s"}`,
+              icon: <IconChartCandle size={14} />,
+            }))}
+          />
+        </div>
       )}
       <button
         type="button"
         onClick={() => zoom(0.8)}
         aria-label="Zoom in chart"
         title="Zoom in"
+        data-tooltip="Zoom in"
       >
         <IconPlus size={14} />
       </button>
@@ -319,10 +320,11 @@ export function InteractiveMarketChart({
         onClick={() => zoom(1.25)}
         aria-label="Zoom out chart"
         title="Zoom out"
+        data-tooltip="Zoom out"
       >
         <IconMinus size={14} />
       </button>
-      <button type="button" onClick={fit} aria-label="Fit" title="Fit chart">
+      <button type="button" onClick={fit} aria-label="Fit" title="Fit chart" data-tooltip="Fit chart">
         <IconFocusCentered size={14} />
       </button>
       <button
@@ -330,12 +332,14 @@ export function InteractiveMarketChart({
         onClick={goToLatest}
         aria-label="Latest chart point"
         title="Latest point"
+        data-tooltip="Go to latest"
       >
         <IconRefresh size={14} />
       </button>
       <button
         aria-label="Fullscreen chart"
         title="Fullscreen"
+        data-tooltip="Fullscreen"
         type="button"
         onClick={() => {
           if (document.fullscreenElement) void document.exitFullscreen();

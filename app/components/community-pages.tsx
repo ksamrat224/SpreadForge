@@ -291,7 +291,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
         </span>
         <span className="tag warning">DEVNET</span>
       </div>
-      <div className="context-banner tournament-banner">
+      <div className="context-banner">
         <div>
           <div className="leaderboard-kicker">
             <IconTrophy className="tournament-icon" size={18} stroke={2.2} />
