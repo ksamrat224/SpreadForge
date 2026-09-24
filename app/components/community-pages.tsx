@@ -299,10 +299,9 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             Best result per wallet across Stable Market, Whale Sell, and Flash Crash.
           </p>
         </div>
-        <p className="control-hint">No prizes or financial rewards are attached to these rankings.</p>
       </div>
       <section className="panel rankings" style={{ marginBottom: 16 }}>
-        <PanelHeading eyebrow="THIS BROWSER" title="Your local runs">
+        <PanelHeading title="Your local runs">
           <button className="btn ghost" onClick={() => { if (window.confirm("Clear all local simulation runs from this browser?")) { clearLocalRuns(); setLocalRuns([]); } }} disabled={!localRuns.length}>Clear history</button>
         </PanelHeading>
         {localBest.length ? <div className="table-scroll"><table className="rank-table"><thead><tr><th>Scenario</th><th>Score</th><th>P&L</th><th>Status</th><th>Completed</th></tr></thead><tbody>{localBest.map((run) => <tr key={run.id}><td>{run.scenarioId.replaceAll("-", " ")}</td><td className="mono profit">{run.commitment.totalScore.toLocaleString()}</td><td className="mono">{(run.commitment.pnlBps / 100).toFixed(2)}%</td><td><span className="tag">{run.status}</span></td><td className="mono muted">{new Date(run.completedAt).toLocaleString()}</td></tr>)}</tbody></table></div> : <div className="empty-state">Complete a Strategy Lab session to save your first private local result.</div>}
@@ -313,7 +312,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             <button className={tab === "global" && period === "weekly" ? "active" : ""} onClick={() => { setTab("global"); setPeriod("weekly"); }}>Weekly</button>
             <button className={tab === "global" && period === "all-time" ? "active" : ""} onClick={() => { setTab("global"); setPeriod("all-time"); }}>All time</button>
             <button className={tab === "friends" ? "active" : ""} onClick={() => setTab("friends")}>Friends · soon</button>
-            <button className="icon-button" aria-label="Refresh rankings" onClick={() => void refresh()}><IconRefresh size={15} /></button>
+            <button className="icon-button leaderboard-refresh" aria-label="Refresh rankings" onClick={() => void refresh()}><IconRefresh size={19} stroke={2.25} /></button>
           </div>
         </PanelHeading>
         {tab === "friends" ? (
@@ -394,9 +393,6 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             </table>
           </div>
         )}
-        <p className="sample-note">
-          Rankings are wallet-committed simulation results. The current registry stores immutable commitments but does not replay or independently verify browser-executed scores.
-        </p>
       </section>
     </section>
   );

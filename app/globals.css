@@ -2094,6 +2094,11 @@ tr:last-child td {
   color: var(--primary);
   border-color: color-mix(in oklab, var(--primary) 15%, transparent);
 }
+.rank-tabs .leaderboard-refresh {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
 .rank-table td {
   padding: 18px 22px;
 }
