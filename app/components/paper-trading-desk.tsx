@@ -81,8 +81,8 @@ export function PaperTradingDesk({
   const [chartView, setChartView] = useState<PaperChartView>("line");
   const [source, setSource] = useState<"synthetic" | "pyth" | "replay">("synthetic");
   const [feedStatus, setFeedStatus] = useState("SYNTHETIC");
-  const [replaySpeed, setReplaySpeed] = useState(150);
-  const [replayPaused, setReplayPaused] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(150);
+  const [playbackPaused, setPlaybackPaused] = useState(false);
   const random = useRef(createPrng(7264));
   const replay = useRef<PricePoint[]>([]);
   const sessionStarted = useRef(false);
@@ -97,6 +97,7 @@ export function PaperTradingDesk({
   useEffect(() => {
     if (!visible) return;
     if (source === "synthetic") {
+      if (playbackPaused) return;
       const timer = window.setInterval(
         () =>
           dispatch({
@@ -104,11 +105,11 @@ export function PaperTradingDesk({
             delta: Math.round((random.current() - 0.49) * 24),
             at: Date.now(),
           }),
-        400
+        60000 / playbackSpeed
       );
       return () => window.clearInterval(timer);
     }
-    if (source === "replay") return;
+    if (source === "replay" || playbackPaused) return;
     let active = true;
     const controller = new AbortController();
     async function refresh() {
@@ -145,7 +146,7 @@ export function PaperTradingDesk({
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [source, visible]);
+  }, [playbackPaused, playbackSpeed, source, visible]);
   useEffect(() => {
     if (!visible || source !== "replay") return;
     let active = true;
@@ -177,7 +178,7 @@ export function PaperTradingDesk({
           .map((candle, sequence) => ({ ...candle, sequence }));
         if (!active) return;
         dispatch({ type: "load-history", points: history });
-        setReplayPaused(false);
+        setPlaybackPaused(false);
         setFeedStatus("HISTORICAL REPLAY");
       } catch {
         if (active) setFeedStatus("REPLAY UNAVAILABLE");
@@ -193,7 +194,7 @@ export function PaperTradingDesk({
     if (
       !visible ||
       source !== "replay" ||
-      replayPaused ||
+      playbackPaused ||
       feedStatus !== "HISTORICAL REPLAY"
     )
       return;
@@ -205,9 +206,9 @@ export function PaperTradingDesk({
         return;
       }
       dispatch({ type: "tick", priceCents: next.priceCents, at: next.at });
-    }, 60000 / replaySpeed);
+    }, 60000 / playbackSpeed);
     return () => window.clearInterval(timer);
-  }, [feedStatus, replayPaused, replaySpeed, source, visible]);
+  }, [feedStatus, playbackPaused, playbackSpeed, source, visible]);
   useEffect(() => {
     const trade = desk.trades[0];
     if (trade && trade.id > lastToast.current) {
@@ -239,30 +240,32 @@ export function PaperTradingDesk({
   const tradingPaused =
     (source === "pyth" && feedStatus !== "PYTH LIVE") ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
-  const replayControls = source === "replay" ? (
+  const playbackControls = (
     <div className="replay-playback-actions">
       <button
         type="button"
-        aria-label={replayPaused ? "Resume historical replay" : "Pause historical replay"}
-        title={replayPaused ? "Resume replay" : "Pause replay"}
+        aria-label={playbackPaused ? "Resume market display" : "Pause market display"}
+        title={playbackPaused ? "Resume" : "Pause"}
         disabled={feedStatus === "REPLAY COMPLETE" || feedStatus === "LOADING REPLAY"}
-        onClick={() => setReplayPaused((paused) => !paused)}
+        onClick={() => setPlaybackPaused((paused) => !paused)}
       >
-        {replayPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
+        {playbackPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
       </button>
-      <ThemedSelect
-        className="replay-speed-select"
-        label="Historical replay speed"
-        value={replaySpeed}
-        onChange={setReplaySpeed}
-        options={[1, 5, 15, 60, 150].map((speed) => ({
-          value: speed,
-          label: `${speed}×`,
-          icon: <IconPlayerPlay size={14} />,
-        }))}
-      />
+      {source !== "pyth" && (
+        <ThemedSelect
+          className="replay-speed-select"
+          label="Market playback speed"
+          value={playbackSpeed}
+          onChange={setPlaybackSpeed}
+          options={[1, 5, 15, 60, 150].map((speed) => ({
+            value: speed,
+            label: `${speed}×`,
+            icon: <IconPlayerPlay size={14} />,
+          }))}
+        />
+      )}
     </div>
-  ) : null;
+  );
   function place(e: React.FormEvent) {
     e.preventDefault();
     dispatch({ type: "quote", side, priceCents, sizeMilliSol, at: Date.now() });
@@ -373,6 +376,7 @@ export function PaperTradingDesk({
               ]}
               onChange={(value) => {
                 setSource(value);
+                setPlaybackPaused(false);
                 if (value === "replay") setTimeframe(240);
                 setFeedStatus(
                   value === "synthetic"
@@ -411,7 +415,7 @@ export function PaperTradingDesk({
             points={points}
             desk={desk}
             useTimestampAxis={isHistoricalReplay}
-            readoutActions={replayControls}
+            readoutActions={playbackControls}
           />
           <div className="quick-trade">
             <button
