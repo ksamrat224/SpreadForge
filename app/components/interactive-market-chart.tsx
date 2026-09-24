@@ -22,6 +22,7 @@ type Props = {
   ticks?: boolean;
   timeLabelPrefix?: string;
   toolbarStart?: ReactNode;
+  readoutActions?: ReactNode;
   unit?: string;
   markers?: Marker[];
 };
@@ -33,12 +34,13 @@ export function InteractiveMarketChart({
   ticks = false,
   timeLabelPrefix,
   toolbarStart,
+  readoutActions,
   unit = "$",
   markers = [],
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const readout = useRef<HTMLDivElement>(null);
+  const readout = useRef<HTMLSpanElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const syncRef = useRef<(() => void) | null>(null);
   const followFullWidth = useRef(true);
@@ -370,11 +372,11 @@ export function InteractiveMarketChart({
         <div className="market-chart-controls">{controls}</div>
       )}
       <div
-        ref={readout}
         className="market-chart-readout"
         aria-label="Chart values"
       >
-        Loading chart…
+        <span ref={readout}>Loading chart…</span>
+        {readoutActions && <div className="market-chart-readout-actions">{readoutActions}</div>}
       </div>
       <div
         ref={container}

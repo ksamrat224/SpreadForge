@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import {
   IconArrowUpRight,
   IconArrowDownRight,
@@ -18,6 +18,8 @@ import {
   IconTrendingDown,
   IconChevronUp,
   IconChevronDown,
+  IconPlayerPause,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -79,6 +81,8 @@ export function PaperTradingDesk({
   const [chartView, setChartView] = useState<PaperChartView>("line");
   const [source, setSource] = useState<"synthetic" | "pyth" | "replay">("synthetic");
   const [feedStatus, setFeedStatus] = useState("SYNTHETIC");
+  const [replaySpeed, setReplaySpeed] = useState(150);
+  const [replayPaused, setReplayPaused] = useState(false);
   const random = useRef(createPrng(7264));
   const replay = useRef<PricePoint[]>([]);
   const sessionStarted = useRef(false);
@@ -104,58 +108,7 @@ export function PaperTradingDesk({
       );
       return () => window.clearInterval(timer);
     }
-    if (source === "replay") {
-      let active = true;
-      let timer: number | undefined;
-      const controller = new AbortController();
-      setFeedStatus("LOADING REPLAY");
-      async function startReplay() {
-        try {
-          const response = await fetch("/api/market/sol-usd/history", {
-            cache: "no-store",
-            signal: controller.signal,
-          });
-          if (!response.ok) throw new Error("unavailable");
-          const data = (await response.json()) as {
-            candles?: Array<{ at: number; priceCents: number }>;
-          };
-          const candles = data.candles?.filter(
-            (candle) => Number.isFinite(candle.at) && Number.isSafeInteger(candle.priceCents) && candle.priceCents > 0,
-          ) ?? [];
-          const historyLength = 150;
-          const remainingLength = 60;
-          const starts = candles.length - historyLength - remainingLength;
-          if (starts < 1) throw new Error("not enough history");
-          const start = historyLength - 1 + (createPaperSessionSeed() % starts);
-          const history = candles
-            .slice(start - historyLength + 1, start + 1)
-            .map((candle, sequence) => ({ ...candle, sequence }));
-          replay.current = candles
-            .slice(start + 1)
-            .map((candle, sequence) => ({ ...candle, sequence }));
-          if (!active) return;
-          dispatch({ type: "load-history", points: history });
-          setFeedStatus("HISTORICAL REPLAY");
-          timer = window.setInterval(() => {
-            const next = replay.current.shift();
-            if (!next) {
-              if (timer) window.clearInterval(timer);
-              setFeedStatus("REPLAY COMPLETE");
-              return;
-            }
-            dispatch({ type: "tick", priceCents: next.priceCents, at: next.at });
-          }, 400);
-        } catch {
-          if (active) setFeedStatus("REPLAY UNAVAILABLE");
-        }
-      }
-      void startReplay();
-      return () => {
-        active = false;
-        controller.abort();
-        if (timer) window.clearInterval(timer);
-      };
-    }
+    if (source === "replay") return;
     let active = true;
     const controller = new AbortController();
     async function refresh() {
@@ -194,6 +147,68 @@ export function PaperTradingDesk({
     };
   }, [source, visible]);
   useEffect(() => {
+    if (!visible || source !== "replay") return;
+    let active = true;
+    const controller = new AbortController();
+    setFeedStatus("LOADING REPLAY");
+    async function loadReplay() {
+      try {
+        const response = await fetch("/api/market/sol-usd/history", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("unavailable");
+        const data = (await response.json()) as {
+          candles?: Array<{ at: number; priceCents: number }>;
+        };
+        const candles = data.candles?.filter(
+          (candle) => Number.isFinite(candle.at) && Number.isSafeInteger(candle.priceCents) && candle.priceCents > 0,
+        ) ?? [];
+        const historyLength = 150;
+        const remainingLength = 60;
+        const starts = candles.length - historyLength - remainingLength;
+        if (starts < 1) throw new Error("not enough history");
+        const start = historyLength - 1 + (createPaperSessionSeed() % starts);
+        const history = candles
+          .slice(start - historyLength + 1, start + 1)
+          .map((candle, sequence) => ({ ...candle, sequence }));
+        replay.current = candles
+          .slice(start + 1)
+          .map((candle, sequence) => ({ ...candle, sequence }));
+        if (!active) return;
+        dispatch({ type: "load-history", points: history });
+        setReplayPaused(false);
+        setFeedStatus("HISTORICAL REPLAY");
+      } catch {
+        if (active) setFeedStatus("REPLAY UNAVAILABLE");
+      }
+    }
+    void loadReplay();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [source, visible]);
+  useEffect(() => {
+    if (
+      !visible ||
+      source !== "replay" ||
+      replayPaused ||
+      feedStatus !== "HISTORICAL REPLAY"
+    )
+      return;
+    const timer = window.setInterval(() => {
+      const next = replay.current.shift();
+      if (!next) {
+        window.clearInterval(timer);
+        setFeedStatus("REPLAY COMPLETE");
+        return;
+      }
+      dispatch({ type: "tick", priceCents: next.priceCents, at: next.at });
+    }, 60000 / replaySpeed);
+    return () => window.clearInterval(timer);
+  }, [feedStatus, replayPaused, replaySpeed, source, visible]);
+  useEffect(() => {
     const trade = desk.trades[0];
     if (trade && trade.id > lastToast.current) {
       lastToast.current = trade.id;
@@ -224,6 +239,30 @@ export function PaperTradingDesk({
   const tradingPaused =
     (source === "pyth" && feedStatus !== "PYTH LIVE") ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
+  const replayControls = source === "replay" ? (
+    <div className="replay-playback-actions">
+      <button
+        type="button"
+        aria-label={replayPaused ? "Resume historical replay" : "Pause historical replay"}
+        title={replayPaused ? "Resume replay" : "Pause replay"}
+        disabled={feedStatus === "REPLAY COMPLETE" || feedStatus === "LOADING REPLAY"}
+        onClick={() => setReplayPaused((paused) => !paused)}
+      >
+        {replayPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
+      </button>
+      <ThemedSelect
+        className="replay-speed-select"
+        label="Historical replay speed"
+        value={replaySpeed}
+        onChange={setReplaySpeed}
+        options={[1, 5, 15, 60, 150].map((speed) => ({
+          value: speed,
+          label: `${speed}×`,
+          icon: <IconPlayerPlay size={14} />,
+        }))}
+      />
+    </div>
+  ) : null;
   function place(e: React.FormEvent) {
     e.preventDefault();
     dispatch({ type: "quote", side, priceCents, sizeMilliSol, at: Date.now() });
@@ -372,6 +411,7 @@ export function PaperTradingDesk({
             points={points}
             desk={desk}
             useTimestampAxis={isHistoricalReplay}
+            readoutActions={replayControls}
           />
           <div className="quick-trade">
             <button
@@ -606,12 +646,14 @@ function PaperChartSwitcher({
   points,
   desk,
   useTimestampAxis,
+  readoutActions,
 }: {
   view: PaperChartView;
   onViewChange: (view: PaperChartView) => void;
   points: PricePoint[];
   desk: PaperState;
   useTimestampAxis: boolean;
+  readoutActions?: ReactNode;
 }) {
   const option = PAPER_CHART_OPTIONS.find((item) => item.value === view)!;
   const chartPicker = (
@@ -636,6 +678,7 @@ function PaperChartSwitcher({
           ticks={!useTimestampAxis}
           timeLabelPrefix={useTimestampAxis ? undefined : "Sample"}
           toolbarStart={chartPicker}
+          readoutActions={readoutActions}
         />
       ) : (
         <>
