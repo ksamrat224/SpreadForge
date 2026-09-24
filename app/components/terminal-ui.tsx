@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useId, type ReactNode } from "react";
-import { IconFlame, IconHexagon, IconX } from "@tabler/icons-react";
+import { useEffect, useRef, useId, useState, type ReactNode } from "react";
+import { IconAlertTriangle, IconFlame, IconHexagon, IconX } from "@tabler/icons-react";
 export const money = (cents: number, decimals = 2) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 export const signedMoney = (cents: number) =>
@@ -20,12 +20,18 @@ export function Modal({
   drawer = false,
 }: {
   title: string;
-  children: ReactNode;
+  children: ReactNode | ((requestClose: () => void) => ReactNode);
   onClose: () => void;
   drawer?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const [closing, setClosing] = useState(false);
+  const requestClose = () => {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(onClose, 180);
+  };
   useEffect(() => {
     const dialog = ref.current;
     const previous = document.activeElement as HTMLElement | null;
@@ -41,11 +47,11 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`dialog ${drawer ? "drawer" : ""}`}
+      className={`dialog ${drawer ? "drawer" : ""} ${closing ? "closing" : ""}`}
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        requestClose();
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -56,7 +62,7 @@ export function Modal({
             e.clientY < b.top ||
             e.clientY > b.bottom
           )
-            onClose();
+            requestClose();
         }
       }}
     >
@@ -65,13 +71,47 @@ export function Modal({
         <button
           className="icon-button"
           aria-label="Close dialog"
-          onClick={onClose}
+          onClick={requestClose}
         >
           <IconX size={18} />
         </button>
       </div>
-      {children}
+      {typeof children === "function" ? children(requestClose) : children}
     </dialog>
+  );
+}
+export function AlertModal({
+  title,
+  children,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  children: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      {(requestClose) => (
+        <div className="alert-modal-content">
+          <div className="alert-modal-body">
+            <span className="alert-modal-icon" aria-hidden="true">
+              <IconAlertTriangle size={24} stroke={2.2} />
+            </span>
+            <div className="alert-modal-message">{children}</div>
+          </div>
+          <div className="action-row">
+            <button className="btn" onClick={requestClose}>{cancelLabel}</button>
+            <button className="btn danger" onClick={() => { onConfirm(); requestClose(); }}>{confirmLabel}</button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 export function PanelHeading({

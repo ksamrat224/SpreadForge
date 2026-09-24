@@ -32,6 +32,11 @@ import {
   createResultCommitment,
   type ResultCommitment,
 } from "../lib/results/commitment";
+import { buildSubmitResultInstruction, createRunNonce, getResultRegistryProgramAddress } from "../lib/results/registry";
+import { saveLocalRun, updateLocalRun, type LocalSimulationRun } from "../lib/leaderboard";
+import { useWallet } from "../lib/wallet/context";
+import { useCluster } from "./cluster-context";
+import { useSendTransaction } from "../lib/hooks/use-send-transaction";
 import {
   Metric,
   Modal,
@@ -192,6 +197,7 @@ export function SimulationLab({
   const [running, setRunning] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [dismissed, setDismissed] = useState(false);
+  const [completedRunId, setCompletedRunId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [chartView, setChartView] = useState<ChartView>("line");
   const finished = state.tick >= scenario.durationTicks;
@@ -207,9 +213,15 @@ export function SimulationLab({
     );
     return () => window.clearInterval(timer);
   }, [running, finished, scenario, strategy, speed, active]);
+  useEffect(() => {
+    if (!finished || completedRunId) return;
+    const timer = window.setTimeout(() => setCompletedRunId(crypto.randomUUID()), 0);
+    return () => window.clearTimeout(timer);
+  }, [finished, completedRunId]);
   function reset(nextScenario = scenario, nextStrategy = strategy) {
     setRunning(false);
     setDismissed(false);
+    setCompletedRunId(null);
     setState(createSimulation(nextScenario, nextStrategy));
   }
   function select(id: ScenarioId) {
@@ -612,6 +624,7 @@ export function SimulationLab({
             state={state}
             breakdown={breakdown}
             pnlCents={pnl}
+            runId={completedRunId}
             onAgain={() => reset()}
             onChallenges={() => {
               setDismissed(true);
@@ -1146,6 +1159,7 @@ export function Results({
   state,
   breakdown,
   pnlCents,
+  runId,
   onAgain,
   onChallenges,
 }: {
@@ -1154,29 +1168,86 @@ export function Results({
   state: SimulationState;
   breakdown: ReturnType<typeof scoreRun>;
   pnlCents: number;
+  runId: string | null;
   verified?: boolean;
   onAgain: () => void;
   onChallenges: () => void;
 }) {
   const [commitment, setCommitment] = useState<ResultCommitment | null>(null);
+  const [localRun, setLocalRun] = useState<LocalSimulationRun | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { signer } = useWallet();
+  const { cluster } = useCluster();
+  const { send, isSending } = useSendTransaction();
+  const programAddress = getResultRegistryProgramAddress();
   async function verify() {
+    if (!runId) return;
     setBusy(true);
     setError("");
     try {
-      setCommitment(
-        await createResultCommitment({
+      const nextCommitment = await createResultCommitment({
           scenario,
           strategy,
           state,
           score: breakdown,
-        })
-      );
+        });
+      const run: LocalSimulationRun = {
+        id: runId,
+        completedAt: new Date().toISOString(),
+        scenarioId: scenario.id,
+        scenarioVersion: scenario.version,
+        strategy: { ...strategy },
+        commitment: nextCommitment,
+        status: "local",
+      };
+      saveLocalRun(run);
+      setCommitment(nextCommitment);
+      setLocalRun(run);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Could not prepare commitment."
       );
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    // A completed run belongs to the player's private history even if they
+    // never connect a wallet or choose to publish it.
+    const timer = runId ? window.setTimeout(() => void verify(), 0) : undefined;
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+    // The result snapshot is immutable for the lifetime of this dialog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runId]);
+  async function commit() {
+    if (!commitment || !localRun || !signer || !programAddress) return;
+    if (cluster !== "devnet") {
+      setError("Global leaderboard commitments are available on devnet only.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    updateLocalRun(localRun.id, { status: "submitting", error: undefined });
+    try {
+      const { instruction, resultAddress } = await buildSubmitResultInstruction({
+        authority: signer,
+        commitment,
+        runNonce: createRunNonce(),
+        programAddress,
+      });
+      // The wallet controls and explicitly approves the signature. The shared
+      // sender keeps RPC preflight enabled before broadcasting.
+      const signature = await send({ instructions: [instruction] });
+      updateLocalRun(localRun.id, { status: "committed", resultAddress, signature });
+      setLocalRun((current) => current ? { ...current, status: "committed", resultAddress, signature } : current);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not commit result to devnet.";
+      updateLocalRun(localRun.id, { status: "failed", error: message });
+      setLocalRun((current) => current ? { ...current, status: "failed", error: message } : current);
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -1229,8 +1300,8 @@ export function Results({
           {busy
             ? "Hashing…"
             : commitment
-              ? "Commitment prepared"
-              : "Verify on Solana"}
+              ? "Result saved locally"
+              : "Preparing result"}
         </button>
       </div>
       <p className="control-hint">
@@ -1248,6 +1319,19 @@ export function Results({
             <dt>Result hash</dt>
             <dd>{commitment.resultHash}</dd>
           </dl>
+          {localRun?.status === "committed" ? (
+            <p className="profit">Committed to devnet. Your wallet-committed result can now appear on the global board.</p>
+          ) : signer && programAddress && cluster === "devnet" ? (
+            <>
+              <p className="control-hint">Review: {scenario.name}, {breakdown.total.toLocaleString()} score, {state.fills.length} fills. This creates a public immutable devnet record.</p>
+              <button className="btn primary" onClick={() => void commit()} disabled={busy || isSending || localRun?.status === "submitting"}>
+                <IconShieldCheck size={15} />
+                {busy || isSending ? "Committing…" : "Commit result to devnet"}
+              </button>
+            </>
+          ) : (
+            <p className="control-hint">{cluster !== "devnet" ? "Switch the cluster to devnet to commit this result." : !signer ? "Connect a wallet to commit this result to devnet." : "The result registry is not configured yet."}</p>
+          )}
         </div>
       )}
       {error && (

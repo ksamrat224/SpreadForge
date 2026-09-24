@@ -89,7 +89,7 @@ export default function Home() {
           <PaperTradingDesk active={tab === "paper"} />
         </div>
         <div hidden={tab !== "leaderboard"}>
-          <Leaderboard />
+          <Leaderboard active={tab === "leaderboard"} />
         </div>
         <div hidden={tab !== "magicblock"}>
           <Architecture />

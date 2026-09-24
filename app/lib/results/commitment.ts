@@ -5,7 +5,9 @@ import type {
   StrategyConfig,
 } from "../simulation/types";
 
-export const RESULT_SCHEMA_VERSION = 1;
+// Schema v2 is required by the leaderboard registry, which records an
+// on-chain submission timestamp alongside this browser-created commitment.
+export const RESULT_SCHEMA_VERSION = 2;
 export const SIMULATION_ENGINE_VERSION = 1;
 
 export type ResultCommitment = {
