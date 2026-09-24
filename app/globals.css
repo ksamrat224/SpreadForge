@@ -402,6 +402,11 @@
   background: color-mix(in oklab, var(--loss) 12%, var(--card));
   border-color: color-mix(in oklab, var(--loss) 35%, transparent);
 }
+.btn.danger {
+  color: var(--loss);
+  background: color-mix(in oklab, var(--loss) 12%, var(--card));
+  border-color: color-mix(in oklab, var(--loss) 35%, transparent);
+}
 .workspace,
 .page-shell {
   max-width: 1600px;
@@ -1298,9 +1303,24 @@
   overflow-y: auto;
   animation: enter 0.2s ease;
 }
+.dialog.closing {
+  animation: dialog-exit 0.18s ease forwards;
+}
 .dialog::backdrop {
   background: #020b10b8;
   backdrop-filter: blur(6px);
+}
+.dialog.closing::backdrop {
+  animation: dialog-backdrop-exit 0.18s ease forwards;
+}
+@keyframes dialog-exit {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes dialog-backdrop-exit {
+  to { opacity: 0; }
 }
 .dialog-heading {
   display: flex;
@@ -2052,6 +2072,19 @@ tr:last-child td {
   color: var(--primary);
   margin-bottom: 12px;
 }
+.leaderboard-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.leaderboard-kicker .tournament-icon {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.leaderboard-kicker .eyebrow {
+  line-height: 1;
+}
 .countdown {
   display: flex;
   gap: 7px;
@@ -2178,6 +2211,38 @@ tr:last-child td {
   line-height: 1.7;
   color: var(--muted-foreground);
   padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+.alert-modal-content {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.alert-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.alert-modal-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in oklab, var(--warning) 38%, transparent);
+  border-radius: 50%;
+  color: var(--warning);
+  background: color-mix(in oklab, var(--warning) 12%, transparent);
+}
+.alert-modal-message p {
+  margin: 0;
+}
+.alert-modal-content .action-row {
+  justify-content: flex-end;
+  margin: 24px -24px -24px;
+  padding: 16px 24px;
   border-top: 1px solid var(--border);
 }
 @media (max-width: 1200px) {
@@ -2496,6 +2561,10 @@ tr:last-child td {
   }
   .dialog {
     padding: 20px;
+  }
+  .alert-modal-content .action-row {
+    margin: 24px -20px -20px;
+    padding: 16px 20px;
   }
   .drawer {
     padding: 22px;

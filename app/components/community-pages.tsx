@@ -16,7 +16,7 @@ import {
   IconWallet,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { PanelHeading } from "./terminal-ui";
+import { AlertModal, PanelHeading } from "./terminal-ui";
 import { useCluster } from "./cluster-context";
 import { ellipsify } from "../lib/explorer";
 import {
@@ -252,6 +252,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const { cluster } = useCluster();
   const programAddress = getResultRegistryProgramAddress();
   const localBest = useMemo(() => [...localRuns].sort((a, b) => b.commitment.totalScore - a.commitment.totalScore).slice(0, 5), [localRuns]);
@@ -292,8 +293,10 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       </div>
       <div className="context-banner tournament-banner">
         <div>
-          <IconTrophy className="tournament-icon" size={28} />
-          <p className="eyebrow">WALLET-COMMITTED SIMULATION RESULTS</p>
+          <div className="leaderboard-kicker">
+            <IconTrophy className="tournament-icon" size={18} stroke={2.2} />
+            <p className="eyebrow">Wallet-committed simulation results</p>
+          </div>
           <h1>Strategy leaderboard</h1>
           <p className="tip">
             Best result per wallet across Stable Market, Whale Sell, and Flash Crash.
@@ -302,7 +305,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       </div>
       <section className="panel rankings" style={{ marginBottom: 16 }}>
         <PanelHeading title="Your local runs">
-          <button className="btn ghost" onClick={() => { if (window.confirm("Clear all local simulation runs from this browser?")) { clearLocalRuns(); setLocalRuns([]); } }} disabled={!localRuns.length}>Clear history</button>
+          <button className="btn ghost" onClick={() => setConfirmingClear(true)} disabled={!localRuns.length}>Clear history</button>
         </PanelHeading>
         {localBest.length ? <div className="table-scroll"><table className="rank-table"><thead><tr><th>Scenario</th><th>Score</th><th>P&L</th><th>Status</th><th>Completed</th></tr></thead><tbody>{localBest.map((run) => <tr key={run.id}><td>{run.scenarioId.replaceAll("-", " ")}</td><td className="mono profit">{run.commitment.totalScore.toLocaleString()}</td><td className="mono">{(run.commitment.pnlBps / 100).toFixed(2)}%</td><td><span className="tag">{run.status}</span></td><td className="mono muted">{new Date(run.completedAt).toLocaleString()}</td></tr>)}</tbody></table></div> : <div className="empty-state">Complete a Strategy Lab session to save your first private local result.</div>}
       </section>
@@ -394,6 +397,19 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
           </div>
         )}
       </section>
+      {confirmingClear && (
+        <AlertModal
+          title="Clear local history?"
+          confirmLabel="Clear history"
+          onClose={() => setConfirmingClear(false)}
+          onConfirm={() => {
+            clearLocalRuns();
+            setLocalRuns([]);
+          }}
+        >
+          <p>This permanently removes all saved Strategy Lab runs from this browser. It does not remove any results already committed to devnet.</p>
+        </AlertModal>
+      )}
     </section>
   );
 }
