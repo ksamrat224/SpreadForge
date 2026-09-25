@@ -81,6 +81,7 @@ export function PaperTradingDesk({
   const [chartView, setChartView] = useState<PaperChartView>("line");
   const [source, setSource] = useState<"synthetic" | "pyth" | "replay">("synthetic");
   const [feedStatus, setFeedStatus] = useState("SYNTHETIC");
+  const [historicalProvider, setHistoricalProvider] = useState<string | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(150);
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const random = useRef(createPrng(7264));
@@ -153,6 +154,7 @@ export function PaperTradingDesk({
         if (!response.ok) throw new Error("unavailable");
         const data = (await response.json()) as {
           candles?: Array<{ at: number; priceCents: number }>;
+          source?: string;
         };
         const candles = data.candles?.filter(
           (candle) => Number.isFinite(candle.at) && Number.isSafeInteger(candle.priceCents) && candle.priceCents > 0,
@@ -170,6 +172,7 @@ export function PaperTradingDesk({
           .map((candle, sequence) => ({ ...candle, sequence }));
         if (!active) return;
         dispatch({ type: "load-history", points: history });
+        setHistoricalProvider(data.source ?? "market data");
         setPlaybackPaused(false);
         setFeedStatus("HISTORICAL REPLAY");
       } catch {
@@ -343,7 +346,7 @@ export function PaperTradingDesk({
                     {source === "synthetic"
                       ? "SYNTHETIC REFERENCE"
                       : source === "replay"
-                        ? "HISTORICAL REPLAY"
+                        ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
                         : "PYTH REFERENCE"}{" "}
                     · PAPER MARKET
                   </small>
@@ -369,7 +372,10 @@ export function PaperTradingDesk({
               onChange={(value) => {
                 setSource(value);
                 setPlaybackPaused(false);
-                if (value === "replay") setTimeframe(240);
+                if (value === "replay") {
+                  setTimeframe(240);
+                  setHistoricalProvider(null);
+                }
                 setFeedStatus(
                   value === "synthetic"
                     ? "SYNTHETIC"
