@@ -1851,13 +1851,44 @@
   outline-offset: -2px;
 }
 .market-chart-readout {
-  min-height: 34px;
-  padding: 4px 12px;
+  min-height: 42px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   color: var(--foreground);
   font: 10px/1.6 var(--font-mono);
   overflow-wrap: anywhere;
+}
+.market-chart-readout-actions,
+.replay-playback-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.market-chart-readout-actions {
+  margin-left: auto;
+  padding-left: 12px;
+}
+.replay-playback-actions > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.replay-playback-actions > button svg {
+  display: block;
+}
+.replay-playback-actions .replay-speed-select {
+  width: auto;
+}
+.replay-playback-actions .replay-speed-select > button {
+  min-width: 48px;
+  min-height: 28px;
+  padding: 4px 7px;
 }
 .market-chart-canvas {
   width: 100%;
