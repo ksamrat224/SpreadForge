@@ -1,23 +1,39 @@
 import { createPrng } from "./prng";
+
+export const PAPER_ASSETS = ["BTC", "ETH", "SOL"] as const;
+export type PaperAsset = (typeof PAPER_ASSETS)[number];
+export type Side = "buy" | "sell";
 export type PricePoint = { priceCents: number; at: number; sequence: number };
-type Side = "buy" | "sell";
-type Quote = {
-  id: number;
-  side: Side;
-  priceCents: number;
-  sizeMilliSol: number;
-  at: number;
+export const PAPER_MARKETS: Record<
+  PaperAsset,
+  { label: string; initialPriceCents: number; icon: string }
+> = {
+  BTC: { label: "BTC / USDC", initialPriceCents: 6_500_000, icon: "₿" },
+  ETH: { label: "ETH / USDC", initialPriceCents: 350_000, icon: "Ξ" },
+  SOL: { label: "SOL / USDC", initialPriceCents: 14_682, icon: "S" },
 };
-type Trade = Quote & { source: "MARKET" | "LIMIT" };
-export type PaperState = {
-  marketSeed: number;
+type Position = { quantityMilliAsset: number; inventoryCostCents: number };
+type Market = {
   priceCents: number;
   startPriceCents: number;
-  startEquityCents: number;
   points: PricePoint[];
-  solMilli: number;
+};
+type Quote = {
+  id: number;
+  asset: PaperAsset;
+  side: Side;
+  priceCents: number;
+  sizeMilliAsset: number;
+  at: number;
+};
+export type Trade = Quote & { source: "MARKET" | "LIMIT" };
+export type PaperState = {
+  marketSeed: number;
+  activeAsset: PaperAsset;
+  markets: Record<PaperAsset, Market>;
+  positions: Record<PaperAsset, Position>;
   usdcCents: number;
-  inventoryCostCents: number;
+  startEquityCents: number;
   realizedPnlCents: number;
   quotes: Quote[];
   trades: Trade[];
@@ -26,49 +42,79 @@ export type PaperState = {
 };
 export type PaperAction =
   | { type: "reset"; seed: number }
-  | { type: "load-history"; points: PricePoint[] }
-  | { type: "tick"; delta?: number; priceCents?: number; at: number }
-  | { type: "market"; side: Side; sizeMilliSol: number; at: number }
+  | { type: "select-asset"; asset: PaperAsset }
+  | { type: "load-history"; asset: PaperAsset; points: PricePoint[] }
+  | {
+      type: "tick";
+      asset: PaperAsset;
+      delta?: number;
+      priceCents?: number;
+      at: number;
+    }
+  | {
+      type: "market";
+      asset: PaperAsset;
+      side: Side;
+      sizeMilliAsset: number;
+      at: number;
+    }
   | {
       type: "quote";
+      asset: PaperAsset;
       side: Side;
       priceCents: number;
-      sizeMilliSol: number;
+      sizeMilliAsset: number;
       at: number;
     }
   | { type: "cancel"; id: number };
-/**
- * Produces an unpredictable seed when choosing a Historical Replay window.
- */
-export function createPaperSessionSeed() {
-  const value = new Uint32Array(1);
-  globalThis.crypto.getRandomValues(value);
-  return value[0];
-}
 
-export function createPaperState(seed = 149, historicalPoints?: PricePoint[]): PaperState {
+export function createPaperSessionSeed() {
+  const v = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(v);
+  return v[0];
+}
+function points(asset: PaperAsset, seed: number) {
   const random = createPrng(seed);
-  let price = 14682;
-  const points = historicalPoints?.length
-    ? historicalPoints.map((point, sequence) => ({ ...point, sequence }))
-    : Array.from({ length: 150 }, (_, i) => {
-        price = Math.max(100, price + Math.round((random() - 0.5) * 20));
-        return { priceCents: price, at: (i - 149) * 400, sequence: i };
-      });
-  if (!historicalPoints?.length) {
-    const offset = 14682 - points[149].priceCents;
-    points.forEach((point) => (point.priceCents += offset));
-  }
-  const startPriceCents = points.at(-1)?.priceCents ?? 14682;
+  let price = PAPER_MARKETS[asset].initialPriceCents;
+  const items = Array.from({ length: 150 }, (_, i) => {
+    price = Math.max(
+      100,
+      price + Math.round((random() - 0.5) * Math.max(2, price * 0.0015))
+    );
+    return { priceCents: price, at: (i - 149) * 400, sequence: i };
+  });
+  const offset =
+    PAPER_MARKETS[asset].initialPriceCents - items.at(-1)!.priceCents;
+  return items.map((point) => ({
+    ...point,
+    priceCents: point.priceCents + offset,
+  }));
+}
+export function createPaperState(seed = 149): PaperState {
+  const markets = Object.fromEntries(
+    PAPER_ASSETS.map((asset, i) => {
+      const history = points(asset, seed + i);
+      return [
+        asset,
+        {
+          priceCents: history.at(-1)!.priceCents,
+          startPriceCents: history.at(-1)!.priceCents,
+          points: history,
+        },
+      ];
+    })
+  ) as Record<PaperAsset, Market>;
   return {
     marketSeed: seed,
-    priceCents: startPriceCents,
-    startPriceCents,
-    startEquityCents: 150000 + startPriceCents * 10,
-    points,
-    solMilli: 10000,
-    usdcCents: 150000,
-    inventoryCostCents: startPriceCents * 10,
+    activeAsset: "SOL",
+    markets,
+    positions: {
+      BTC: { quantityMilliAsset: 0, inventoryCostCents: 0 },
+      ETH: { quantityMilliAsset: 0, inventoryCostCents: 0 },
+      SOL: { quantityMilliAsset: 0, inventoryCostCents: 0 },
+    },
+    usdcCents: 1_000_000,
+    startEquityCents: 1_000_000,
     realizedPnlCents: 0,
     quotes: [],
     trades: [],
@@ -76,17 +122,41 @@ export function createPaperState(seed = 149, historicalPoints?: PricePoint[]): P
     nextId: 1,
   };
 }
+export function getPositionValueCents(state: PaperState, asset: PaperAsset) {
+  return Math.round(
+    (state.positions[asset].quantityMilliAsset *
+      state.markets[asset].priceCents) /
+      1000
+  );
+}
+export function getPaperEquityCents(state: PaperState) {
+  return (
+    state.usdcCents +
+    PAPER_ASSETS.reduce(
+      (sum, asset) => sum + getPositionValueCents(state, asset),
+      0
+    )
+  );
+}
 function reserves(state: PaperState) {
   return state.quotes.reduce(
-    (r, q) => ({
+    (value, quote) => ({
       cash:
-        r.cash +
-        (q.side === "buy"
-          ? Math.round((q.priceCents * q.sizeMilliSol) / 1000)
+        value.cash +
+        (quote.side === "buy"
+          ? Math.round((quote.priceCents * quote.sizeMilliAsset) / 1000)
           : 0),
-      sol: r.sol + (q.side === "sell" ? q.sizeMilliSol : 0),
+      assets: {
+        ...value.assets,
+        [quote.asset]:
+          value.assets[quote.asset] +
+          (quote.side === "sell" ? quote.sizeMilliAsset : 0),
+      },
     }),
-    { cash: 0, sol: 0 }
+    {
+      cash: 0,
+      assets: { BTC: 0, ETH: 0, SOL: 0 } as Record<PaperAsset, number>,
+    }
   );
 }
 function execute(
@@ -94,8 +164,9 @@ function execute(
   order: Quote,
   source: Trade["source"]
 ): PaperState {
-  const cost = Math.round((order.priceCents * order.sizeMilliSol) / 1000);
-  const reserved = reserves(state);
+  const cost = Math.round((order.priceCents * order.sizeMilliAsset) / 1000),
+    reserved = reserves(state),
+    position = state.positions[order.asset];
   if (order.side === "buy" && state.usdcCents - reserved.cash < cost)
     return {
       ...state,
@@ -104,27 +175,37 @@ function execute(
     };
   if (
     order.side === "sell" &&
-    state.solMilli - reserved.sol < order.sizeMilliSol
+    position.quantityMilliAsset - reserved.assets[order.asset] <
+      order.sizeMilliAsset
   )
     return {
       ...state,
       error:
-        "Not enough available simulated SOL. Cancel a quote to release inventory.",
+        "Not enough available simulated " +
+        order.asset +
+        ". Cancel a quote to release inventory.",
     };
   const soldCost =
-    order.side === "sell"
+    order.side === "sell" && position.quantityMilliAsset
       ? Math.round(
-          (state.inventoryCostCents * order.sizeMilliSol) / state.solMilli
+          (position.inventoryCostCents * order.sizeMilliAsset) /
+            position.quantityMilliAsset
         )
       : 0;
   return {
     ...state,
-    solMilli:
-      state.solMilli +
-      (order.side === "buy" ? order.sizeMilliSol : -order.sizeMilliSol),
     usdcCents: state.usdcCents + (order.side === "buy" ? -cost : cost),
-    inventoryCostCents:
-      state.inventoryCostCents + (order.side === "buy" ? cost : -soldCost),
+    positions: {
+      ...state.positions,
+      [order.asset]: {
+        quantityMilliAsset:
+          position.quantityMilliAsset +
+          (order.side === "buy" ? order.sizeMilliAsset : -order.sizeMilliAsset),
+        inventoryCostCents:
+          position.inventoryCostCents +
+          (order.side === "buy" ? cost : -soldCost),
+      },
+    },
     realizedPnlCents:
       state.realizedPnlCents + (order.side === "sell" ? cost - soldCost : 0),
     trades: [{ ...order, id: state.nextId, source }, ...state.trades].slice(
@@ -140,89 +221,119 @@ export function paperReducer(
   action: PaperAction
 ): PaperState {
   if (action.type === "reset") return createPaperState(action.seed);
-  if (action.type === "load-history")
-    return createPaperState(state.marketSeed, action.points);
+  if (action.type === "select-asset")
+    return { ...state, activeAsset: action.asset, error: "" };
   if (action.type === "cancel")
     return {
       ...state,
-      quotes: state.quotes.filter((q) => q.id !== action.id),
+      quotes: state.quotes.filter((quote) => quote.id !== action.id),
       error: "",
     };
+  if (action.type === "load-history") {
+    if (!action.points.length) return state;
+    const history = action.points.map((point, sequence) => ({
+      ...point,
+      sequence,
+    }));
+    return {
+      ...state,
+      markets: {
+        ...state.markets,
+        [action.asset]: {
+          priceCents: history.at(-1)!.priceCents,
+          startPriceCents: history.at(-1)!.priceCents,
+          points: history,
+        },
+      },
+    };
+  }
   if (action.type === "tick") {
-    const price =
-      action.priceCents ??
-      Math.max(100, state.priceCents + (action.delta ?? 0));
-    if (!Number.isFinite(price) || price <= 0) return state;
-    const existing =
-      state.points[0].at <= 0
-        ? state.points.map((p) => ({ ...p, at: action.at + p.at - 400 }))
-        : state.points;
+    const market = state.markets[action.asset],
+      priceCents =
+        action.priceCents ??
+        Math.max(100, market.priceCents + (action.delta ?? 0));
+    if (!Number.isSafeInteger(priceCents) || priceCents <= 0) return state;
+    const history = [
+      ...market.points.slice(-35999),
+      {
+        priceCents,
+        at: action.at,
+        sequence: (market.points.at(-1)?.sequence ?? -1) + 1,
+      },
+    ];
     let next = {
       ...state,
-      priceCents: price,
-      points: [
-        ...existing.slice(-35999),
-        {
-          priceCents: price,
-          at: action.at,
-          sequence: (existing.at(-1)?.sequence ?? -1) + 1,
-        },
-      ],
+      markets: {
+        ...state.markets,
+        [action.asset]: { ...market, priceCents, points: history },
+      },
     };
-    for (const quote of state.quotes) {
+    for (const quote of next.quotes.filter(
+      (item) => item.asset === action.asset
+    ))
       if (
         quote.side === "buy"
-          ? price <= quote.priceCents
-          : price >= quote.priceCents
-      ) {
+          ? priceCents <= quote.priceCents
+          : priceCents >= quote.priceCents
+      )
         next = execute(
-          { ...next, quotes: next.quotes.filter((q) => q.id !== quote.id) },
+          {
+            ...next,
+            quotes: next.quotes.filter((item) => item.id !== quote.id),
+          },
           { ...quote, at: action.at },
           "LIMIT"
         );
-      }
-    }
     return next;
   }
-  if (!Number.isInteger(action.sizeMilliSol) || action.sizeMilliSol <= 0)
+  if (!Number.isInteger(action.sizeMilliAsset) || action.sizeMilliAsset <= 0)
     return {
       ...state,
       error: "Enter a positive size with up to three decimal places.",
     };
-  const price = action.type === "quote" ? action.priceCents : state.priceCents;
-  if (
-    !Number.isSafeInteger(price) ||
-    price <= 0 ||
-    !Number.isSafeInteger(price * action.sizeMilliSol)
-  )
+  const priceCents =
+    action.type === "quote"
+      ? action.priceCents
+      : state.markets[action.asset].priceCents;
+  if (!Number.isSafeInteger(priceCents) || priceCents <= 0)
     return { ...state, error: "Enter a valid positive price and size." };
-  const order = {
+  const order: Quote = {
     id: state.nextId,
+    asset: action.asset,
     side: action.side,
-    priceCents: price,
-    sizeMilliSol: action.sizeMilliSol,
+    priceCents,
+    sizeMilliAsset: action.sizeMilliAsset,
     at: action.at,
   };
   if (action.type === "market") return execute(state, order, "MARKET");
-  const reserved = reserves(state);
+  const reserved = reserves(state),
+    position = state.positions[action.asset],
+    cost = Math.round((priceCents * action.sizeMilliAsset) / 1000);
   if (
-    order.side === "buy"
-      ? state.usdcCents - reserved.cash <
-        Math.round((price * order.sizeMilliSol) / 1000)
-      : state.solMilli - reserved.sol < order.sizeMilliSol
+    action.side === "buy"
+      ? state.usdcCents - reserved.cash < cost
+      : position.quantityMilliAsset - reserved.assets[action.asset] <
+        action.sizeMilliAsset
   )
     return {
       ...state,
       error: "Insufficient unreserved simulated funds for this quote.",
     };
-  if (
-    order.side === "buy" ? state.priceCents <= price : state.priceCents >= price
-  )
-    return execute(state, order, "LIMIT");
-  return {
-    ...state,
-    quotes: [...state.quotes, order],
-    nextId: state.nextId + 1,
-    error: "",
-  };
+  return action.side === "buy"
+    ? state.markets[action.asset].priceCents <= priceCents
+      ? execute(state, order, "LIMIT")
+      : {
+          ...state,
+          quotes: [...state.quotes, order],
+          nextId: state.nextId + 1,
+          error: "",
+        }
+    : state.markets[action.asset].priceCents >= priceCents
+      ? execute(state, order, "LIMIT")
+      : {
+          ...state,
+          quotes: [...state.quotes, order],
+          nextId: state.nextId + 1,
+          error: "",
+        };
 }

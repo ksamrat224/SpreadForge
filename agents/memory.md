@@ -83,7 +83,7 @@ MVP must include:
 - wallet connect
 - guest simulation
 - SOL/USDC simulated market
-- Live Paper Desk with a real SOL/USD reference price, candles, and simulated manual trading
+- Live Paper Desk with BTC/ETH/SOL real-price references, candles, and simulated manual trading
 - at least one deterministic scenario
 - simple market-making strategy
 - spread control
@@ -140,7 +140,7 @@ Optional after core is done: 3. Volatility Spike 4. Liquidity Drain
 
 ### Live Market Data
 
-- Live Paper Desk uses a real SOL/USD reference price only; all balances and execution remain simulated.
+- Live Paper Desk uses real BTC/USD, ETH/USD, and SOL/USD reference prices with a shared simulated USDC portfolio; all balances and execution remain simulated. Faucet SOL pays devnet fees only and is never trading capital.
 - Live market data must show freshness and a stale/unavailable state.
 - Provider API keys must remain server-side.
 - The live-practice adapter must have a demo-safe fallback.
