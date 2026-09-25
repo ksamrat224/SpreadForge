@@ -39,8 +39,10 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const limitValue = limit || (market.priceCents / 100).toFixed(2);
   const priceCents = Math.round(Number(limitValue) * 100);
   const sizeMilliAsset = Math.round(Number(size) * 1000);
+  const hasLiveFeed =
+    feedStatus === "PYTH LIVE" || feedStatus === "LIVE FALLBACK";
   const tradingPaused =
-    (source === "pyth" && feedStatus !== "PYTH LIVE") ||
+    (source === "pyth" && !hasLiveFeed) ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             priceCents: data.priceCents,
             at: data.publishedAt,
           });
-          setFeedStatus("PYTH LIVE");
+          setFeedStatus(data.source === "pyth" ? "PYTH LIVE" : "LIVE FALLBACK");
         }
       } catch {
         if (!cancelled) setFeedStatus("FEED UNAVAILABLE");
