@@ -32,7 +32,7 @@ import {
 } from "../instructions";
 
 export const RESULT_REGISTRY_PROGRAM_ADDRESS =
-  "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV" as Address<"8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV">;
+  "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">;
 
 export enum ResultRegistryAccount {
   ResultRecord,
@@ -155,7 +155,7 @@ export function identifyResultRegistryInstruction(
 }
 
 export type ParsedResultRegistryInstruction<
-  TProgram extends string = "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV",
+  TProgram extends string = "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w",
 > =
   | ({
       instructionType: ResultRegistryInstruction.AdvanceSession;

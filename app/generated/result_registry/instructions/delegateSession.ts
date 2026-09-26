@@ -65,7 +65,7 @@ export type DelegateSessionInstruction<
     string,
   TAccountSession extends string | AccountMeta<string> = string,
   TAccountOwnerProgram extends string | AccountMeta<string> =
-    "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV",
+    "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w",
   TAccountDelegationProgram extends string | AccountMeta<string> =
     "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh",
   TAccountSystemProgram extends string | AccountMeta<string> =
@@ -258,7 +258,7 @@ export async function getDelegateSessionInstructionAsync<
   }
   if (!accounts.ownerProgram.value) {
     accounts.ownerProgram.value =
-      "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV" as Address<"8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV">;
+      "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -387,7 +387,7 @@ export function getDelegateSessionInstruction<
   }
   if (!accounts.ownerProgram.value) {
     accounts.ownerProgram.value =
-      "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV" as Address<"8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV">;
+      "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
