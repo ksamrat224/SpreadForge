@@ -4,7 +4,7 @@
 
 **Learn. Simulate. Compete.**
 
-SpreadForge is a Solana DeFi trading playground. Users practice manually with simulated SOL/USDC funds against a live reference price, configure a simple liquidity strategy, run repeatable market-making challenges, and can verify compact run summaries on Solana devnet once the registry is deployed.
+SpreadForge is a Solana DeFi trading playground. Users practice manually with a shared 10,000-USDC simulated portfolio against live BTC, ETH, and SOL reference prices, configure a simple liquidity strategy, run repeatable market-making challenges, and can verify compact run summaries on Solana devnet once the registry is deployed.
 
 This is an educational simulation: balances, P&L, orders, and fills are simulated. It does not trade or custody real assets.
 
@@ -15,7 +15,7 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 - Spread, order-size, inventory-cap, and refresh-cycle strategy controls
 - Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
 - Dark terminal UI with DM Sans, JetBrains Mono, Tabler icons, responsive desktop/tablet/mobile layouts, and a persistent theme preference
-- Paper Desk: 400ms synthetic price feed, optional live Pyth reference, timeframe charts, variable-size limit orders, reserved balances, and simulated trade history
+- Paper Desk: BTC/USDC, ETH/USDC, and SOL/USDC markets with live Pyth references, historical replay, synthetic fallback, shared simulated USDC buying power, reserved balances, and simulated trade history. Faucet SOL is only for devnet transaction fees.
 - Personal browser-backed run history plus a devnet wallet-committed leaderboard (All-time and Weekly); no score is presented as independently verified
 - Challenge drawer, speed controls, radial score meter, execution feed, illustrative depth ladder, and completion dialog
 - Local deterministic runtime plus a MagicBlock runtime adapter with deterministic local fallback

@@ -105,18 +105,18 @@ The goal is to finish core development early enough to leave several days for te
 **Target: Sep 27–28**
 
 - [x] Add Lab / Live Paper Desk navigation
-- [x] Add live SOL/USD reference-price adapter
-- [x] Show price update timestamp and stale/unavailable state
-- [x] Aggregate reference prices into 1-minute candles
-- [x] Build candle chart with simulated fills and quotes
-- [x] Add fake SOL/USDC starting balances
-- [x] Add simulated manual market buy/sell actions
+- [x] Add live BTC/ETH/SOL reference-price adapters
+- [x] Show price update timestamp and stale/unavailable state for every supported market
+- [x] Aggregate reference prices into 1-minute candles with provider fallback
+- [x] Build multi-asset candle charts with simulated fills and quotes
+- [x] Add a shared 10,000-USDC simulated portfolio
+- [x] Add simulated BTC, ETH, and SOL manual market buy/sell actions
 - [x] Add simulated bid/ask placement and cancel/replace actions
 - [x] Show manual trade and fill history
 - [x] Label live-practice results as simulated and unranked
 - [x] Add live-price adapter fallback for demo reliability
 
-**Definition of done:** a user can practice manually against a changing SOL price without real funds, while deterministic challenges remain separate and leaderboard eligible.
+**Definition of done:** a user can practice manually across live BTC, ETH, and SOL reference markets without real funds, while deterministic challenges remain separate and leaderboard eligible.
 
 ---
 

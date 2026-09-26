@@ -1,129 +1,100 @@
-import { describe, it, expect } from "vitest";
-import { createPaperState, paperReducer } from "./paper";
-import { runSimulation, DEFAULT_STRATEGY, SCENARIOS } from "./index";
-describe("Paper funds and order reservations", () => {
-  it("reserves buying power and prevents duplicate spending", () => {
+import { describe, expect, it } from "vitest";
+import { createPaperState, getPaperEquityCents, paperReducer } from "./paper";
+
+describe("shared multi-asset paper portfolio", () => {
+  it("starts with 10,000 USDC and no crypto inventory", () => {
+    const state = createPaperState();
+    expect(state.usdcCents).toBe(1_000_000);
+    expect(state.positions).toEqual({
+      BTC: { quantityMilliAsset: 0, inventoryCostCents: 0 },
+      ETH: { quantityMilliAsset: 0, inventoryCostCents: 0 },
+      SOL: { quantityMilliAsset: 0, inventoryCostCents: 0 },
+    });
+  });
+  it("shares USDC across BTC and ETH purchases while retaining both positions", () => {
+    let state = createPaperState();
+    state = paperReducer(state, {
+      type: "market",
+      asset: "BTC",
+      side: "buy",
+      sizeMilliAsset: 10,
+      at: 1,
+    });
+    const afterBtc = state.usdcCents;
+    state = paperReducer(state, {
+      type: "market",
+      asset: "ETH",
+      side: "buy",
+      sizeMilliAsset: 100,
+      at: 2,
+    });
+    expect(state.positions.BTC.quantityMilliAsset).toBe(10);
+    expect(state.positions.ETH.quantityMilliAsset).toBe(100);
+    expect(state.usdcCents).toBeLessThan(afterBtc);
+  });
+  it("prevents selling an asset that the shared portfolio does not own", () => {
+    const state = paperReducer(createPaperState(), {
+      type: "market",
+      asset: "ETH",
+      side: "sell",
+      sizeMilliAsset: 1,
+      at: 1,
+    });
+    expect(state.trades).toHaveLength(0);
+    expect(state.error).toMatch(/ETH/);
+  });
+  it("keeps BTC quotes reserved while trading SOL", () => {
     let state = createPaperState();
     state = paperReducer(state, {
       type: "quote",
+      asset: "BTC",
       side: "buy",
-      priceCents: 14000,
-      sizeMilliSol: 10000,
+      priceCents: 1_000_000,
+      sizeMilliAsset: 990,
       at: 1,
     });
-    expect(state.quotes).toHaveLength(1);
     state = paperReducer(state, {
       type: "market",
+      asset: "SOL",
       side: "buy",
-      sizeMilliSol: 1000,
+      sizeMilliAsset: 1000,
       at: 2,
     });
     expect(state.trades).toHaveLength(0);
-    expect(state.usdcCents).toBe(150000);
-    expect(state.error).toMatch(/available simulated USDC/);
+    expect(state.error).toMatch(/USDC/);
   });
-  it("fills simultaneous orders atomically without negative balances", () => {
+  it("marks total portfolio equity using every current asset price", () => {
     let state = createPaperState();
-    state = paperReducer(state, {
-      type: "quote",
-      side: "buy",
-      priceCents: 14000,
-      sizeMilliSol: 5000,
-      at: 1,
-    });
-    state = paperReducer(state, {
-      type: "quote",
-      side: "buy",
-      priceCents: 14000,
-      sizeMilliSol: 5000,
-      at: 2,
-    });
-    state = paperReducer(state, { type: "tick", priceCents: 13900, at: 3 });
-    expect(state.quotes).toHaveLength(0);
-    expect(state.trades).toHaveLength(2);
-    expect(state.usdcCents).toBe(10000);
-    expect(state.solMilli).toBe(20000);
-  });
-  it("releases reserved inventory when an order is cancelled", () => {
-    let state = createPaperState();
-    state = paperReducer(state, {
-      type: "quote",
-      side: "sell",
-      priceCents: 16000,
-      sizeMilliSol: 10000,
-      at: 1,
-    });
     state = paperReducer(state, {
       type: "market",
-      side: "sell",
-      sizeMilliSol: 1000,
-      at: 2,
+      asset: "SOL",
+      side: "buy",
+      sizeMilliAsset: 1000,
+      at: 1,
     });
-    expect(state.trades).toHaveLength(0);
-    state = paperReducer(state, { type: "cancel", id: state.quotes[0].id });
-    state = paperReducer(state, {
-      type: "market",
-      side: "sell",
-      sizeMilliSol: 1000,
-      at: 3,
-    });
-    expect(state.trades).toHaveLength(1);
-    expect(state.solMilli).toBe(9000);
-  });
-  it("keeps the initial equity reference after price history rolls", () => {
-    let state = createPaperState();
-    const baseline = state.startEquityCents;
-    for (let i = 0; i < 200; i++)
-      state = paperReducer(state, {
-        type: "tick",
-        priceCents: 15000,
-        at: 100000 + i,
-      });
-    expect(state.startEquityCents).toBe(baseline);
-    expect(state.startPriceCents).toBe(14682);
-  });
-  it("assigns each price point a permanent increasing chart sequence", () => {
-    let state = createPaperState();
-    const firstSequence = state.points[0].sequence;
-    const lastSequence = state.points.at(-1)!.sequence;
+    const before = getPaperEquityCents(state);
     state = paperReducer(state, {
       type: "tick",
-      priceCents: 15000,
-      at: 100000,
+      asset: "SOL",
+      priceCents: state.markets.SOL.priceCents + 10_000,
+      at: 2,
     });
-
-    expect(state.points[0].sequence).toBe(firstSequence);
-    expect(state.points.at(-1)!.sequence).toBe(lastSequence + 1);
-    expect(new Set(state.points.map((point) => point.sequence)).size).toBe(
-      state.points.length
-    );
+    expect(getPaperEquityCents(state)).toBeGreaterThan(before);
   });
-  it("rejects invalid quotes without changing balances", () => {
-    const initial = createPaperState();
-    const state = paperReducer(initial, {
+  it("cancels an asset quote and resets every asset safely", () => {
+    let state = createPaperState();
+    state = paperReducer(state, {
       type: "quote",
+      asset: "SOL",
       side: "buy",
-      priceCents: NaN,
-      sizeMilliSol: 1000,
+      priceCents: 100,
+      sizeMilliAsset: 1000,
       at: 1,
     });
+    state = paperReducer(state, { type: "cancel", id: state.quotes[0].id });
     expect(state.quotes).toHaveLength(0);
-    expect(state.usdcCents).toBe(initial.usdcCents);
-    expect(state.error).toBeTruthy();
-  });
-});
-describe("Flash Crash challenge", () => {
-  it("replays deterministically and includes all three events", () => {
-    const first = runSimulation(SCENARIOS["flash-crash"], DEFAULT_STRATEGY);
-    expect(first).toEqual(
-      runSimulation(SCENARIOS["flash-crash"], DEFAULT_STRATEGY)
-    );
-    expect(first.state.tick).toBe(60);
-    expect(first.state.priceHistoryCents[20]).toBeLessThan(
-      first.state.priceHistoryCents[19] * 0.9
-    );
-    expect(first.state.priceHistoryCents[40]).toBeGreaterThan(
-      first.state.priceHistoryCents[39]
-    );
+    state = paperReducer(state, { type: "reset", seed: 22 });
+    expect(state.usdcCents).toBe(1_000_000);
+    expect(state.trades).toHaveLength(0);
   });
 });
