@@ -13,9 +13,9 @@ Each immutable `ResultRecord` PDA uses these stable seeds:
 ```
 
 The account stores the authority, SHA-256 scenario/strategy/result hashes,
-score, normalized P&L, drawdown, fill count, schema version, client-reported
-completion timestamp, chain-authoritative submission timestamp, nonce, and PDA
-bump. Schema version 2 has a fixed serialized size of 172 bytes.
+score, normalized P&L, drawdown, fill count, schema version, chain-authoritative
+submission timestamp, nonce, and PDA bump. Schema version 2 has a fixed serialized
+size of 164 bytes.
 
 `submit_result` requires the authority to sign, creates (rather than mutates)
 the PDA, rejects scores above 10,000, requires schema version `2`, and rejects
