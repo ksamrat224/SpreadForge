@@ -2886,3 +2886,7 @@ tr:last-child td {
 .dark .eth-logo {
   filter: invert(1);
 }
+.market-chart-controls button.active {
+  border-color: color-mix(in oklab, var(--primary) 48%, var(--border));
+  color: var(--primary);
+}

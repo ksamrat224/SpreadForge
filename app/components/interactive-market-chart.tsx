@@ -10,11 +10,37 @@ import {
   IconRefresh,
 } from "@tabler/icons-react";
 import type { IChartApi, Time, UTCTimestamp } from "lightweight-charts";
-import { buildCandles, heikinAshi, type ChartSample } from "../lib/chart-data";
+import {
+  buildCandles,
+  heikinAshi,
+  type ChartCandle,
+  type ChartSample,
+} from "../lib/chart-data";
 import { ThemedSelect } from "./themed-select";
 
 export type PriceView = "line" | "area" | "candles" | "ohlc" | "heikin";
 type Marker = { time: number; side: "buy" | "sell"; text: string };
+export type ChartBar = ChartCandle & { volume?: number };
+
+const UP = "#16c784";
+const DOWN = "#ea3943";
+const LOG_MODE = 1; // PriceScaleMode.Logarithmic, without importing the lib eagerly
+
+function localTick(date: Date, type: number) {
+  // TickMarkType: 0 year, 1 month, 2 day of month, 3 time, 4 time with seconds
+  if (type === 0) return String(date.getFullYear());
+  if (type === 1) return date.toLocaleDateString(undefined, { month: "short" });
+  if (type === 2)
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    ...(type === 4 ? { second: "2-digit" } : {}),
+  });
+}
 type Props = {
   samples: ChartSample[];
   view?: PriceView;
@@ -27,6 +53,13 @@ type Props = {
   markers?: Marker[];
   /** Candle bucket sizes, in ticks when `ticks` is set, otherwise seconds. */
   intervals?: number[];
+  /** Exchange OHLCV candles; when set they are drawn as-is instead of bucketing `samples`. */
+  bars?: ChartBar[];
+  /**
+   * "market" draws the line view as a baseline around the range's opening
+   * price, with volume bars and a log-scale toggle, like public price pages.
+   */
+  variant?: "default" | "market";
 };
 
 export function InteractiveMarketChart({
@@ -40,6 +73,8 @@ export function InteractiveMarketChart({
   unit = "$",
   markers = [],
   intervals = ticks ? [2, 4, 8] : [5, 15, 30, 60],
+  bars,
+  variant = "default",
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -48,24 +83,61 @@ export function InteractiveMarketChart({
   const syncRef = useRef<(() => void) | null>(null);
   const followFullWidth = useRef(true);
   const [interval, setInterval] = useState(intervals[ticks ? 1 : 0]);
+  const [logScale, setLogScale] = useState(false);
   const [error, setError] = useState("");
+  const market = variant === "market";
+  const baseline = market && view === "line";
   const candleView = view === "candles" || view === "ohlc" || view === "heikin";
   const data = useMemo(() => {
-    const candles = buildCandles(
-      samples,
-      candleView ? interval : ticks ? 1 : 0.001
-    );
+    const candles =
+      bars ?? buildCandles(samples, candleView ? interval : ticks ? 1 : 0.001);
     return candleView
       ? view === "heikin"
         ? heikinAshi(candles)
-        : candles
+        : candles.map(({ time, open, high, low, close }) => ({
+            time,
+            open,
+            high,
+            low,
+            close,
+          }))
       : candles.map((c) => ({ time: c.time, value: c.close }));
-  }, [samples, candleView, interval, view, ticks]);
-  const latest = useRef({ data, markers, interval, candleView });
+  }, [bars, samples, candleView, interval, view, ticks]);
+  const volume = useMemo(
+    () =>
+      market && bars
+        ? bars.map((bar) => ({
+            time: bar.time,
+            value: bar.volume ?? 0,
+            color:
+              bar.close >= bar.open
+                ? "rgba(22,199,132,0.28)"
+                : "rgba(234,57,67,0.28)",
+          }))
+        : [],
+    [bars, market]
+  );
+  // The range's opening price, which the baseline view colours around.
+  const basePrice = bars?.[0]?.open ?? samples[0]?.value;
+  const latest = useRef({
+    data,
+    volume,
+    basePrice,
+    markers,
+    interval,
+    candleView,
+  });
   useEffect(() => {
-    latest.current = { data, markers, interval, candleView };
+    latest.current = { data, volume, basePrice, markers, interval, candleView };
     syncRef.current?.();
-  }, [data, markers, interval, candleView]);
+  }, [data, volume, basePrice, markers, interval, candleView]);
+  const logRef = useRef(logScale);
+  useEffect(() => {
+    logRef.current = logScale;
+    chartRef.current
+      ?.priceScale("right")
+      .applyOptions({ mode: logScale ? LOG_MODE : 0 });
+  }, [logScale]);
 
   useEffect(() => {
     let disposed = false;
@@ -83,7 +155,8 @@ export function InteractiveMarketChart({
         crosshair: { mode: lib.CrosshairMode.Normal },
         rightPriceScale: {
           borderVisible: false,
-          scaleMargins: { top: 0.16, bottom: 0.12 },
+          scaleMargins: { top: 0.16, bottom: market ? 0.22 : 0.12 },
+          mode: logRef.current ? LOG_MODE : 0,
         },
         timeScale: {
           timeVisible: true,
@@ -101,7 +174,10 @@ export function InteractiveMarketChart({
                       ? `S${Number(time)}`
                       : `${timeLabelPrefix} ${Number(time)}`,
                 }
-              : {}),
+              : {
+                  tickMarkFormatter: (time: Time, type: number) =>
+                    localTick(new Date(Number(time) * 1000), type),
+                }),
         },
         localization: {
           timeFormatter: (time: Time) =>
@@ -109,7 +185,12 @@ export function InteractiveMarketChart({
               ? `Tick ${Number(time)}`
               : timeLabelPrefix
                 ? `${timeLabelPrefix} ${Number(time)}`
-                : new Date(Number(time) * 1000).toLocaleTimeString(),
+                : new Date(Number(time) * 1000).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }),
           priceFormatter: (price: number) =>
             `${unit === "$" ? "$" : ""}${price.toFixed(2)}${unit === "$" ? "" : ` ${unit}`}`,
         },
@@ -128,19 +209,43 @@ export function InteractiveMarketChart({
         kineticScroll: { mouse: true, touch: true },
       });
       chartRef.current = chart;
-      const series =
-        view === "ohlc"
+      const up = market ? UP : "#26a69a";
+      const down = market ? DOWN : "#ef5350";
+      const volumeSeries = market
+        ? chart.addSeries(lib.HistogramSeries, {
+            priceScaleId: "volume",
+            priceFormat: { type: "volume" },
+            lastValueVisible: false,
+            priceLineVisible: false,
+          })
+        : null;
+      // The "volume" scale only exists once a series is attached to it.
+      if (volumeSeries)
+        chart
+          .priceScale("volume")
+          .applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
+      const series = baseline
+        ? chart.addSeries(lib.BaselineSeries, {
+            lineWidth: 2,
+            topLineColor: UP,
+            topFillColor1: "rgba(22,199,132,0.28)",
+            topFillColor2: "rgba(22,199,132,0.03)",
+            bottomLineColor: DOWN,
+            bottomFillColor1: "rgba(234,57,67,0.03)",
+            bottomFillColor2: "rgba(234,57,67,0.28)",
+          })
+        : view === "ohlc"
           ? chart.addSeries(lib.BarSeries, {
-              upColor: "#26a69a",
-              downColor: "#ef5350",
+              upColor: up,
+              downColor: down,
               thinBars: true,
             })
           : view === "candles" || view === "heikin"
             ? chart.addSeries(lib.CandlestickSeries, {
-                upColor: "#26a69a",
-                downColor: "#ef5350",
-                wickUpColor: "#26a69a",
-                wickDownColor: "#ef5350",
+                upColor: up,
+                downColor: down,
+                wickUpColor: up,
+                wickDownColor: down,
                 borderVisible: false,
               })
             : view === "area"
@@ -155,6 +260,16 @@ export function InteractiveMarketChart({
                   lineWidth: 2,
                 });
       const markerApi = lib.createSeriesMarkers(series);
+      const basePriceLine = baseline
+        ? series.createPriceLine({
+            price: 0,
+            color: "rgba(148,163,184,0.8)",
+            lineWidth: 1,
+            lineStyle: lib.LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: "Open",
+          })
+        : null;
       let previous: typeof data = [];
       let first = true;
       const format = (value: number) =>
@@ -163,7 +278,7 @@ export function InteractiveMarketChart({
         if (!readout.current) return;
         readout.current.textContent = !bar
           ? "Waiting for samples"
-          : `${ticks ? `T${bar.time}` : timeLabelPrefix ? `${timeLabelPrefix} ${bar.time}` : new Date(bar.time * 1000).toLocaleTimeString()}  ${"open" in bar ? `O ${format(bar.open)}  H ${format(bar.high)}  L ${format(bar.low)}  C ${format(bar.close)}` : format(bar.value)}`;
+          : `${ticks ? `T${bar.time}` : timeLabelPrefix ? `${timeLabelPrefix} ${bar.time}` : new Date(bar.time * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}  ${"open" in bar ? `O ${format(bar.open)}  H ${format(bar.high)}  L ${format(bar.low)}  C ${format(bar.close)}` : format(bar.value)}`;
       };
       const sync = () => {
         const next = latest.current.data;
@@ -181,6 +296,17 @@ export function InteractiveMarketChart({
         else {
           for (let i = Math.max(0, previous.length - 1); i < next.length; i++)
             series.update({ ...next[i], time: next[i].time as UTCTimestamp });
+        }
+        volumeSeries?.setData(
+          latest.current.volume.map((bar) => ({
+            ...bar,
+            time: bar.time as UTCTimestamp,
+          }))
+        );
+        const base = latest.current.basePrice;
+        if (baseline && base !== undefined) {
+          series.applyOptions({ baseValue: { type: "price", price: base } });
+          basePriceLine?.applyOptions({ price: base });
         }
         markerApi.setMarkers(
           latest.current.markers
@@ -264,7 +390,7 @@ export function InteractiveMarketChart({
       disposed = true;
       cleanup();
     };
-  }, [view, ticks, timeLabelPrefix, unit, interval]);
+  }, [view, ticks, timeLabelPrefix, unit, interval, market, baseline]);
 
   const zoom = (factor: number) => {
     const scale = chartRef.current?.timeScale();
@@ -296,7 +422,20 @@ export function InteractiveMarketChart({
   };
   const controls = (
     <>
-      {candleView && (
+      {market && (
+        <button
+          type="button"
+          className={logScale ? "active" : ""}
+          aria-pressed={logScale}
+          onClick={() => setLogScale((current) => !current)}
+          aria-label="Logarithmic price scale"
+          title="Log scale"
+          data-tooltip="Log scale"
+        >
+          Log
+        </button>
+      )}
+      {candleView && !bars && (
         <div className="candle-interval">
           <span>Interval</span>
           <ThemedSelect
