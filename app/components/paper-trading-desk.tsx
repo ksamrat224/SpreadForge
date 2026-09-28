@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import {
   InteractiveMarketChart,
+  type ChartBar,
   type PriceView,
 } from "./interactive-market-chart";
 import { createPrng } from "../lib/simulation/prng";
@@ -32,6 +33,13 @@ import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
+import {
+  HISTORY_RANGE_LABELS,
+  HISTORY_RANGES,
+  mergeLiveTick,
+  type HistoryCandle,
+  type HistoryRange,
+} from "../lib/market-history";
 import {
   createPaperSessionSeed,
   createPaperState,
@@ -110,6 +118,14 @@ const INITIAL_STATUS: Record<FeedSource, string> = {
 // Event-time clock for handlers; kept out of the component body for the React compiler.
 const now = () => Date.now();
 
+function formatInterval(seconds: number) {
+  return seconds >= 86_400
+    ? `${seconds / 86_400}D`
+    : seconds >= 3600
+      ? `${seconds / 3600}H`
+      : `${seconds / 60}M`;
+}
+
 function formatSize(milliAsset: number) {
   return (milliAsset / 1000).toFixed(milliAsset % 1000 ? 3 : 0);
 }
@@ -139,6 +155,16 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [playbackSpeed, setPlaybackSpeed] = useState(150);
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [timeframe, setTimeframe] = useState(15);
+  const [range, setRange] = useState<HistoryRange>("1D");
+  // Exchange OHLCV for the live chart, keyed so a stale fetch never shows
+  // under a different asset or range.
+  const [liveBars, setLiveBars] = useState<{
+    key: string;
+    status: "ready" | "failed";
+    source?: string;
+    intervalSeconds: number;
+    candles: HistoryCandle[];
+  } | null>(null);
   const [chartView, setChartView] = useState<PaperChartView>("line");
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [limit, setLimit] = useState("");
@@ -148,6 +174,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const replay = useRef<PricePoint[]>([]);
   const lastToast = useRef<PaperState["trades"][number] | null>(null);
   const asset = desk.activeAsset;
+  const liveKey = `${asset}-${range}`;
   const market = desk.markets[asset];
   const position = desk.positions[asset];
   const equity = getPaperEquityCents(desk);
@@ -200,6 +227,20 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           });
       });
       const current = results[PAPER_ASSETS.indexOf(asset)];
+      if (current.status === "fulfilled")
+        setLiveBars((bars) =>
+          bars?.key === liveKey && bars.status === "ready"
+            ? {
+                ...bars,
+                candles: mergeLiveTick(
+                  bars.candles,
+                  bars.intervalSeconds,
+                  current.value.priceCents,
+                  current.value.publishedAt
+                ),
+              }
+            : bars
+        );
       setFeedStatus(
         current.status === "rejected"
           ? "FEED UNAVAILABLE"
@@ -215,7 +256,59 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [active, asset, playbackPaused, source]);
+  }, [active, asset, liveKey, playbackPaused, source]);
+  useEffect(() => {
+    if (!active || source !== "pyth") return;
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch(`/api/market/${asset.toLowerCase()}-usd/history?range=${range}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        return (await response.json()) as {
+          candles?: HistoryCandle[];
+          intervalSeconds?: number;
+          source?: string;
+        };
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const candles = (data.candles ?? []).filter(
+          (candle) =>
+            Number.isFinite(candle.at) &&
+            [
+              candle.openCents,
+              candle.highCents,
+              candle.lowCents,
+              candle.priceCents,
+            ].every((value) => Number.isSafeInteger(value) && value > 0)
+        );
+        if (!candles.length || !data.intervalSeconds) throw new Error("empty");
+        setLiveBars({
+          key: liveKey,
+          status: "ready",
+          source: data.source,
+          intervalSeconds: data.intervalSeconds,
+          candles,
+        });
+      })
+      .catch(() => {
+        // The chart falls back to the prices polled since the page opened.
+        if (!cancelled)
+          setLiveBars({
+            key: liveKey,
+            status: "failed",
+            intervalSeconds: 0,
+            candles: [],
+          });
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, asset, liveKey, range, source]);
   useEffect(() => {
     if (!active || source !== "synthetic" || playbackPaused) return;
     const timer = window.setInterval(() => {
@@ -382,7 +475,28 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const notional = Number.isFinite(priceCents * sizeMilliAsset)
     ? (priceCents * sizeMilliAsset) / 1000
     : 0;
-  const change = (market.priceCents / market.startPriceCents - 1) * 100;
+  const rangeBars =
+    source === "pyth" && liveBars?.key === liveKey ? liveBars : null;
+  // Loading shows an empty chart; a failed fetch falls back to polled prices.
+  const chartBars =
+    rangeBars?.status === "failed"
+      ? undefined
+      : source === "pyth"
+        ? (rangeBars?.candles ?? []).map((candle) => ({
+            time: Math.floor(candle.at / 1000),
+            open: candle.openCents / 100,
+            high: candle.highCents / 100,
+            low: candle.lowCents / 100,
+            close: candle.priceCents / 100,
+            volume: candle.volume,
+          }))
+        : undefined;
+  // Live mode reports change over the selected range, like public price pages.
+  const changeBaseCents =
+    rangeBars?.status === "ready"
+      ? rangeBars.candles[0].openCents
+      : market.startPriceCents;
+  const change = (market.priceCents / changeBaseCents - 1) * 100;
   const cutoff = (market.points.at(-1)?.at ?? 0) - timeframe * 60000;
   const points = market.points.filter((point) => point.at >= cutoff);
   const replayRange =
@@ -560,35 +674,58 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
               />
             </div>
           </div>
-          <div className="timeframes" aria-label="Chart timeframe">
-            {[
-              [1, "1M"],
-              [5, "5M"],
-              [15, "15M"],
-              [60, "1H"],
-              [240, "4H"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                className={timeframe === value ? "active" : ""}
-                aria-pressed={timeframe === value}
-                onClick={() => setTimeframe(Number(value))}
-              >
-                {label}
-              </button>
-            ))}
-            <span className="control-hint" style={{ marginLeft: "auto" }}>
-              {replayRange
-                ? `Replay: ${replayRange}`
-                : "Available session data"}
-            </span>
-          </div>
+          {source === "pyth" ? (
+            <div className="timeframes" aria-label="Chart range">
+              {HISTORY_RANGE_LABELS.map((value) => (
+                <button
+                  key={value}
+                  className={range === value ? "active" : ""}
+                  aria-pressed={range === value}
+                  onClick={() => setRange(value)}
+                >
+                  {HISTORY_RANGES[value].label}
+                </button>
+              ))}
+              <span className="control-hint" style={{ marginLeft: "auto" }}>
+                {rangeBars?.status === "ready"
+                  ? `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV + live ${feedStatus === "PYTH LIVE" ? "Pyth" : "exchange"} price`
+                  : rangeBars?.status === "failed"
+                    ? "Range history unavailable · showing polled prices"
+                    : "Loading range history…"}
+              </span>
+            </div>
+          ) : (
+            <div className="timeframes" aria-label="Chart timeframe">
+              {[
+                [1, "1M"],
+                [5, "5M"],
+                [15, "15M"],
+                [60, "1H"],
+                [240, "4H"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  className={timeframe === value ? "active" : ""}
+                  aria-pressed={timeframe === value}
+                  onClick={() => setTimeframe(Number(value))}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="control-hint" style={{ marginLeft: "auto" }}>
+                {replayRange
+                  ? `Replay: ${replayRange}`
+                  : "Available session data"}
+              </span>
+            </div>
+          )}
           <PaperChartSwitcher
             // Remount per asset/feed so the chart never carries bars across modes.
-            key={`${asset}-${source}`}
+            key={`${asset}-${source}-${source === "pyth" ? range : ""}`}
             view={chartView}
             onViewChange={setChartView}
             points={points}
+            bars={chartBars}
             desk={desk}
             intervals={source === "replay" ? [300, 900, 1800, 3600] : undefined}
             readoutActions={playbackControls}
@@ -871,12 +1008,14 @@ function PaperChartSwitcher({
   onViewChange,
   points,
   desk,
+  bars,
   intervals,
   readoutActions,
 }: {
   view: PaperChartView;
   onViewChange: (view: PaperChartView) => void;
   points: PricePoint[];
+  bars?: ChartBar[];
   desk: PaperState;
   intervals?: number[];
   readoutActions?: ReactNode;
@@ -902,6 +1041,8 @@ function PaperChartSwitcher({
             value: point.priceCents / 100,
           }))}
           label={`Paper ${asset} ${option.label} price chart`}
+          bars={bars}
+          variant="market"
           intervals={intervals}
           toolbarStart={chartPicker}
           readoutActions={readoutActions}
