@@ -97,4 +97,35 @@ describe("shared multi-asset paper portfolio", () => {
     expect(state.usdcCents).toBe(1_000_000);
     expect(state.trades).toHaveLength(0);
   });
+  it("clears every chart on a feed restart and re-anchors change on the first live price", () => {
+    let state = createPaperState();
+    state = paperReducer(state, {
+      type: "restart-feed",
+      history: "empty",
+      at: 0,
+    });
+    expect(state.markets.BTC.points).toHaveLength(0);
+    expect(state.markets.SOL.points).toHaveLength(0);
+    state = paperReducer(state, {
+      type: "tick",
+      asset: "SOL",
+      priceCents: 12_000,
+      at: 1_800_000_000_000,
+    });
+    expect(state.markets.SOL.startPriceCents).toBe(12_000);
+    expect(state.markets.SOL.points).toHaveLength(1);
+  });
+  it("seeds synthetic history on the real clock ending at the current price", () => {
+    const at = 1_800_000_000_000;
+    const state = paperReducer(createPaperState(), {
+      type: "restart-feed",
+      history: "synthetic",
+      at,
+    });
+    expect(state.markets.ETH.points).toHaveLength(150);
+    expect(state.markets.ETH.points.at(-1)).toMatchObject({
+      at,
+      priceCents: state.markets.ETH.priceCents,
+    });
+  });
 });

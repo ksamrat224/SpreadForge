@@ -6,11 +6,11 @@ export type Side = "buy" | "sell";
 export type PricePoint = { priceCents: number; at: number; sequence: number };
 export const PAPER_MARKETS: Record<
   PaperAsset,
-  { label: string; initialPriceCents: number; icon: string }
+  { label: string; initialPriceCents: number }
 > = {
-  BTC: { label: "BTC / USDC", initialPriceCents: 6_500_000, icon: "₿" },
-  ETH: { label: "ETH / USDC", initialPriceCents: 350_000, icon: "Ξ" },
-  SOL: { label: "SOL / USDC", initialPriceCents: 14_682, icon: "S" },
+  BTC: { label: "BTC / USDC", initialPriceCents: 6_500_000 },
+  ETH: { label: "ETH / USDC", initialPriceCents: 350_000 },
+  SOL: { label: "SOL / USDC", initialPriceCents: 14_682 },
 };
 type Position = { quantityMilliAsset: number; inventoryCostCents: number };
 type Market = {
@@ -44,6 +44,8 @@ export type PaperAction =
   | { type: "reset"; seed: number }
   | { type: "select-asset"; asset: PaperAsset }
   | { type: "load-history"; asset: PaperAsset; points: PricePoint[] }
+  /** Drops chart history for every market when the price feed changes. */
+  | { type: "restart-feed"; history: "empty" | "synthetic"; at: number }
   | {
       type: "tick";
       asset: PaperAsset;
@@ -73,18 +75,22 @@ export function createPaperSessionSeed() {
   globalThis.crypto.getRandomValues(v);
   return v[0];
 }
-function points(asset: PaperAsset, seed: number) {
+function points(
+  asset: PaperAsset,
+  seed: number,
+  endPriceCents = PAPER_MARKETS[asset].initialPriceCents,
+  endAt = 0
+) {
   const random = createPrng(seed);
-  let price = PAPER_MARKETS[asset].initialPriceCents;
+  let price = endPriceCents;
   const items = Array.from({ length: 150 }, (_, i) => {
     price = Math.max(
       100,
       price + Math.round((random() - 0.5) * Math.max(2, price * 0.0015))
     );
-    return { priceCents: price, at: (i - 149) * 400, sequence: i };
+    return { priceCents: price, at: endAt + (i - 149) * 400, sequence: i };
   });
-  const offset =
-    PAPER_MARKETS[asset].initialPriceCents - items.at(-1)!.priceCents;
+  const offset = endPriceCents - items.at(-1)!.priceCents;
   return items.map((point) => ({
     ...point,
     priceCents: point.priceCents + offset,
@@ -229,6 +235,31 @@ export function paperReducer(
       quotes: state.quotes.filter((quote) => quote.id !== action.id),
       error: "",
     };
+  if (action.type === "restart-feed")
+    return {
+      ...state,
+      markets: Object.fromEntries(
+        PAPER_ASSETS.map((asset, i) => {
+          const { priceCents } = state.markets[asset];
+          return [
+            asset,
+            {
+              priceCents,
+              startPriceCents: priceCents,
+              points:
+                action.history === "synthetic"
+                  ? points(
+                      asset,
+                      state.marketSeed + action.at + i,
+                      priceCents,
+                      action.at
+                    )
+                  : [],
+            },
+          ];
+        })
+      ) as Record<PaperAsset, Market>,
+    };
   if (action.type === "load-history") {
     if (!action.points.length) return state;
     const history = action.points.map((point, sequence) => ({
@@ -265,7 +296,14 @@ export function paperReducer(
       ...state,
       markets: {
         ...state.markets,
-        [action.asset]: { ...market, priceCents, points: history },
+        [action.asset]: {
+          priceCents,
+          // A cleared chart re-anchors the change badge on its first price.
+          startPriceCents: market.points.length
+            ? market.startPriceCents
+            : priceCents,
+          points: history,
+        },
       },
     };
     for (const quote of next.quotes.filter(

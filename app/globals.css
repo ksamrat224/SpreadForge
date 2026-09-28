@@ -804,6 +804,12 @@
   padding: 17px 18px;
   gap: 12px;
 }
+.market-header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .market-pair {
   display: flex;
   gap: 10px;
@@ -1841,9 +1847,22 @@
 }
 .market-chart-controls .candle-interval .themed-select { width: auto; }
 .market-chart-controls .candle-interval .themed-select > button {
-  min-width: 58px;
+  display: flex;
+  min-width: 84px;
   min-height: 30px;
   padding: 5px 7px;
+  white-space: nowrap;
+}
+.market-chart-controls .themed-select-menu button {
+  display: flex;
+  min-height: 0;
+  border: 0;
+  padding: 8px 9px;
+  background: transparent;
+}
+.market-chart-controls .themed-select-menu button:hover,
+.market-chart-controls .themed-select-menu button[aria-selected="true"] {
+  background: var(--accent);
 }
 .market-chart-controls button:focus-visible,
 .market-chart-canvas:focus-visible {
@@ -2862,4 +2881,8 @@ tr:last-child td {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+/* Ethereum's light-on-dark variant: the official greys inverted. */
+.dark .eth-logo {
+  filter: invert(1);
 }
