@@ -33,6 +33,7 @@ import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
+import type { IndicatorId } from "../lib/indicators";
 import {
   HISTORY_RANGE_LABELS,
   HISTORY_RANGES,
@@ -156,6 +157,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [timeframe, setTimeframe] = useState(15);
   const [range, setRange] = useState<HistoryRange>("1D");
+  const [indicators, setIndicators] = useState<IndicatorId[]>([]);
   // Exchange OHLCV for the live chart, keyed so a stale fetch never shows
   // under a different asset or range.
   const [liveBars, setLiveBars] = useState<{
@@ -728,6 +730,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             bars={chartBars}
             desk={desk}
             intervals={source === "replay" ? [300, 900, 1800, 3600] : undefined}
+            indicators={indicators}
+            onIndicatorsChange={setIndicators}
             readoutActions={playbackControls}
           />
           <div className="quick-trade">
@@ -1010,12 +1014,16 @@ function PaperChartSwitcher({
   desk,
   bars,
   intervals,
+  indicators,
+  onIndicatorsChange,
   readoutActions,
 }: {
   view: PaperChartView;
   onViewChange: (view: PaperChartView) => void;
   points: PricePoint[];
   bars?: ChartBar[];
+  indicators: IndicatorId[];
+  onIndicatorsChange: (indicators: IndicatorId[]) => void;
   desk: PaperState;
   intervals?: number[];
   readoutActions?: ReactNode;
@@ -1043,6 +1051,8 @@ function PaperChartSwitcher({
           label={`Paper ${asset} ${option.label} price chart`}
           bars={bars}
           variant="market"
+          indicators={indicators}
+          onIndicatorsChange={onIndicatorsChange}
           intervals={intervals}
           toolbarStart={chartPicker}
           readoutActions={readoutActions}

@@ -3,19 +3,39 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   IconArrowsMaximize,
+  IconCheck,
   IconChartCandle,
+  IconMathFunction,
   IconFocusCentered,
   IconMinus,
   IconPlus,
   IconRefresh,
 } from "@tabler/icons-react";
-import type { IChartApi, Time, UTCTimestamp } from "lightweight-charts";
+import type {
+  IChartApi,
+  ISeriesApi,
+  SeriesType,
+  Time,
+  UTCTimestamp,
+} from "lightweight-charts";
 import {
   buildCandles,
   heikinAshi,
   type ChartCandle,
   type ChartSample,
 } from "../lib/chart-data";
+import {
+  bollinger,
+  ema,
+  INDICATOR_IDS,
+  INDICATORS,
+  macd,
+  rsi,
+  sma,
+  vwap,
+  type IndicatorId,
+  type IndicatorValue,
+} from "../lib/indicators";
 import { ThemedSelect } from "./themed-select";
 
 export type PriceView = "line" | "area" | "candles" | "ohlc" | "heikin";
@@ -25,6 +45,73 @@ export type ChartBar = ChartCandle & { volume?: number };
 const UP = "#16c784";
 const DOWN = "#ea3943";
 const LOG_MODE = 1; // PriceScaleMode.Logarithmic, without importing the lib eagerly
+
+const PANE_HEIGHT = 110;
+const NO_INDICATORS: IndicatorId[] = [];
+
+/** One drawable output of an indicator, e.g. Bollinger's upper band. */
+type IndicatorLine = {
+  id: IndicatorId;
+  name: string;
+  color: string;
+  kind: "line" | "histogram";
+  dashed?: boolean;
+  guides?: number[];
+  points: Array<{ time: number; value: number; color?: string }>;
+};
+
+function toPoints(times: number[], values: IndicatorValue[]) {
+  return values.flatMap((value, i) =>
+    value === null ? [] : [{ time: times[i], value }]
+  );
+}
+
+function indicatorLines(id: IndicatorId, candles: ChartBar[]): IndicatorLine[] {
+  const times = candles.map((candle) => candle.time);
+  const closes = candles.map((candle) => candle.close);
+  const line = (
+    name: string,
+    color: string,
+    values: IndicatorValue[],
+    extra: Partial<IndicatorLine> = {}
+  ): IndicatorLine => ({
+    id,
+    name,
+    color,
+    kind: "line",
+    points: toPoints(times, values),
+    ...extra,
+  });
+  if (id === "sma20") return [line("MA 20", "#f5a524", sma(closes, 20))];
+  if (id === "ema50") return [line("EMA 50", "#7c5cff", ema(closes, 50))];
+  if (id === "vwap") return [line("VWAP", "#e056fd", vwap(candles))];
+  if (id === "bollinger") {
+    const bands = bollinger(closes);
+    return [
+      line("BB upper", "#2f80ed", bands.upper),
+      line("BB basis", "#2f80ed", bands.middle, { dashed: true }),
+      line("BB lower", "#2f80ed", bands.lower),
+    ];
+  }
+  if (id === "rsi")
+    return [line("RSI", "#a78bfa", rsi(closes), { guides: [70, 30] })];
+  const result = macd(closes);
+  return [
+    {
+      id,
+      name: "Histogram",
+      color: "",
+      kind: "histogram",
+      points: toPoints(times, result.histogram).map((point) => ({
+        ...point,
+        color:
+          point.value >= 0 ? "rgba(22,199,132,0.55)" : "rgba(234,57,67,0.55)",
+      })),
+    },
+    line("MACD", "#2f80ed", result.macd),
+    line("Signal", "#f5a524", result.signal),
+  ];
+}
 
 function localTick(date: Date, type: number) {
   // TickMarkType: 0 year, 1 month, 2 day of month, 3 time, 4 time with seconds
@@ -60,6 +147,9 @@ type Props = {
    * price, with volume bars and a log-scale toggle, like public price pages.
    */
   variant?: "default" | "market";
+  /** Active technical indicators; the Indicators menu shows when a change handler is given. */
+  indicators?: IndicatorId[];
+  onIndicatorsChange?: (indicators: IndicatorId[]) => void;
 };
 
 export function InteractiveMarketChart({
@@ -75,6 +165,8 @@ export function InteractiveMarketChart({
   intervals = ticks ? [2, 4, 8] : [5, 15, 30, 60],
   bars,
   variant = "default",
+  indicators = NO_INDICATORS,
+  onIndicatorsChange,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -88,21 +180,40 @@ export function InteractiveMarketChart({
   const market = variant === "market";
   const baseline = market && view === "line";
   const candleView = view === "candles" || view === "ohlc" || view === "heikin";
-  const data = useMemo(() => {
-    const candles =
-      bars ?? buildCandles(samples, candleView ? interval : ticks ? 1 : 0.001);
-    return candleView
-      ? view === "heikin"
-        ? heikinAshi(candles)
-        : candles.map(({ time, open, high, low, close }) => ({
-            time,
-            open,
-            high,
-            low,
-            close,
-          }))
-      : candles.map((c) => ({ time: c.time, value: c.close }));
-  }, [bars, samples, candleView, interval, view, ticks]);
+  const candles = useMemo<ChartBar[]>(
+    () =>
+      bars ?? buildCandles(samples, candleView ? interval : ticks ? 1 : 0.001),
+    [bars, samples, candleView, interval, ticks]
+  );
+  const data = useMemo(
+    () =>
+      candleView
+        ? view === "heikin"
+          ? heikinAshi(candles)
+          : candles.map(({ time, open, high, low, close }) => ({
+              time,
+              open,
+              high,
+              low,
+              close,
+            }))
+        : candles.map((c) => ({ time: c.time, value: c.close })),
+    [candles, candleView, view]
+  );
+  const hasVolume = !!bars?.some((bar) => (bar.volume ?? 0) > 0);
+  // Indicators always read the underlying candles, never Heikin-Ashi values.
+  const activeIndicators = useMemo(
+    () =>
+      INDICATOR_IDS.filter(
+        (id) => indicators.includes(id) && (id !== "vwap" || hasVolume)
+      ),
+    [indicators, hasVolume]
+  );
+  const lines = useMemo(
+    () => activeIndicators.flatMap((id) => indicatorLines(id, candles)),
+    [candles, activeIndicators]
+  );
+  const paneCount = activeIndicators.filter((id) => INDICATORS[id].pane).length;
   const volume = useMemo(
     () =>
       market && bars
@@ -126,11 +237,20 @@ export function InteractiveMarketChart({
     markers,
     interval,
     candleView,
+    lines,
   });
   useEffect(() => {
-    latest.current = { data, volume, basePrice, markers, interval, candleView };
+    latest.current = {
+      data,
+      volume,
+      basePrice,
+      markers,
+      interval,
+      candleView,
+      lines,
+    };
     syncRef.current?.();
-  }, [data, volume, basePrice, markers, interval, candleView]);
+  }, [data, volume, basePrice, markers, interval, candleView, lines]);
   const logRef = useRef(logScale);
   useEffect(() => {
     logRef.current = logScale;
@@ -272,13 +392,97 @@ export function InteractiveMarketChart({
         : null;
       let previous: typeof data = [];
       let first = true;
+      let builtIndicators = "";
+      let indicatorSeries: ISeriesApi<SeriesType>[] = [];
+      const plain = {
+        type: "custom" as const,
+        formatter: (price: number) => price.toFixed(2),
+      };
+      // Rebuilds indicator series only when the selection changes; data
+      // updates reuse them. Emptied panes are removed by the library.
+      const syncIndicators = () => {
+        const current = latest.current.lines;
+        const signature = current.map((line) => line.id + line.name).join();
+        if (signature !== builtIndicators) {
+          for (const item of indicatorSeries) chart.removeSeries(item);
+          // Oscillators get fixed panes below the price in menu order.
+          const paneIds = [
+            ...new Set(
+              current
+                .filter((line) => INDICATORS[line.id].pane)
+                .map((line) => line.id)
+            ),
+          ];
+          indicatorSeries = current.map((line) => {
+            const pane = paneIds.indexOf(line.id) + 1;
+            const api =
+              line.kind === "histogram"
+                ? chart.addSeries(
+                    lib.HistogramSeries,
+                    {
+                      priceFormat: plain,
+                      priceLineVisible: false,
+                      lastValueVisible: false,
+                    },
+                    pane
+                  )
+                : chart.addSeries(
+                    lib.LineSeries,
+                    {
+                      color: line.color,
+                      lineWidth: 1,
+                      lineStyle: line.dashed
+                        ? lib.LineStyle.Dashed
+                        : lib.LineStyle.Solid,
+                      priceLineVisible: false,
+                      lastValueVisible: !line.dashed,
+                      crosshairMarkerVisible: false,
+                      ...(pane ? { priceFormat: plain } : {}),
+                    },
+                    pane
+                  );
+            for (const price of line.guides ?? [])
+              api.createPriceLine({
+                price,
+                color: "rgba(148,163,184,0.6)",
+                lineWidth: 1,
+                lineStyle: lib.LineStyle.Dashed,
+                axisLabelVisible: false,
+                title: "",
+              });
+            return api;
+          });
+          for (let i = chart.panes().length - 1; i > paneIds.length; i--)
+            chart.removePane(i);
+          chart
+            .panes()
+            .forEach((pane, index) => pane.setStretchFactor(index ? 1 : 3));
+          builtIndicators = signature;
+        }
+        indicatorSeries.forEach((api, index) =>
+          api.setData(
+            current[index].points.map((point) => ({
+              ...point,
+              time: point.time as UTCTimestamp,
+            }))
+          )
+        );
+      };
+      const indicatorReadout = (time: number) =>
+        latest.current.lines
+          .filter((line) => line.kind === "line")
+          .flatMap((line) => {
+            const point = line.points.find((item) => item.time === time);
+            return point ? [`${line.name} ${point.value.toFixed(2)}`] : [];
+          })
+          .join("  ");
       const format = (value: number) =>
         `${unit === "$" ? "$" : ""}${value.toFixed(2)}${unit === "$" ? "" : ` ${unit}`}`;
       const show = (bar: (typeof data)[number] | undefined) => {
         if (!readout.current) return;
         readout.current.textContent = !bar
           ? "Waiting for samples"
-          : `${ticks ? `T${bar.time}` : timeLabelPrefix ? `${timeLabelPrefix} ${bar.time}` : new Date(bar.time * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}  ${"open" in bar ? `O ${format(bar.open)}  H ${format(bar.high)}  L ${format(bar.low)}  C ${format(bar.close)}` : format(bar.value)}`;
+          : `${ticks ? `T${bar.time}` : timeLabelPrefix ? `${timeLabelPrefix} ${bar.time}` : new Date(bar.time * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}  ${"open" in bar ? `O ${format(bar.open)}  H ${format(bar.high)}  L ${format(bar.low)}  C ${format(bar.close)}` : format(bar.value)}  ${indicatorReadout(bar.time)}`.trim();
       };
       const sync = () => {
         const next = latest.current.data;
@@ -303,6 +507,7 @@ export function InteractiveMarketChart({
             time: bar.time as UTCTimestamp,
           }))
         );
+        syncIndicators();
         const base = latest.current.basePrice;
         if (baseline && base !== undefined) {
           series.applyOptions({ baseValue: { type: "price", price: base } });
@@ -435,6 +640,13 @@ export function InteractiveMarketChart({
           Log
         </button>
       )}
+      {onIndicatorsChange && (
+        <IndicatorMenu
+          active={indicators}
+          hasVolume={hasVolume}
+          onChange={onIndicatorsChange}
+        />
+      )}
       {candleView && !bars && (
         <div className="candle-interval">
           <span>Interval</span>
@@ -532,6 +744,9 @@ export function InteractiveMarketChart({
       <div
         ref={container}
         className="market-chart-canvas"
+        style={
+          paneCount ? { height: 320 + paneCount * PANE_HEIGHT } : undefined
+        }
         role="img"
         aria-label={label}
         tabIndex={0}
@@ -552,6 +767,85 @@ export function InteractiveMarketChart({
         }}
       />
       {error && <p role="alert">Unable to load chart: {error}</p>}
+    </div>
+  );
+}
+
+function IndicatorMenu({
+  active,
+  hasVolume,
+  onChange,
+}: {
+  active: IndicatorId[];
+  hasVolume: boolean;
+  onChange: (indicators: IndicatorId[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  const count = active.filter((id) => id !== "vwap" || hasVolume).length;
+  return (
+    <div className="themed-select indicator-menu" ref={root}>
+      <button
+        type="button"
+        className={count ? "active" : ""}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Indicators"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <IconMathFunction size={14} />
+        <span>Indicators{count ? ` ${count}` : ""}</span>
+      </button>
+      {open && (
+        <div className="themed-select-menu" role="menu" aria-label="Indicators">
+          {(["Overlays", "Oscillators"] as const).map((group) => (
+            <div key={group} role="group" aria-label={group}>
+              <span className="indicator-menu-group">{group}</span>
+              {INDICATOR_IDS.filter(
+                (id) =>
+                  INDICATORS[id].group === group && (id !== "vwap" || hasVolume)
+              ).map((id) => {
+                const checked = active.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={checked}
+                    onClick={() =>
+                      onChange(
+                        checked
+                          ? active.filter((item) => item !== id)
+                          : [...active, id]
+                      )
+                    }
+                  >
+                    <span className="indicator-check">
+                      {checked && <IconCheck size={12} />}
+                    </span>
+                    <span>{INDICATORS[id].label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
