@@ -2890,3 +2890,37 @@ tr:last-child td {
   border-color: color-mix(in oklab, var(--primary) 48%, var(--border));
   color: var(--primary);
 }
+.market-chart-controls .indicator-menu {
+  width: auto;
+}
+.market-chart-controls .indicator-menu > button {
+  display: flex;
+  gap: 6px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+.market-chart-controls .indicator-menu .themed-select-menu {
+  left: auto;
+  right: 0;
+  min-width: 200px;
+}
+.indicator-menu-group {
+  display: block;
+  padding: 6px 9px 3px;
+  color: var(--muted-foreground);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.indicator-check {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--primary);
+}
+.indicator-menu [aria-checked="true"] .indicator-check {
+  border-color: var(--primary);
+}
