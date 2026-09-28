@@ -25,6 +25,8 @@ type Props = {
   readoutActions?: ReactNode;
   unit?: string;
   markers?: Marker[];
+  /** Candle bucket sizes, in ticks when `ticks` is set, otherwise seconds. */
+  intervals?: number[];
 };
 
 export function InteractiveMarketChart({
@@ -37,6 +39,7 @@ export function InteractiveMarketChart({
   readoutActions,
   unit = "$",
   markers = [],
+  intervals = ticks ? [2, 4, 8] : [5, 15, 30, 60],
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -44,7 +47,7 @@ export function InteractiveMarketChart({
   const chartRef = useRef<IChartApi | null>(null);
   const syncRef = useRef<(() => void) | null>(null);
   const followFullWidth = useRef(true);
-  const [interval, setInterval] = useState(ticks ? 4 : 5);
+  const [interval, setInterval] = useState(intervals[ticks ? 1 : 0]);
   const [error, setError] = useState("");
   const candleView = view === "candles" || view === "ohlc" || view === "heikin";
   const data = useMemo(() => {
@@ -300,9 +303,13 @@ export function InteractiveMarketChart({
             label="Candle interval"
             value={interval}
             onChange={setInterval}
-            options={(ticks ? [2, 4, 8] : [5, 15, 30, 60]).map((value) => ({
+            options={intervals.map((value) => ({
               value,
-              label: `${value}${ticks ? " ticks" : "s"}`,
+              label: ticks
+                ? `${value} ticks`
+                : value >= 60
+                  ? `${value / 60}m`
+                  : `${value}s`,
               icon: <IconChartCandle size={14} />,
             }))}
           />
@@ -326,7 +333,13 @@ export function InteractiveMarketChart({
       >
         <IconMinus size={14} />
       </button>
-      <button type="button" onClick={fit} aria-label="Fit" title="Fit chart" data-tooltip="Fit chart">
+      <button
+        type="button"
+        onClick={fit}
+        aria-label="Fit"
+        title="Fit chart"
+        data-tooltip="Fit chart"
+      >
         <IconFocusCentered size={14} />
       </button>
       <button
@@ -371,12 +384,11 @@ export function InteractiveMarketChart({
       ) : (
         <div className="market-chart-controls">{controls}</div>
       )}
-      <div
-        className="market-chart-readout"
-        aria-label="Chart values"
-      >
+      <div className="market-chart-readout" aria-label="Chart values">
         <span ref={readout}>Loading chart…</span>
-        {readoutActions && <div className="market-chart-readout-actions">{readoutActions}</div>}
+        {readoutActions && (
+          <div className="market-chart-readout-actions">{readoutActions}</div>
+        )}
       </div>
       <div
         ref={container}

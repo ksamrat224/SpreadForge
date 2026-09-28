@@ -89,6 +89,8 @@ export async function GET(
   ]) {
     try {
       const price = await load();
+      // The client rejects prices older than 60s, so a stale provider must fall through.
+      if (Date.now() - price.publishedAt > 60_000) continue;
       return NextResponse.json({ asset: market.asset, ...price });
     } catch {
       /* continue to an approved fallback */

@@ -1,9 +1,37 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import {
+  IconArrowUpRight,
+  IconArrowDownRight,
+  IconHistory,
+  IconActivity,
+  IconBolt,
+  IconChartLine,
+  IconChartAreaLine,
+  IconChartCandle,
+  IconChartBar,
+  IconChartHistogram,
+  IconChartDots,
+  IconArrowsExchange,
+  IconBox,
+  IconCurrencyDollar,
+  IconTrendingDown,
+  IconChevronUp,
+  IconChevronDown,
+  IconPlayerPause,
+  IconPlayerPlay,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
-import { InteractiveMarketChart } from "./interactive-market-chart";
-import { Metric, money, signedMoney } from "./terminal-ui";
+import {
+  InteractiveMarketChart,
+  type PriceView,
+} from "./interactive-market-chart";
+import { createPrng } from "../lib/simulation/prng";
+import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
+import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
+import { ThemedSelect } from "./themed-select";
+import { AssetLogo } from "./crypto-logos";
 import {
   createPaperSessionSeed,
   createPaperState,
@@ -13,24 +41,112 @@ import {
   PAPER_MARKETS,
   paperReducer,
   type PaperAsset,
+  type PaperState,
+  type PricePoint,
 } from "../lib/simulation/paper";
 
 type FeedSource = "synthetic" | "pyth" | "replay";
+type PaperChartView =
+  | "line"
+  | "area"
+  | "candles"
+  | "ohlc"
+  | "heikin"
+  | "depth"
+  | "spread"
+  | "inventory"
+  | "pnl"
+  | "drawdown";
+
+const PAPER_CHART_OPTIONS: ChartViewOption<PaperChartView>[] = [
+  { value: "line", label: "Line", group: "Price", Icon: IconChartLine },
+  { value: "area", label: "Area", group: "Price", Icon: IconChartAreaLine },
+  { value: "candles", label: "Candles", group: "Price", Icon: IconChartCandle },
+  { value: "ohlc", label: "OHLC bars", group: "Price", Icon: IconChartBar },
+  {
+    value: "heikin",
+    label: "Heikin-Ashi",
+    group: "Price",
+    Icon: IconChartHistogram,
+  },
+  {
+    value: "depth",
+    label: "Order book depth",
+    group: "Analytics",
+    Icon: IconChartDots,
+  },
+  {
+    value: "spread",
+    label: "Bid / ask spread",
+    group: "Analytics",
+    Icon: IconArrowsExchange,
+  },
+  { value: "inventory", label: "Inventory", group: "Analytics", Icon: IconBox },
+  {
+    value: "pnl",
+    label: "P&L / equity",
+    group: "Analytics",
+    Icon: IconCurrencyDollar,
+  },
+  {
+    value: "drawdown",
+    label: "Drawdown",
+    group: "Analytics",
+    Icon: IconTrendingDown,
+  },
+];
+const PRICE_VIEWS = ["line", "area", "candles", "ohlc", "heikin"];
+const QUICK_SIZE_MILLI: Record<PaperAsset, number> = {
+  BTC: 1,
+  ETH: 100,
+  SOL: 1000,
+};
+const INITIAL_STATUS: Record<FeedSource, string> = {
+  synthetic: "SYNTHETIC",
+  replay: "LOADING REPLAY",
+  pyth: "CONNECTING",
+};
+
+// Event-time clock for handlers; kept out of the component body for the React compiler.
+const now = () => Date.now();
+
+function formatSize(milliAsset: number) {
+  return (milliAsset / 1000).toFixed(milliAsset % 1000 ? 3 : 0);
+}
+
+// The live feed starts with an empty chart; seeded synthetic history would
+// otherwise sit on a different time axis than the real prices appended to it.
+function createInitialDesk() {
+  return paperReducer(createPaperState(), {
+    type: "restart-feed",
+    history: "empty",
+    at: 0,
+  });
+}
 
 export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [desk, dispatch] = useReducer(
     paperReducer,
     undefined,
-    createPaperState
+    createInitialDesk
   );
   const [source, setSource] = useState<FeedSource>("pyth");
-  const [feedStatus, setFeedStatus] = useState("CONNECTING");
-  const [limit, setLimit] = useState("");
-  const [size, setSize] = useState("0.001");
+  const [feedStatus, setFeedStatus] = useState(INITIAL_STATUS.pyth);
+  const [historicalProvider, setHistoricalProvider] = useState<string | null>(
+    null
+  );
+  const [replayEpoch, setReplayEpoch] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(150);
+  const [playbackPaused, setPlaybackPaused] = useState(false);
+  const [timeframe, setTimeframe] = useState(15);
+  const [chartView, setChartView] = useState<PaperChartView>("line");
   const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [limit, setLimit] = useState("");
+  const [size, setSize] = useState(formatSize(QUICK_SIZE_MILLI.SOL));
   const [confirmReset, setConfirmReset] = useState(false);
-  const random = useRef(0);
-  const replay = useRef<Array<{ priceCents: number; at: number }>>([]);
+  const random = useRef(createPrng(7264));
+  const replay = useRef<PricePoint[]>([]);
+  const lastToast = useRef<PaperState["trades"][number] | null>(null);
   const asset = desk.activeAsset;
   const market = desk.markets[asset];
   const position = desk.positions[asset];
@@ -45,37 +161,52 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     (source === "pyth" && !hasLiveFeed) ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
 
+  // Live and synthetic feeds update every market so the shared portfolio is
+  // marked to current prices and quotes on inactive assets can still fill.
   useEffect(() => {
-    if (!active || source !== "pyth") return;
+    if (!active || source !== "pyth" || playbackPaused) return;
     let cancelled = false;
     const controller = new AbortController();
+    const load = async (item: PaperAsset) => {
+      const response = await fetch(`/api/market/${item.toLowerCase()}-usd`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("unavailable");
+      const data = await response.json();
+      if (
+        !Number.isSafeInteger(data.priceCents) ||
+        data.priceCents <= 0 ||
+        !Number.isFinite(data.publishedAt) ||
+        Date.now() - data.publishedAt > 60_000
+      )
+        throw new Error("stale");
+      return data as {
+        priceCents: number;
+        publishedAt: number;
+        source: string;
+      };
+    };
     const refresh = async () => {
-      try {
-        const response = await fetch(
-          "/api/market/" + asset.toLowerCase() + "-usd",
-          { cache: "no-store", signal: controller.signal }
-        );
-        if (!response.ok) throw new Error("unavailable");
-        const data = await response.json();
-        if (
-          !Number.isSafeInteger(data.priceCents) ||
-          data.priceCents <= 0 ||
-          !Number.isFinite(data.publishedAt) ||
-          Date.now() - data.publishedAt > 60_000
-        )
-          throw new Error("stale");
-        if (!cancelled) {
+      const results = await Promise.allSettled(PAPER_ASSETS.map(load));
+      if (cancelled) return;
+      results.forEach((result, i) => {
+        if (result.status === "fulfilled")
           dispatch({
             type: "tick",
-            asset,
-            priceCents: data.priceCents,
-            at: data.publishedAt,
+            asset: PAPER_ASSETS[i],
+            priceCents: result.value.priceCents,
+            at: result.value.publishedAt,
           });
-          setFeedStatus(data.source === "pyth" ? "PYTH LIVE" : "LIVE FALLBACK");
-        }
-      } catch {
-        if (!cancelled) setFeedStatus("FEED UNAVAILABLE");
-      }
+      });
+      const current = results[PAPER_ASSETS.indexOf(asset)];
+      setFeedStatus(
+        current.status === "rejected"
+          ? "FEED UNAVAILABLE"
+          : current.value.source === "pyth"
+            ? "PYTH LIVE"
+            : "LIVE FALLBACK"
+      );
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 5000);
@@ -84,94 +215,143 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [active, asset, source]);
+  }, [active, asset, playbackPaused, source]);
   useEffect(() => {
-    if (!active || source !== "synthetic") return;
+    if (!active || source !== "synthetic" || playbackPaused) return;
     const timer = window.setInterval(() => {
-      random.current = (random.current * 1664525 + 1013904223) >>> 0;
-      const delta = Math.round(
-        (random.current / 2 ** 32 - 0.49) *
-          Math.max(2, market.priceCents * 0.0015)
-      );
-      dispatch({ type: "tick", asset, delta, at: Date.now() });
-    }, 400);
+      const at = Date.now();
+      for (const item of PAPER_ASSETS)
+        dispatch({
+          type: "tick",
+          asset: item,
+          delta: Math.round(
+            (random.current() - 0.49) *
+              Math.max(2, PAPER_MARKETS[item].initialPriceCents * 0.0015)
+          ),
+          at,
+        });
+    }, 60000 / playbackSpeed);
     return () => window.clearInterval(timer);
-  }, [active, asset, market.priceCents, source]);
+  }, [active, playbackPaused, playbackSpeed, source]);
   useEffect(() => {
     if (!active || source !== "replay") return;
     let cancelled = false;
     const controller = new AbortController();
-    void fetch("/api/market/" + asset.toLowerCase() + "-usd/history", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+    async function loadReplay() {
+      try {
+        const response = await fetch(
+          `/api/market/${asset.toLowerCase()}-usd/history`,
+          { cache: "no-store", signal: controller.signal }
+        );
         if (!response.ok) throw new Error("unavailable");
-        return response.json();
-      })
-      .then((data) => {
-        const candles = (data.candles ?? []).filter(
-          (item: { at: number; priceCents: number }) =>
-            Number.isFinite(item.at) &&
-            Number.isSafeInteger(item.priceCents) &&
-            item.priceCents > 0
-        );
-        if (candles.length < 210) throw new Error("history");
-        const start = Math.max(
-          149,
-          (createPaperSessionSeed() % (candles.length - 60)) + 149
-        );
-        replay.current = candles.slice(start + 1);
-        if (!cancelled) {
-          dispatch({
-            type: "load-history",
-            asset,
-            points: candles.slice(start - 149, start + 1),
-          });
-          setFeedStatus("HISTORICAL REPLAY");
-        }
-      })
-      .catch(() => {
+        const data = (await response.json()) as {
+          candles?: Array<{ at: number; priceCents: number }>;
+          source?: string;
+        };
+        const candles =
+          data.candles?.filter(
+            (candle) =>
+              Number.isFinite(candle.at) &&
+              Number.isSafeInteger(candle.priceCents) &&
+              candle.priceCents > 0
+          ) ?? [];
+        const historyLength = 150;
+        const remainingLength = 60;
+        const starts = candles.length - historyLength - remainingLength;
+        if (starts < 1) throw new Error("not enough history");
+        const start = historyLength - 1 + (createPaperSessionSeed() % starts);
+        if (cancelled) return;
+        replay.current = candles
+          .slice(start + 1)
+          .map((candle, sequence) => ({ ...candle, sequence }));
+        dispatch({
+          type: "load-history",
+          asset,
+          points: candles
+            .slice(start - historyLength + 1, start + 1)
+            .map((candle, sequence) => ({ ...candle, sequence })),
+        });
+        setHistoricalProvider(data.source ?? "market data");
+        setFeedStatus("HISTORICAL REPLAY");
+      } catch {
         if (!cancelled) setFeedStatus("REPLAY UNAVAILABLE");
-      });
+      }
+    }
+    void loadReplay();
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [active, asset, source]);
+  }, [active, asset, replayEpoch, source]);
   useEffect(() => {
-    if (!active || source !== "replay" || feedStatus !== "HISTORICAL REPLAY")
+    if (
+      !active ||
+      source !== "replay" ||
+      playbackPaused ||
+      feedStatus !== "HISTORICAL REPLAY"
+    )
       return;
     const timer = window.setInterval(() => {
       const next = replay.current.shift();
       if (!next) {
+        window.clearInterval(timer);
         setFeedStatus("REPLAY COMPLETE");
         return;
       }
-      dispatch({ type: "tick", asset, ...next });
-    }, 400);
+      dispatch({
+        type: "tick",
+        asset,
+        priceCents: next.priceCents,
+        at: next.at,
+      });
+    }, 60000 / playbackSpeed);
     return () => window.clearInterval(timer);
-  }, [active, asset, feedStatus, source]);
+  }, [active, asset, feedStatus, playbackPaused, playbackSpeed, source]);
   useEffect(() => {
     const trade = desk.trades[0];
-    if (trade)
-      toast.success(
-        (trade.side === "buy" ? "Bought " : "Sold ") +
-          trade.sizeMilliAsset / 1000 +
-          " simulated " +
-          trade.asset +
-          " at " +
-          money(trade.priceCents)
-      );
+    if (!trade || trade === lastToast.current) return;
+    lastToast.current = trade;
+    toast.success(
+      `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.sizeMilliAsset / 1000} simulated ${trade.asset} at ${money(trade.priceCents)}`
+    );
   }, [desk.trades]);
 
-  const change = (market.priceCents / market.startPriceCents - 1) * 100;
-  const openQuotes = desk.quotes.filter((quote) => quote.asset === asset);
-  const quickSizeMilliAsset =
-    asset === "BTC" ? 1 : asset === "ETH" ? 100 : 1000;
-  const quickSizeLabel = (quickSizeMilliAsset / 1000).toFixed(
-    quickSizeMilliAsset < 1000 ? 3 : 0
-  );
+  function restartFeed(next: FeedSource) {
+    replay.current = [];
+    dispatch({
+      type: "restart-feed",
+      history: next === "synthetic" ? "synthetic" : "empty",
+      at: Date.now(),
+    });
+    setPlaybackPaused(false);
+    setFeedStatus(INITIAL_STATUS[next]);
+    if (next === "replay") {
+      setHistoricalProvider(null);
+      setReplayEpoch((epoch) => epoch + 1);
+    }
+  }
+  function changeSource(next: FeedSource) {
+    if (next === source) return;
+    setSource(next);
+    setTimeframe(next === "replay" ? 240 : 15);
+    restartFeed(next);
+  }
+  function changeAsset(next: PaperAsset) {
+    if (next === asset) return;
+    dispatch({ type: "select-asset", asset: next });
+    setLimit("");
+    setSize(formatSize(QUICK_SIZE_MILLI[next]));
+    // Replay history is per asset, so the old asset's candles must not keep playing.
+    if (source === "replay") restartFeed("replay");
+    else if (source === "pyth") setFeedStatus(INITIAL_STATUS.pyth);
+  }
+  function reset() {
+    if (!confirmReset) return setConfirmReset(true);
+    dispatch({ type: "reset", seed: createPaperSessionSeed() });
+    restartFeed(source);
+    setConfirmReset(false);
+    toast.success("Paper portfolio reset to 10,000 simulated USDC.");
+  }
   const place = (event: React.FormEvent) => {
     event.preventDefault();
     dispatch({
@@ -180,33 +360,101 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       side,
       priceCents,
       sizeMilliAsset,
-      at: Date.now(),
+      at: now(),
     });
   };
-  const reset = () => {
-    if (!confirmReset) return setConfirmReset(true);
-    dispatch({ type: "reset", seed: createPaperSessionSeed() });
-    setConfirmReset(false);
-    toast.success("Paper portfolio reset to 10,000 simulated USDC.");
-  };
+  function stepLimit(direction: 1 | -1) {
+    setLimit((value) =>
+      Math.max(0.01, Number(value || limitValue) + direction * 0.01).toFixed(2)
+    );
+  }
+  function stepSize(direction: 1 | -1) {
+    setSize((value) =>
+      Math.max(0.001, Number(value || 0) + direction * 0.001).toFixed(3)
+    );
+  }
+
+  const quickSizeMilliAsset = QUICK_SIZE_MILLI[asset];
+  const quickSizeLabel = formatSize(quickSizeMilliAsset);
+  const distance = Number.isFinite(priceCents)
+    ? (priceCents / market.priceCents - 1) * 100
+    : 0;
+  const notional = Number.isFinite(priceCents * sizeMilliAsset)
+    ? (priceCents * sizeMilliAsset) / 1000
+    : 0;
+  const change = (market.priceCents / market.startPriceCents - 1) * 100;
+  const cutoff = (market.points.at(-1)?.at ?? 0) - timeframe * 60000;
+  const points = market.points.filter((point) => point.at >= cutoff);
+  const replayRange =
+    source === "replay" && market.points.length
+      ? `${new Date(market.points[0].at).toLocaleString()} — ${new Date(market.points.at(-1)!.at).toLocaleString()}`
+      : null;
+  const feedLabel =
+    source === "synthetic"
+      ? "SYNTHETIC REFERENCE"
+      : source === "replay"
+        ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
+        : feedStatus === "LIVE FALLBACK"
+          ? "EXCHANGE FALLBACK REFERENCE"
+          : "PYTH REFERENCE";
+  const playbackControls = (
+    <div className="replay-playback-actions">
+      <button
+        type="button"
+        aria-label={
+          playbackPaused ? "Resume market display" : "Pause market display"
+        }
+        title={playbackPaused ? "Resume" : "Pause"}
+        disabled={
+          feedStatus === "REPLAY COMPLETE" || feedStatus === "LOADING REPLAY"
+        }
+        onClick={() => setPlaybackPaused((paused) => !paused)}
+      >
+        {playbackPaused ? (
+          <IconPlayerPlay size={14} />
+        ) : (
+          <IconPlayerPause size={14} />
+        )}
+      </button>
+      {source !== "pyth" && (
+        <ThemedSelect
+          className="replay-speed-select"
+          label="Market playback speed"
+          value={playbackSpeed}
+          onChange={setPlaybackSpeed}
+          options={[1, 5, 15, 60, 150].map((speed) => ({
+            value: speed,
+            label: `${speed}×`,
+            icon: <IconPlayerPlay size={14} />,
+          }))}
+        />
+      )}
+    </div>
+  );
+
   return (
-    <section className="page-shell" aria-label="Multi-asset Paper Trading">
+    <section className="page-shell" aria-label="Paper Trading">
       <div className="workspace-top">
         <span>
-          <strong>Practice with live prices, not real money.</strong> Every
-          order is simulated.
+          <strong>Your edge starts with practice.</strong> · Every trade here is
+          simulated.
         </span>
-        <span className="mono">PAPER EXECUTION / UNRANKED</span>
+        <span className="mono">MANUAL EXECUTION / UNRANKED</span>
       </div>
       <div className="context-banner">
         <div>
           <p className="eyebrow">
-            LIVE PRICE REFERENCE · SHARED 10,000 USDC PORTFOLIO
+            {source === "synthetic"
+              ? "SYNTHETIC MARKET MODEL · BTC · ETH · SOL"
+              : source === "replay"
+                ? `HISTORICAL ${asset} / USD REPLAY · 1M CANDLES`
+                : "LIVE REFERENCE FEED · 5S · BTC · ETH · SOL"}
           </p>
-          <h1>Multi-Asset Paper Trading</h1>
+          <h1>Paper Trading Desk</h1>
           <p className="tip">
-            Phantom and faucet SOL are only used for devnet verification
-            fees—not paper trades.
+            <IconBolt size={14} />
+            Practice real decisions across BTC, ETH and SOL with one shared
+            10,000 USDC simulated portfolio.
           </p>
         </div>
         <span className="feed-live">
@@ -216,14 +464,14 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       </div>
       <div className="paper-portfolio panel">
         <Metric
-          label="USDC BUYING POWER"
-          value={money(desk.usdcCents)}
-          detail="Simulated only"
+          label={`${asset} BALANCE`}
+          value={`${(position.quantityMilliAsset / 1000).toFixed(3)} ${asset}`}
+          detail={`${money(getPositionValueCents(desk, asset))} notional`}
         />
         <Metric
-          label={asset + " BALANCE"}
-          value={(position.quantityMilliAsset / 1000).toFixed(3) + " " + asset}
-          detail={money(getPositionValueCents(desk, asset)) + " marked value"}
+          label="USDC BALANCE"
+          value={money(desk.usdcCents)}
+          detail="Simulated buying power"
         />
         <Metric
           label="PORTFOLIO VALUE"
@@ -233,12 +481,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         <Metric
           label="TOTAL P&L"
           value={signedMoney(pnl)}
-          detail={
-            "Realized " +
-            signedMoney(desk.realizedPnlCents) +
-            " · Unrealized " +
-            signedMoney(pnl - desk.realizedPnlCents)
-          }
+          detail={`Realized ${signedMoney(desk.realizedPnlCents)} · Unrealized ${signedMoney(pnl - desk.realizedPnlCents)}`}
           tone={pnl >= 0 ? "profit" : "loss"}
         />
       </div>
@@ -247,10 +490,16 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           {desk.error}
         </div>
       )}
-      {tradingPaused && (
+      {feedStatus === "FEED UNAVAILABLE" && (
         <div role="status" className="notice">
-          This market is unavailable or stale. Switch to the synthetic feed to
-          continue paper trading.
+          Live {asset} reference unavailable or stale. Trading is paused; switch
+          to the synthetic feed to continue.
+        </div>
+      )}
+      {feedStatus === "REPLAY UNAVAILABLE" && (
+        <div role="status" className="notice">
+          Historical {asset}/USD data is temporarily unavailable. Switch to the
+          synthetic feed or try the replay again shortly.
         </div>
       )}
       <div className="paper-grid">
@@ -258,69 +507,91 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           <div className="market-header">
             <div>
               <div className="market-pair">
-                <span className="pair-icon">{PAPER_MARKETS[asset].icon}</span>
+                <span className="pair-icon">
+                  <AssetLogo asset={asset} size={22} />
+                </span>
                 <div>
-                  <h2>{PAPER_MARKETS[asset].label}</h2>
-                  <small>LIVE USD REFERENCE · SIMULATED USDC EXECUTION</small>
+                  <h2>{asset} / USD</h2>
+                  <small>{feedLabel} · PAPER MARKET</small>
                 </div>
               </div>
               <div className="price-readout">
                 <strong>{money(market.priceCents, 3)}</strong>
-                <span className={"change-badge " + (change < 0 ? "loss" : "")}>
+                <span className={`change-badge ${change < 0 ? "loss" : ""}`}>
                   {change >= 0 ? "+" : ""}
                   {change.toFixed(2)}%
                 </span>
               </div>
             </div>
-            <div>
-              <label className="sr-only" htmlFor="paper-asset">
-                Market
-              </label>
-              <select
-                id="paper-asset"
+            <div className="market-header-controls">
+              <ThemedSelect
                 className="cluster-select"
+                label="Market"
                 value={asset}
-                onChange={(event) =>
-                  dispatch({
-                    type: "select-asset",
-                    asset: event.target.value as PaperAsset,
-                  })
-                }
-              >
-                {PAPER_ASSETS.map((item) => (
-                  <option key={item} value={item}>
-                    {PAPER_MARKETS[item].label}
-                  </option>
-                ))}
-              </select>
-              <label className="sr-only" htmlFor="paper-feed">
-                Price feed
-              </label>
-              <select
-                id="paper-feed"
+                options={PAPER_ASSETS.map((item) => ({
+                  value: item,
+                  label: PAPER_MARKETS[item].label,
+                  icon: <AssetLogo asset={item} size={14} />,
+                }))}
+                onChange={changeAsset}
+              />
+              <ThemedSelect
                 className="cluster-select"
+                label="Price feed"
                 value={source}
-                onChange={(event) =>
-                  setSource(event.target.value as FeedSource)
-                }
-              >
-                <option value="pyth">Live Pyth</option>
-                <option value="replay">Historical replay</option>
-                <option value="synthetic">Synthetic fallback</option>
-              </select>
+                options={[
+                  {
+                    value: "synthetic",
+                    label: "Synthetic feed",
+                    icon: <IconChartLine size={14} />,
+                  },
+                  {
+                    value: "replay",
+                    label: "Historical replay",
+                    icon: <IconHistory size={14} />,
+                  },
+                  {
+                    value: "pyth",
+                    label: "Live Pyth",
+                    icon: <IconActivity size={14} />,
+                  },
+                ]}
+                onChange={changeSource}
+              />
             </div>
           </div>
-          <InteractiveMarketChart
-            view="candles"
-            samples={market.points.map((point) => ({
-              time:
-                point.at > 1_000_000_000_000
-                  ? Math.floor(point.at / 1000)
-                  : point.sequence,
-              value: point.priceCents / 100,
-            }))}
-            label={PAPER_MARKETS[asset].label + " paper price chart"}
-            ticks={market.points[0]?.at < 1_000_000_000_000}
+          <div className="timeframes" aria-label="Chart timeframe">
+            {[
+              [1, "1M"],
+              [5, "5M"],
+              [15, "15M"],
+              [60, "1H"],
+              [240, "4H"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                className={timeframe === value ? "active" : ""}
+                aria-pressed={timeframe === value}
+                onClick={() => setTimeframe(Number(value))}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="control-hint" style={{ marginLeft: "auto" }}>
+              {replayRange
+                ? `Replay: ${replayRange}`
+                : "Available session data"}
+            </span>
+          </div>
+          <PaperChartSwitcher
+            // Remount per asset/feed so the chart never carries bars across modes.
+            key={`${asset}-${source}`}
+            view={chartView}
+            onViewChange={setChartView}
+            points={points}
+            desk={desk}
+            intervals={source === "replay" ? [300, 900, 1800, 3600] : undefined}
+            readoutActions={playbackControls}
           />
           <div className="quick-trade">
             <button
@@ -336,6 +607,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                 })
               }
             >
+              <IconArrowUpRight size={17} />
               Buy {quickSizeLabel} {asset}{" "}
               <span className="mono">{money(market.priceCents)}</span>
             </button>
@@ -352,25 +624,30 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                 })
               }
             >
+              <IconArrowDownRight size={17} />
               Sell {quickSizeLabel} {asset}{" "}
               <span className="mono">{money(market.priceCents)}</span>
             </button>
           </div>
         </section>
         <section className="panel">
-          <h2>Limit quote</h2>
+          <PanelHeading eyebrow="ORDER ENTRY" title="Limit Quote">
+            <IconActivity size={17} />
+          </PanelHeading>
           <form className="quote-form" onSubmit={place}>
             <div className="segmented">
               <button
                 type="button"
                 className={side === "buy" ? "active" : ""}
+                aria-pressed={side === "buy"}
                 onClick={() => setSide("buy")}
               >
                 BUY
               </button>
               <button
                 type="button"
-                className={side === "sell" ? "sell active" : "sell"}
+                className={`sell ${side === "sell" ? "active" : ""}`}
+                aria-pressed={side === "sell"}
                 onClick={() => setSide("sell")}
               >
                 SELL
@@ -380,67 +657,141 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
               <span className="field-label">
                 Limit price <span className="field-unit">USDC</span>
               </span>
-              <input
-                aria-label="Limit price"
-                type="number"
-                min=".01"
-                step=".01"
-                value={limitValue}
-                onChange={(event) => setLimit(event.target.value)}
-                required
-              />
+              <div className="input-unit">
+                <input
+                  aria-label="Limit price"
+                  type="number"
+                  min=".01"
+                  step=".01"
+                  required
+                  value={limitValue}
+                  onChange={(event) => setLimit(event.target.value)}
+                />
+                <div className="number-stepper" aria-label="Adjust limit price">
+                  <button
+                    type="button"
+                    aria-label="Increase limit price"
+                    onClick={() => stepLimit(1)}
+                  >
+                    <IconChevronUp size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Decrease limit price"
+                    onClick={() => stepLimit(-1)}
+                  >
+                    <IconChevronDown size={13} />
+                  </button>
+                </div>
+              </div>
             </label>
             <label className="field">
               <span className="field-label">
                 Size <span className="field-unit">{asset}</span>
               </span>
-              <input
-                aria-label="Size"
-                type="number"
-                min=".001"
-                step=".001"
-                value={size}
-                onChange={(event) => setSize(event.target.value)}
-                required
-              />
+              <div className="input-unit">
+                <input
+                  aria-label="Size"
+                  type="number"
+                  min=".001"
+                  step=".001"
+                  required
+                  value={size}
+                  onChange={(event) => setSize(event.target.value)}
+                />
+                <div className="number-stepper" aria-label="Adjust size">
+                  <button
+                    type="button"
+                    aria-label="Increase size"
+                    onClick={() => stepSize(1)}
+                  >
+                    <IconChevronUp size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Decrease size"
+                    onClick={() => stepSize(-1)}
+                  >
+                    <IconChevronDown size={13} />
+                  </button>
+                </div>
+              </div>
             </label>
+            <div className="quote-estimates">
+              <div>
+                <span>Distance to market</span>
+                <b>
+                  {distance >= 0 ? "+" : ""}
+                  {distance.toFixed(2)}%
+                </b>
+              </div>
+              <div>
+                <span>Estimated notional</span>
+                <b>{money(notional)}</b>
+              </div>
+            </div>
             <button
-              className={"btn wide " + (side === "buy" ? "buy" : "sell")}
+              className={`btn wide ${side === "buy" ? "buy" : "sell"}`}
               disabled={tradingPaused}
               type="submit"
             >
               Place {side} {asset} quote
             </button>
-            <p className="control-hint">
-              Paper orders reserve simulated USDC or {asset} until filled or
-              cancelled.
+            <p className="control-hint" style={{ marginTop: 14 }}>
+              Simulated execution only. Open quotes reserve USDC or {asset}{" "}
+              until filled or cancelled.
             </p>
+            <button
+              type="button"
+              className="btn ghost wide"
+              style={{ marginTop: 14 }}
+              onClick={reset}
+            >
+              {confirmReset ? "Confirm reset portfolio" : "Reset portfolio"}
+            </button>
           </form>
-          <button className="btn ghost" onClick={reset}>
-            {confirmReset ? "Confirm reset portfolio" : "Reset portfolio"}
-          </button>
         </section>
       </div>
       <div className="table-grid">
         <section className="panel">
-          <h2>Open {asset} quotes</h2>
+          <PanelHeading title="Open quotes">
+            <span className="tag">{desk.quotes.length} ACTIVE</span>
+          </PanelHeading>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
+                  <th>Market</th>
                   <th>Side</th>
                   <th>Price</th>
                   <th>Size</th>
+                  <th>Distance</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {openQuotes.map((quote) => (
+                {desk.quotes.map((quote) => (
                   <tr key={quote.id}>
-                    <td>{quote.side.toUpperCase()}</td>
-                    <td className="mono">{money(quote.priceCents)}</td>
+                    <td>{quote.asset}/USDC</td>
                     <td>
-                      {quote.sizeMilliAsset / 1000} {asset}
+                      <span
+                        className={`tag ${quote.side === "buy" ? "profit" : "loss"}`}
+                      >
+                        {quote.side.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="mono">{money(quote.priceCents)}</td>
+                    <td className="mono">
+                      {quote.sizeMilliAsset / 1000} {quote.asset}
+                    </td>
+                    <td className="mono">
+                      {(
+                        (quote.priceCents /
+                          desk.markets[quote.asset].priceCents -
+                          1) *
+                        100
+                      ).toFixed(2)}
+                      %
                     </td>
                     <td>
                       <button
@@ -457,12 +808,17 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
               </tbody>
             </table>
           </div>
-          {!openQuotes.length && (
-            <div className="empty-state">No open {asset} quotes.</div>
+          {!desk.quotes.length && (
+            <div className="empty-state">
+              <IconActivity size={24} />
+              No open quotes. Set your price and let the market come to you.
+            </div>
           )}
         </section>
         <section className="panel">
-          <h2>Recent fills</h2>
+          <PanelHeading title="Recent fills">
+            <IconHistory size={16} />
+          </PanelHeading>
           <div className="table-scroll">
             <table>
               <thead>
@@ -471,6 +827,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                   <th>Type / Side</th>
                   <th>Price</th>
                   <th>Size</th>
+                  <th>Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -478,11 +835,19 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                   <tr key={trade.id}>
                     <td>{trade.asset}/USDC</td>
                     <td>
-                      {trade.source} {trade.side.toUpperCase()}
+                      <span className="tag">{trade.source}</span>{" "}
+                      <span
+                        className={trade.side === "buy" ? "profit" : "loss"}
+                      >
+                        {trade.side.toUpperCase()}
+                      </span>
                     </td>
                     <td className="mono">{money(trade.priceCents)}</td>
-                    <td>
+                    <td className="mono">
                       {trade.sizeMilliAsset / 1000} {trade.asset}
+                    </td>
+                    <td className="mono muted">
+                      {new Date(trade.at).toLocaleTimeString("en-GB")}
                     </td>
                   </tr>
                 ))}
@@ -491,11 +856,205 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           </div>
           {!desk.trades.length && (
             <div className="empty-state">
-              Buy an asset to start your paper portfolio.
+              <IconHistory size={24} />
+              Your first trade starts the story. Buy or sell to begin.
             </div>
           )}
         </section>
       </div>
     </section>
+  );
+}
+
+function PaperChartSwitcher({
+  view,
+  onViewChange,
+  points,
+  desk,
+  intervals,
+  readoutActions,
+}: {
+  view: PaperChartView;
+  onViewChange: (view: PaperChartView) => void;
+  points: PricePoint[];
+  desk: PaperState;
+  intervals?: number[];
+  readoutActions?: ReactNode;
+}) {
+  const asset = desk.activeAsset;
+  const option = PAPER_CHART_OPTIONS.find((item) => item.value === view)!;
+  const chartPicker = (
+    <ChartViewPicker
+      view={view}
+      options={PAPER_CHART_OPTIONS}
+      onViewChange={onViewChange}
+      eyebrow="Paper market visualizer"
+      label="Paper trading chart view"
+    />
+  );
+  return (
+    <>
+      {option.group === "Price" ? (
+        <InteractiveMarketChart
+          view={view as PriceView}
+          samples={points.map((point) => ({
+            time: Math.floor(point.at / 1000),
+            value: point.priceCents / 100,
+          }))}
+          label={`Paper ${asset} ${option.label} price chart`}
+          intervals={intervals}
+          toolbarStart={chartPicker}
+          readoutActions={readoutActions}
+        />
+      ) : (
+        <>
+          <div className="market-chart-toolbar analytics-toolbar">
+            {chartPicker}
+          </div>
+          <PaperChart view={view} points={points} desk={desk} />
+        </>
+      )}
+      <div className="chart-legend">
+        {view === "depth" ? (
+          <>
+            <span className="profit">
+              <i className="legend-dot" /> Bids
+            </span>
+            <span className="loss">
+              <i className="legend-dot" /> Asks
+            </span>
+            <span>working paper quotes and indicative depth</span>
+          </>
+        ) : PRICE_VIEWS.includes(view) ? (
+          <span className="primary">
+            <i className="legend-dot" /> {asset} / USD reference
+          </span>
+        ) : (
+          <span>
+            Calculated from your simulated balances and session prices
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function PaperChart({
+  view,
+  points,
+  desk,
+}: {
+  view: PaperChartView;
+  points: PricePoint[];
+  desk: PaperState;
+}) {
+  if (view === "depth") return <PaperDepthChart desk={desk} />;
+  const asset = desk.activeAsset;
+  const quantity = desk.positions[asset].quantityMilliAsset;
+  // Other assets are held at their current marks; only the active market moves.
+  const otherEquity =
+    getPaperEquityCents(desk) - getPositionValueCents(desk, asset);
+  const sampled = points.filter(
+    (_, i) => i % Math.max(1, Math.floor(points.length / 500)) === 0
+  );
+  const analytics = sampled.map((point) => {
+    if (view === "spread") return 30;
+    if (view === "inventory") return quantity / 1000;
+    return (
+      (otherEquity +
+        Math.round((quantity * point.priceCents) / 1000) -
+        desk.startEquityCents) /
+      100
+    );
+  });
+  const series =
+    view === "drawdown"
+      ? analytics.map((value, index) => {
+          const peak = Math.max(...analytics.slice(0, index + 1));
+          return peak ? -((peak - value) / peak) * 100 : 0;
+        })
+      : analytics;
+  const labels: Record<string, string> = {
+    spread: "Paper bid / ask spread (basis points)",
+    inventory: `Paper inventory (${asset})`,
+    pnl: "Paper P&L / equity chart",
+    drawdown: "Paper drawdown chart",
+  };
+  return (
+    <InteractiveMarketChart
+      ticks
+      samples={series.map((value, time) => ({ time, value }))}
+      label={labels[view]}
+      unit={
+        view === "inventory"
+          ? asset
+          : view === "spread"
+            ? "bps"
+            : view === "drawdown"
+              ? "%"
+              : "$"
+      }
+    />
+  );
+}
+
+function PaperDepthChart({ desk }: { desk: PaperState }) {
+  const asset = desk.activeAsset;
+  const { priceCents } = desk.markets[asset];
+  const size = Math.max(1, desk.positions[asset].quantityMilliAsset / 10000);
+  const quoteSize = desk.quotes
+    .filter((quote) => quote.asset === asset)
+    .reduce((total, quote) => total + quote.sizeMilliAsset / 1000, 0);
+  return (
+    <div className="price-chart paper-chart depth-chart">
+      <svg
+        viewBox="0 0 720 210"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Paper ${asset} order book depth chart`}
+      >
+        <line x1="360" x2="360" y1="10" y2="200" className="chart-baseline" />
+        {[1, 2, 3, 4, 5].map((level) => {
+          const width = level * 53;
+          const y = 200 - level * 34;
+          const amount = (size * level + quoteSize).toFixed(1);
+          return (
+            <g key={level}>
+              <rect
+                x={360 - width}
+                y={y}
+                width={width}
+                height={25}
+                className="depth-bid"
+              />
+              <rect
+                x="360"
+                y={y}
+                width={width}
+                height={25}
+                className="depth-ask"
+              />
+              <text x={352 - width} y={y + 16} className="depth-label">
+                {amount} {asset}
+              </text>
+              <text x={368 + width - 12} y={y + 16} className="depth-label">
+                {amount} {asset}
+              </text>
+            </g>
+          );
+        })}
+        <text x="274" y="205" className="depth-price">
+          BID {money(Math.floor(priceCents * 0.9985))}
+        </text>
+        <text x="377" y="205" className="depth-price">
+          ASK {money(Math.ceil(priceCents * 1.0015))}
+        </text>
+      </svg>
+      <div className="time-axis">
+        <span>SESSION HISTORY</span>
+        <span>{desk.markets[asset].points.length} SAMPLES</span>
+        <span>NOW</span>
+      </div>
+    </div>
   );
 }
