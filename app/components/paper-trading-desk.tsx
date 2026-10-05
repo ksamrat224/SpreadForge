@@ -35,9 +35,14 @@ import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
 import type { IndicatorId } from "../lib/indicators";
 import {
+  drawdownPercent,
+  portfolioHistory,
+} from "../lib/simulation/paper-analytics";
+import {
   HISTORY_RANGE_LABELS,
   HISTORY_RANGES,
   mergeLiveTick,
+  type BookLevel,
   type HistoryCandle,
   type HistoryRange,
 } from "../lib/market-history";
@@ -55,6 +60,13 @@ import {
 } from "../lib/simulation/paper";
 
 type FeedSource = "synthetic" | "pyth" | "replay";
+type OrderBook = {
+  asset: PaperAsset;
+  source: string;
+  bids: BookLevel[];
+  asks: BookLevel[];
+  spreads: Array<{ at: number; bps: number }>;
+};
 type PaperChartView =
   | "line"
   | "area"
@@ -158,6 +170,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [timeframe, setTimeframe] = useState(15);
   const [range, setRange] = useState<HistoryRange>("1D");
   const [indicators, setIndicators] = useState<IndicatorId[]>([]);
+  // Live exchange order book for the active asset, plus the spread sampled
+  // at each poll so the spread view has history.
+  const [book, setBook] = useState<OrderBook | null>(null);
   // Exchange OHLCV for the live chart, keyed so a stale fetch never shows
   // under a different asset or range.
   const [liveBars, setLiveBars] = useState<{
@@ -312,6 +327,49 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     };
   }, [active, asset, liveKey, range, source]);
   useEffect(() => {
+    if (!active || source !== "pyth" || playbackPaused) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    const refresh = async () => {
+      try {
+        const response = await fetch(
+          `/api/market/${asset.toLowerCase()}-usd/book`,
+          { cache: "no-store", signal: controller.signal }
+        );
+        if (!response.ok) throw new Error("unavailable");
+        const data = (await response.json()) as {
+          source: string;
+          at: number;
+          bids: BookLevel[];
+          asks: BookLevel[];
+        };
+        const bid = data.bids[0]?.priceCents;
+        const ask = data.asks[0]?.priceCents;
+        if (cancelled || !bid || !ask) return;
+        const bps = ((ask - bid) / ((ask + bid) / 2)) * 10_000;
+        setBook((previous) => ({
+          asset,
+          source: data.source,
+          bids: data.bids,
+          asks: data.asks,
+          spreads: [
+            ...(previous?.asset === asset ? previous.spreads : []),
+            { at: data.at, bps },
+          ].slice(-720),
+        }));
+      } catch {
+        /* keep the last good book; the next poll retries */
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [active, asset, playbackPaused, source]);
+  useEffect(() => {
     if (!active || source !== "synthetic" || playbackPaused) return;
     const timer = window.setInterval(() => {
       const at = Date.now();
@@ -447,6 +505,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     setConfirmReset(false);
     toast.success("Paper portfolio reset to 10,000 simulated USDC.");
   }
+  // Orders are stamped on the market's clock, so replayed history and live
+  // polls line up with trades when analytics rebuild the portfolio.
+  const marketNow = () => market.points.at(-1)?.at ?? now();
   const place = (event: React.FormEvent) => {
     event.preventDefault();
     dispatch({
@@ -455,7 +516,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       side,
       priceCents,
       sizeMilliAsset,
-      at: now(),
+      at: marketNow(),
     });
   };
   function stepLimit(direction: 1 | -1) {
@@ -500,7 +561,10 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       : market.startPriceCents;
   const change = (market.priceCents / changeBaseCents - 1) * 100;
   const cutoff = (market.points.at(-1)?.at ?? 0) - timeframe * 60000;
-  const points = market.points.filter((point) => point.at >= cutoff);
+  const points =
+    source === "pyth"
+      ? market.points
+      : market.points.filter((point) => point.at >= cutoff);
   const replayRange =
     source === "replay" && market.points.length
       ? `${new Date(market.points[0].at).toLocaleString()} — ${new Date(market.points.at(-1)!.at).toLocaleString()}`
@@ -732,6 +796,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             intervals={source === "replay" ? [300, 900, 1800, 3600] : undefined}
             indicators={indicators}
             onIndicatorsChange={setIndicators}
+            book={source === "pyth" && book?.asset === asset ? book : null}
             readoutActions={playbackControls}
           />
           <div className="quick-trade">
@@ -744,7 +809,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                   asset,
                   side: "buy",
                   sizeMilliAsset: quickSizeMilliAsset,
-                  at: Date.now(),
+                  at: marketNow(),
                 })
               }
             >
@@ -761,7 +826,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                   asset,
                   side: "sell",
                   sizeMilliAsset: quickSizeMilliAsset,
-                  at: Date.now(),
+                  at: marketNow(),
                 })
               }
             >
@@ -1016,6 +1081,7 @@ function PaperChartSwitcher({
   intervals,
   indicators,
   onIndicatorsChange,
+  book,
   readoutActions,
 }: {
   view: PaperChartView;
@@ -1024,6 +1090,7 @@ function PaperChartSwitcher({
   bars?: ChartBar[];
   indicators: IndicatorId[];
   onIndicatorsChange: (indicators: IndicatorId[]) => void;
+  book: OrderBook | null;
   desk: PaperState;
   intervals?: number[];
   readoutActions?: ReactNode;
@@ -1062,7 +1129,7 @@ function PaperChartSwitcher({
           <div className="market-chart-toolbar analytics-toolbar">
             {chartPicker}
           </div>
-          <PaperChart view={view} points={points} desk={desk} />
+          <PaperChart view={view} points={points} desk={desk} book={book} />
         </>
       )}
       <div className="chart-legend">
@@ -1074,15 +1141,25 @@ function PaperChartSwitcher({
             <span className="loss">
               <i className="legend-dot" /> Asks
             </span>
-            <span>working paper quotes and indicative depth</span>
+            <span>
+              {book
+                ? `Live ${book.source} order book · top ${book.bids.length} levels · dashed lines are your open quotes`
+                : "Order book depth is only available on the live feed"}
+            </span>
           </>
         ) : PRICE_VIEWS.includes(view) ? (
           <span className="primary">
             <i className="legend-dot" /> {asset} / USD reference
           </span>
+        ) : view === "spread" ? (
+          <span>
+            {book
+              ? `Best bid / ask spread on ${book.source}, sampled every 5s`
+              : "The spread is only available on the live feed"}
+          </span>
         ) : (
           <span>
-            Calculated from your simulated balances and session prices
+            Rebuilt from your paper trades and this session&apos;s prices
           </span>
         )}
       </div>
@@ -1094,118 +1171,205 @@ function PaperChart({
   view,
   points,
   desk,
+  book,
 }: {
   view: PaperChartView;
   points: PricePoint[];
   desk: PaperState;
+  book: OrderBook | null;
 }) {
-  if (view === "depth") return <PaperDepthChart desk={desk} />;
   const asset = desk.activeAsset;
-  const quantity = desk.positions[asset].quantityMilliAsset;
-  // Other assets are held at their current marks; only the active market moves.
-  const otherEquity =
-    getPaperEquityCents(desk) - getPositionValueCents(desk, asset);
-  const sampled = points.filter(
-    (_, i) => i % Math.max(1, Math.floor(points.length / 500)) === 0
-  );
-  const analytics = sampled.map((point) => {
-    if (view === "spread") return 30;
-    if (view === "inventory") return quantity / 1000;
+  if (view === "depth" || view === "spread") {
+    if (!book)
+      return (
+        <div className="empty-state paper-chart">
+          <IconChartDots size={24} />
+          Real order book data comes from the live exchange feed. Switch the
+          price feed to Live Pyth to see {asset}{" "}
+          {view === "depth" ? "depth" : "spread"}.
+        </div>
+      );
+    if (view === "depth")
+      return <OrderBookDepth book={book} quotes={desk.quotes} asset={asset} />;
     return (
-      (otherEquity +
-        Math.round((quantity * point.priceCents) / 1000) -
-        desk.startEquityCents) /
-      100
+      <InteractiveMarketChart
+        samples={book.spreads.map((sample) => ({
+          time: Math.floor(sample.at / 1000),
+          value: sample.bps,
+        }))}
+        label={`${asset} bid / ask spread (basis points)`}
+        unit="bps"
+        stepped
+      />
     );
-  });
-  const series =
-    view === "drawdown"
-      ? analytics.map((value, index) => {
-          const peak = Math.max(...analytics.slice(0, index + 1));
-          return peak ? -((peak - value) / peak) * 100 : 0;
-        })
-      : analytics;
+  }
+  const step = Math.max(1, Math.floor(points.length / 500));
+  const sampled = points.filter(
+    (_, i) => i % step === 0 || i === points.length - 1
+  );
+  const history = portfolioHistory(desk, asset, sampled);
+  const values =
+    view === "inventory"
+      ? history.map((point) => point.inventoryMilliAsset / 1000)
+      : view === "pnl"
+        ? history.map(
+            (point) => (point.equityCents - desk.startEquityCents) / 100
+          )
+        : drawdownPercent(history.map((point) => point.equityCents));
   const labels: Record<string, string> = {
-    spread: "Paper bid / ask spread (basis points)",
     inventory: `Paper inventory (${asset})`,
-    pnl: "Paper P&L / equity chart",
+    pnl: "Paper P&L chart",
     drawdown: "Paper drawdown chart",
   };
   return (
     <InteractiveMarketChart
-      ticks
-      samples={series.map((value, time) => ({ time, value }))}
+      samples={history.map((point, i) => ({
+        time: Math.floor(point.at / 1000),
+        value: values[i],
+      }))}
       label={labels[view]}
-      unit={
-        view === "inventory"
-          ? asset
-          : view === "spread"
-            ? "bps"
-            : view === "drawdown"
-              ? "%"
-              : "$"
-      }
+      unit={view === "inventory" ? asset : view === "drawdown" ? "%" : "$"}
+      stepped={view === "inventory"}
     />
   );
 }
 
-function PaperDepthChart({ desk }: { desk: PaperState }) {
-  const asset = desk.activeAsset;
-  const { priceCents } = desk.markets[asset];
-  const size = Math.max(1, desk.positions[asset].quantityMilliAsset / 10000);
-  const quoteSize = desk.quotes
-    .filter((quote) => quote.asset === asset)
-    .reduce((total, quote) => total + quote.sizeMilliAsset / 1000, 0);
+/** Cumulative depth of the live book, clipped symmetrically around the mid. */
+function OrderBookDepth({
+  book,
+  quotes,
+  asset,
+}: {
+  book: OrderBook;
+  quotes: PaperState["quotes"];
+  asset: PaperAsset;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const bestBid = book.bids[0].priceCents;
+  const bestAsk = book.asks[0].priceCents;
+  const mid = (bestBid + bestAsk) / 2;
+  const half = Math.max(
+    1,
+    Math.min(
+      mid - book.bids.at(-1)!.priceCents,
+      book.asks.at(-1)!.priceCents - mid
+    )
+  );
+  const low = mid - half;
+  const high = mid + half;
+  const bids = book.bids.filter((level) => level.priceCents >= low);
+  const asks = book.asks.filter((level) => level.priceCents <= high);
+  const bidDepth = cumulative(bids);
+  const askDepth = cumulative(asks);
+  const maxDepth = Math.max(
+    bidDepth.at(-1)?.total ?? 0,
+    askDepth.at(-1)?.total ?? 0,
+    1e-9
+  );
+  const x = (priceCents: number) =>
+    ((priceCents - low) / (high - low)) * BOOK_WIDTH;
+  const y = (total: number) =>
+    BOOK_HEIGHT - (total / maxDepth) * (BOOK_HEIGHT - 12);
+  const area = (depth: typeof bidDepth, edge: number) => {
+    let path = `M${x(depth[0]?.priceCents ?? mid)},${BOOK_HEIGHT}`;
+    let previous = 0;
+    for (const level of depth) {
+      path += ` L${x(level.priceCents)},${y(previous)} L${x(level.priceCents)},${y(level.total)}`;
+      previous = level.total;
+    }
+    return `${path} L${x(edge)},${y(previous)} L${x(edge)},${BOOK_HEIGHT} Z`;
+  };
+  const hoverPrice =
+    hover === null ? null : low + (hover / BOOK_WIDTH) * (high - low);
+  const hoverDepth =
+    hoverPrice === null
+      ? 0
+      : (hoverPrice <= mid
+          ? bids.filter((level) => level.priceCents >= hoverPrice)
+          : asks.filter((level) => level.priceCents <= hoverPrice)
+        ).reduce((total, level) => total + level.size, 0);
+  const spread = bestAsk - bestBid;
+  const visibleQuotes = quotes.filter(
+    (quote) =>
+      quote.asset === asset &&
+      quote.priceCents >= low &&
+      quote.priceCents <= high
+  );
   return (
-    <div className="price-chart paper-chart depth-chart">
-      <svg
-        viewBox="0 0 720 210"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Paper ${asset} order book depth chart`}
+    <div className="order-book-depth">
+      <div className="market-chart-readout" aria-label="Chart values">
+        <span>
+          {hoverPrice === null
+            ? `Bid ${money(bestBid)}  Ask ${money(bestAsk)}  Spread ${money(spread)} (${((spread / mid) * 10_000).toFixed(2)} bps)`
+            : `${money(Math.round(hoverPrice))}  ${hoverPrice <= mid ? "Bids" : "Asks"} ${hoverDepth.toFixed(3)} ${asset} cumulative`}
+        </span>
+      </div>
+      <div
+        className="order-book-plot"
+        onMouseMove={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setHover(((event.clientX - rect.left) / rect.width) * BOOK_WIDTH);
+        }}
+        onMouseLeave={() => setHover(null)}
       >
-        <line x1="360" x2="360" y1="10" y2="200" className="chart-baseline" />
-        {[1, 2, 3, 4, 5].map((level) => {
-          const width = level * 53;
-          const y = 200 - level * 34;
-          const amount = (size * level + quoteSize).toFixed(1);
-          return (
-            <g key={level}>
-              <rect
-                x={360 - width}
-                y={y}
-                width={width}
-                height={25}
-                className="depth-bid"
-              />
-              <rect
-                x="360"
-                y={y}
-                width={width}
-                height={25}
-                className="depth-ask"
-              />
-              <text x={352 - width} y={y + 16} className="depth-label">
-                {amount} {asset}
-              </text>
-              <text x={368 + width - 12} y={y + 16} className="depth-label">
-                {amount} {asset}
-              </text>
-            </g>
-          );
-        })}
-        <text x="274" y="205" className="depth-price">
-          BID {money(Math.floor(priceCents * 0.9985))}
-        </text>
-        <text x="377" y="205" className="depth-price">
-          ASK {money(Math.ceil(priceCents * 1.0015))}
-        </text>
-      </svg>
+        <svg
+          viewBox={`0 0 ${BOOK_WIDTH} ${BOOK_HEIGHT}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`${asset} live order book depth chart`}
+        >
+          <path d={area(bidDepth, low)} className="depth-bid book-area" />
+          <path d={area(askDepth, high)} className="depth-ask book-area" />
+          <line
+            x1={x(mid)}
+            x2={x(mid)}
+            y1={0}
+            y2={BOOK_HEIGHT}
+            className="chart-baseline"
+            vectorEffect="non-scaling-stroke"
+          />
+          {visibleQuotes.map((quote) => (
+            <line
+              key={quote.id}
+              x1={x(quote.priceCents)}
+              x2={x(quote.priceCents)}
+              y1={0}
+              y2={BOOK_HEIGHT}
+              className={`book-quote ${quote.side}`}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {hover !== null && (
+            <line
+              x1={hover}
+              x2={hover}
+              y1={0}
+              y2={BOOK_HEIGHT}
+              className="book-crosshair"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
+        </svg>
+        <span className="book-max">
+          {maxDepth.toFixed(maxDepth < 10 ? 3 : 1)} {asset}
+        </span>
+      </div>
       <div className="time-axis">
-        <span>SESSION HISTORY</span>
-        <span>{desk.markets[asset].points.length} SAMPLES</span>
-        <span>NOW</span>
+        <span>{money(Math.round(low))}</span>
+        <span>MID {money(Math.round(mid))}</span>
+        <span>{money(Math.round(high))}</span>
       </div>
     </div>
   );
+}
+
+const BOOK_WIDTH = 1000;
+const BOOK_HEIGHT = 300;
+
+function cumulative(levels: BookLevel[]) {
+  let total = 0;
+  return levels.map((level) => {
+    total += level.size;
+    return { ...level, total };
+  });
 }

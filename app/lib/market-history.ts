@@ -97,3 +97,6 @@ export function mergeLiveTick(
     },
   ];
 }
+
+/** One aggregated order-book level from the live exchange book. */
+export type BookLevel = { priceCents: number; size: number };

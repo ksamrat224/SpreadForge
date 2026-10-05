@@ -113,6 +113,17 @@ function indicatorLines(id: IndicatorId, candles: ChartBar[]): IndicatorLine[] {
   ];
 }
 
+// Percentages and basis points are often tiny (a 0.004% drawdown), so they
+// keep significant digits instead of rounding to zero.
+function formatValue(value: number, unit: string) {
+  if (unit === "$") return `$${value.toFixed(2)}`;
+  const digits =
+    (unit === "%" || unit === "bps") && value !== 0 && Math.abs(value) < 0.1
+      ? 4
+      : 2;
+  return `${value.toFixed(digits)} ${unit}`;
+}
+
 function localTick(date: Date, type: number) {
   // TickMarkType: 0 year, 1 month, 2 day of month, 3 time, 4 time with seconds
   if (type === 0) return String(date.getFullYear());
@@ -147,6 +158,8 @@ type Props = {
    * price, with volume bars and a log-scale toggle, like public price pages.
    */
   variant?: "default" | "market";
+  /** Draws the line view as steps, for values that change in discrete jumps. */
+  stepped?: boolean;
   /** Active technical indicators; the Indicators menu shows when a change handler is given. */
   indicators?: IndicatorId[];
   onIndicatorsChange?: (indicators: IndicatorId[]) => void;
@@ -165,6 +178,7 @@ export function InteractiveMarketChart({
   intervals = ticks ? [2, 4, 8] : [5, 15, 30, 60],
   bars,
   variant = "default",
+  stepped = false,
   indicators = NO_INDICATORS,
   onIndicatorsChange,
 }: Props) {
@@ -311,8 +325,7 @@ export function InteractiveMarketChart({
                     hour: "numeric",
                     minute: "2-digit",
                   }),
-          priceFormatter: (price: number) =>
-            `${unit === "$" ? "$" : ""}${price.toFixed(2)}${unit === "$" ? "" : ` ${unit}`}`,
+          priceFormatter: (price: number) => formatValue(price, unit),
         },
         handleScroll: {
           mouseWheel: true,
@@ -378,6 +391,9 @@ export function InteractiveMarketChart({
               : chart.addSeries(lib.LineSeries, {
                   color: "#00bda7",
                   lineWidth: 2,
+                  lineType: stepped
+                    ? lib.LineType.WithSteps
+                    : lib.LineType.Simple,
                 });
       const markerApi = lib.createSeriesMarkers(series);
       const basePriceLine = baseline
@@ -476,8 +492,7 @@ export function InteractiveMarketChart({
             return point ? [`${line.name} ${point.value.toFixed(2)}`] : [];
           })
           .join("  ");
-      const format = (value: number) =>
-        `${unit === "$" ? "$" : ""}${value.toFixed(2)}${unit === "$" ? "" : ` ${unit}`}`;
+      const format = (value: number) => formatValue(value, unit);
       const show = (bar: (typeof data)[number] | undefined) => {
         if (!readout.current) return;
         readout.current.textContent = !bar
@@ -595,7 +610,7 @@ export function InteractiveMarketChart({
       disposed = true;
       cleanup();
     };
-  }, [view, ticks, timeLabelPrefix, unit, interval, market, baseline]);
+  }, [view, ticks, timeLabelPrefix, unit, interval, market, baseline, stepped]);
 
   const zoom = (factor: number) => {
     const scale = chartRef.current?.timeScale();
