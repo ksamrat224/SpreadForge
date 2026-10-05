@@ -39,7 +39,7 @@ mod tests {
             pnl_bps: 125,
             max_drawdown_bps: 80,
             fills: 12,
-            schema_version: 1,
+            schema_version: 2,
             run_nonce: 7,
         }
     }
@@ -209,7 +209,7 @@ mod tests {
             .is_err());
 
         let mut invalid_schema = standard_args();
-        invalid_schema.schema_version = 2;
+        invalid_schema.schema_version = 3;
         invalid_schema.run_nonce = 8;
         let result = result_pda(&authority.pubkey(), &invalid_schema);
         assert!(svm

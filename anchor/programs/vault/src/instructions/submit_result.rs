@@ -66,7 +66,7 @@ pub fn handler(ctx: Context<SubmitResult>, args: SubmitResultArgs) -> Result<()>
     result.max_drawdown_bps = args.max_drawdown_bps;
     result.fills = args.fills;
     result.schema_version = args.schema_version;
-    result.completed_at = Clock::get()?.unix_timestamp;
+    result.submitted_at = Clock::get()?.unix_timestamp;
     result.run_nonce = args.run_nonce;
     result.bump = ctx.bumps.result;
 

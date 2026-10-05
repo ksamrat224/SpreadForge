@@ -23,7 +23,7 @@ export async function findDelegationMetadataSessionPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV" as Address<"8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV">,
+    programAddress = "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

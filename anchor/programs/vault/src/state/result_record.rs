@@ -11,7 +11,7 @@ pub struct ResultRecord {
     pub max_drawdown_bps: u16,
     pub fills: u16,
     pub schema_version: u8,
-    pub completed_at: i64,
+    pub submitted_at: i64,
     pub run_nonce: u64,
     pub bump: u8,
 }

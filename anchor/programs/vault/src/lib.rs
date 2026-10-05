@@ -11,9 +11,9 @@ use instructions::*;
 #[cfg(test)]
 mod tests;
 
-// This build identity is retained only until the dedicated registry is deployed
-// to devnet. The frontend never treats it as a deployed registry address.
-declare_id!("8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV");
+// This is the deterministic keypair-derived address reserved for the dedicated
+// devnet registry deployment. The frontend reads it from environment config.
+declare_id!("2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w");
 
 #[ephemeral]
 #[program]
