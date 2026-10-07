@@ -680,25 +680,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         </span>
         <span className="mono">MANUAL EXECUTION / UNRANKED</span>
       </div>
-      <div className="context-banner">
-        <div>
-          <p className="eyebrow">
-            {source === "replay"
-              ? `HISTORICAL ${asset} / USD REPLAY · 1M CANDLES`
-              : "LIVE REFERENCE FEED · 5S · BTC · ETH · SOL"}
-          </p>
-          <h1>Paper Trading Desk</h1>
-          <p className="tip">
-            <IconBolt size={14} />
-            Practice real decisions across BTC, ETH and SOL with one shared
-            10,000 USDC simulated portfolio.
-          </p>
-        </div>
-        <span className={`feed-live ${currentQuoteState}`}>
-          <i />
-          {feedStatus}
-        </span>
-      </div>
+      
       {isDevnet && (
         <section className="wallet-practice panel" aria-label="Devnet wallet practice">
           <div>

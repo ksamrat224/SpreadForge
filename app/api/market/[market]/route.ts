@@ -9,7 +9,13 @@ type LivePrice = {
 };
 
 async function fromPyth(feedId: string): Promise<LivePrice> {
-  const url = new URL("/v2/updates/price/latest", HERMES_URL);
+  // Keep any path in the configured base URL. The upgraded Pyth endpoint is
+  // https://pyth.dourolabs.app/hermes, so a leading slash here would otherwise
+  // drop `/hermes` and request a non-existent `/v2/...` route.
+  const url = new URL(
+    "v2/updates/price/latest",
+    HERMES_URL.endsWith("/") ? HERMES_URL : HERMES_URL + "/"
+  );
   url.searchParams.append("ids[]", feedId);
   url.searchParams.set("parsed", "true");
   const response = await fetch(url, {
