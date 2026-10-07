@@ -96,3 +96,42 @@ describe("Devnet wallet practice", () => {
     ).toBeNull();
   });
 });
+
+describe("Live reference failure states", () => {
+  it("keeps historical candles visible without presenting the seeded price as live", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/history"))
+          return {
+            ok: true,
+            json: async () => ({
+              source: "coinbase",
+              intervalSeconds: 3600,
+              candles: [
+                {
+                  at: Date.now() - 3600_000,
+                  openCents: 12_000,
+                  highCents: 15_000,
+                  lowCents: 11_000,
+                  priceCents: 14_000,
+                  volume: 1,
+                },
+              ],
+            }),
+          };
+        return { ok: false, json: async () => ({}) };
+      })
+    );
+    render(<PaperTradingDesk />);
+    expect(
+      await screen.findByText("LIVE QUOTE UNAVAILABLE")
+    ).toBeTruthy();
+    expect(screen.getByText("HISTORICAL CHART ONLY")).toBeTruthy();
+    expect(
+      screen.getByText(/CURRENT QUOTE UNAVAILABLE · HISTORICAL DATA ONLY/)
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry live quote" })).toBeTruthy();
+    expect(screen.queryByText("$146.820")).toBeNull();
+  });
+});

@@ -180,6 +180,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [timeframe, setTimeframe] = useState(15);
   const [range, setRange] = useState<HistoryRange>("1D");
+  const [liveRefreshEpoch, setLiveRefreshEpoch] = useState(0);
   const [indicators, setIndicators] = useState<IndicatorId[]>([]);
   // Live exchange order book for the active asset, plus the spread sampled
   // at each poll so the spread view has history.
@@ -217,6 +218,14 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const sizeMilliAsset = Math.round(Number(size) * 1000);
   const hasLiveFeed =
     feedStatus === "PYTH LIVE" || feedStatus === "LIVE FALLBACK";
+  const currentQuoteState =
+    source !== "pyth"
+      ? "available"
+      : hasLiveFeed
+        ? "available"
+        : feedStatus === "CONNECTING"
+          ? "loading"
+          : "unavailable";
   const isDevnet = cluster === "devnet";
   const walletSolMilliAsset =
     isDevnet && walletLamports !== null
@@ -323,7 +332,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [active, asset, liveKey, playbackPaused, source]);
+  }, [active, asset, liveKey, liveRefreshEpoch, playbackPaused, source]);
   useEffect(() => {
     if (!active || source !== "pyth") return;
     let cancelled = false;
@@ -651,9 +660,13 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       ? "SYNTHETIC REFERENCE"
       : source === "replay"
         ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
-        : feedStatus === "LIVE FALLBACK"
-          ? "EXCHANGE FALLBACK REFERENCE"
-          : "PYTH REFERENCE";
+        : feedStatus === "PYTH LIVE"
+          ? "PYTH REFERENCE"
+          : feedStatus === "LIVE FALLBACK"
+            ? "EXCHANGE FALLBACK REFERENCE"
+            : feedStatus === "CONNECTING"
+              ? "WAITING FOR LIVE QUOTE"
+              : "CURRENT QUOTE UNAVAILABLE · HISTORICAL DATA ONLY";
   const playbackControls = (
     <div className="replay-playback-actions">
       <button
@@ -714,7 +727,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             10,000 USDC simulated portfolio.
           </p>
         </div>
-        <span className="feed-live">
+        <span className={`feed-live ${currentQuoteState}`}>
           <i />
           {feedStatus}
         </span>
@@ -841,8 +854,18 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       )}
       {feedStatus === "FEED UNAVAILABLE" && (
         <div role="status" className="notice">
-          Live {asset} reference unavailable or stale. Trading is paused; switch
-          to the synthetic feed to continue.
+          <span>
+            Live {asset} reference unavailable or stale. Historical candles may
+            still be visible, but the current quote is hidden and trading is
+            paused.
+          </span>
+          <button
+            className="btn ghost notice-action"
+            type="button"
+            onClick={() => setLiveRefreshEpoch((epoch) => epoch + 1)}
+          >
+            Retry live quote
+          </button>
         </div>
       )}
       {feedStatus === "REPLAY UNAVAILABLE" && (
@@ -864,12 +887,29 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                   <small>{feedLabel} · PAPER MARKET</small>
                 </div>
               </div>
-              <div className="price-readout">
-                <strong>{money(market.priceCents, 3)}</strong>
-                <span className={`change-badge ${change < 0 ? "loss" : ""}`}>
-                  {change >= 0 ? "+" : ""}
-                  {change.toFixed(2)}%
-                </span>
+              <div className={`price-readout ${currentQuoteState}`}>
+                {currentQuoteState === "available" ? (
+                  <>
+                    <strong>{money(market.priceCents, 3)}</strong>
+                    <span className={`change-badge ${change < 0 ? "loss" : ""}`}>
+                      {change >= 0 ? "+" : ""}
+                      {change.toFixed(2)}%
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <strong>
+                      {currentQuoteState === "loading"
+                        ? "LOADING LIVE QUOTE"
+                        : "LIVE QUOTE UNAVAILABLE"}
+                    </strong>
+                    <span className="change-badge neutral">
+                      {rangeBars?.status === "ready"
+                        ? "HISTORICAL CHART ONLY"
+                        : "TRADING PAUSED"}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
             <div className="market-header-controls">
@@ -923,9 +963,13 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
               ))}
               <span className="control-hint" style={{ marginLeft: "auto" }}>
                 {rangeBars?.status === "ready"
-                  ? `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV + live ${feedStatus === "PYTH LIVE" ? "Pyth" : "exchange"} price`
+                  ? currentQuoteState === "available"
+                    ? `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV + live ${feedStatus === "PYTH LIVE" ? "Pyth" : "exchange"} price`
+                    : `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV · current quote unavailable`
                   : rangeBars?.status === "failed"
-                    ? "Range history unavailable · showing polled prices"
+                    ? currentQuoteState === "available"
+                      ? "Range history unavailable · showing live polled prices"
+                      : "Range history and current quote unavailable"
                     : "Loading range history…"}
               </span>
             </div>
