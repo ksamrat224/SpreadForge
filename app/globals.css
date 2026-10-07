@@ -1750,6 +1750,56 @@
 .paper-portfolio .metric strong {
   font-size: 22px;
 }
+.wallet-practice,
+.wallet-convert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 16px 18px;
+  margin: 14px 0;
+  border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+}
+.wallet-practice h2,
+.wallet-convert strong {
+  display: block;
+  margin: 5px 0;
+  font-size: 14px;
+}
+.wallet-practice p:not(.eyebrow),
+.wallet-convert small {
+  display: block;
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.wallet-practice-stats {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  text-align: right;
+}
+.wallet-practice-stats span {
+  min-width: 88px;
+}
+.wallet-practice-stats small {
+  display: block;
+  color: var(--muted-foreground);
+  font: 400 8px var(--font-mono);
+}
+.wallet-practice-stats b {
+  display: block;
+  margin-top: 4px;
+  font: 500 12px var(--font-mono);
+}
+.wallet-practice > .control-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
 .paper-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
@@ -2699,6 +2749,20 @@ tr:last-child td {
   }
   .paper-grid {
     grid-template-columns: 1fr;
+  }
+  .wallet-practice,
+  .wallet-convert,
+  .wallet-practice-stats {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .wallet-practice-stats {
+    width: 100%;
+    gap: 10px;
+    text-align: left;
+  }
+  .wallet-practice-stats .btn {
+    width: 100%;
   }
   .table-grid {
     grid-template-columns: 1fr;

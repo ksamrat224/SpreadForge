@@ -3,6 +3,8 @@ import { createPrng } from "./prng";
 export const PAPER_ASSETS = ["BTC", "ETH", "SOL"] as const;
 export type PaperAsset = (typeof PAPER_ASSETS)[number];
 export type Side = "buy" | "sell";
+/** The maximum real devnet balance that can be mirrored into practice. */
+export const WALLET_PAPER_SOL_CAP_MILLI = 10_000;
 export type PricePoint = { priceCents: number; at: number; sequence: number };
 export const PAPER_MARKETS: Record<
   PaperAsset,
@@ -29,6 +31,7 @@ type Quote = {
 export type Trade = Quote & { source: "MARKET" | "LIMIT" };
 export type PaperState = {
   marketSeed: number;
+  fundingSource: "fixed" | "wallet";
   activeAsset: PaperAsset;
   markets: Record<PaperAsset, Market>;
   positions: Record<PaperAsset, Position>;
@@ -42,6 +45,12 @@ export type PaperState = {
 };
 export type PaperAction =
   | { type: "reset"; seed: number }
+  | {
+      type: "start-wallet-session";
+      seed: number;
+      solMilliAsset: number;
+      solPriceCents: number;
+    }
   | { type: "select-asset"; asset: PaperAsset }
   | { type: "load-history"; asset: PaperAsset; points: PricePoint[] }
   /** Drops chart history for every market when the price feed changes. */
@@ -112,6 +121,7 @@ export function createPaperState(seed = 149): PaperState {
   ) as Record<PaperAsset, Market>;
   return {
     marketSeed: seed,
+    fundingSource: "fixed",
     activeAsset: "SOL",
     markets,
     positions: {
@@ -126,6 +136,51 @@ export function createPaperState(seed = 149): PaperState {
     trades: [],
     error: "",
     nextId: 1,
+  };
+}
+
+/**
+ * Starts a read-only wallet-linked practice session. The caller supplies only
+ * a rounded virtual SOL amount and a public market reference; this reducer
+ * never receives a wallet, signer, RPC client, or private key.
+ */
+function startWalletSession(
+  state: PaperState,
+  seed: number,
+  solMilliAsset: number,
+  solPriceCents: number
+): PaperState {
+  const virtualSol = Math.min(WALLET_PAPER_SOL_CAP_MILLI, solMilliAsset);
+  if (
+    !Number.isInteger(virtualSol) ||
+    virtualSol <= 0 ||
+    !Number.isSafeInteger(solPriceCents) ||
+    solPriceCents <= 0
+  )
+    return state;
+  const startingEquityCents = Math.round((virtualSol * solPriceCents) / 1000);
+  const fixed = createPaperState(seed);
+  return {
+    ...fixed,
+    fundingSource: "wallet",
+    activeAsset: "SOL",
+    markets: {
+      ...state.markets,
+      SOL: {
+        ...state.markets.SOL,
+        priceCents: solPriceCents,
+        startPriceCents: solPriceCents,
+      },
+    },
+    positions: {
+      ...fixed.positions,
+      SOL: {
+        quantityMilliAsset: virtualSol,
+        inventoryCostCents: startingEquityCents,
+      },
+    },
+    usdcCents: 0,
+    startEquityCents: startingEquityCents,
   };
 }
 export function getPositionValueCents(state: PaperState, asset: PaperAsset) {
@@ -227,6 +282,13 @@ export function paperReducer(
   action: PaperAction
 ): PaperState {
   if (action.type === "reset") return createPaperState(action.seed);
+  if (action.type === "start-wallet-session")
+    return startWalletSession(
+      state,
+      action.seed,
+      action.solMilliAsset,
+      action.solPriceCents
+    );
   if (action.type === "select-asset")
     return { ...state, activeAsset: action.asset, error: "" };
   if (action.type === "cancel")
