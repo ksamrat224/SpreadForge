@@ -1,5 +1,3 @@
-import { createPrng } from "./prng";
-
 export const PAPER_ASSETS = ["BTC", "ETH", "SOL"] as const;
 export type PaperAsset = (typeof PAPER_ASSETS)[number];
 export type Side = "buy" | "sell";
@@ -54,7 +52,7 @@ export type PaperAction =
   | { type: "select-asset"; asset: PaperAsset }
   | { type: "load-history"; asset: PaperAsset; points: PricePoint[] }
   /** Drops chart history for every market when the price feed changes. */
-  | { type: "restart-feed"; history: "empty" | "synthetic"; at: number }
+  | { type: "restart-feed" }
   | {
       type: "tick";
       asset: PaperAsset;
@@ -84,41 +82,13 @@ export function createPaperSessionSeed() {
   globalThis.crypto.getRandomValues(v);
   return v[0];
 }
-function points(
-  asset: PaperAsset,
-  seed: number,
-  endPriceCents = PAPER_MARKETS[asset].initialPriceCents,
-  endAt = 0
-) {
-  const random = createPrng(seed);
-  let price = endPriceCents;
-  const items = Array.from({ length: 150 }, (_, i) => {
-    price = Math.max(
-      100,
-      price + Math.round((random() - 0.5) * Math.max(2, price * 0.0015))
-    );
-    return { priceCents: price, at: endAt + (i - 149) * 400, sequence: i };
-  });
-  const offset = endPriceCents - items.at(-1)!.priceCents;
-  return items.map((point) => ({
-    ...point,
-    priceCents: point.priceCents + offset,
-  }));
-}
 export function createPaperState(seed = 149): PaperState {
   const markets = Object.fromEntries(
-    PAPER_ASSETS.map((asset, i) => {
-      const history = points(asset, seed + i);
-      return [
-        asset,
-        {
-          priceCents: history.at(-1)!.priceCents,
-          startPriceCents: history.at(-1)!.priceCents,
-          points: history,
-        },
-      ];
+    PAPER_ASSETS.map((asset) => {
+      const priceCents = PAPER_MARKETS[asset].initialPriceCents;
+      return [asset, { priceCents, startPriceCents: priceCents, points: [] }];
     })
-  ) as Record<PaperAsset, Market>;
+  ) as unknown as Record<PaperAsset, Market>;
   return {
     marketSeed: seed,
     fundingSource: "fixed",
@@ -301,26 +271,18 @@ export function paperReducer(
     return {
       ...state,
       markets: Object.fromEntries(
-        PAPER_ASSETS.map((asset, i) => {
+        PAPER_ASSETS.map((asset) => {
           const { priceCents } = state.markets[asset];
           return [
             asset,
             {
               priceCents,
               startPriceCents: priceCents,
-              points:
-                action.history === "synthetic"
-                  ? points(
-                      asset,
-                      state.marketSeed + action.at + i,
-                      priceCents,
-                      action.at
-                    )
-                  : [],
+              points: [],
             },
           ];
         })
-      ) as Record<PaperAsset, Market>,
+      ) as unknown as Record<PaperAsset, Market>,
     };
   if (action.type === "load-history") {
     if (!action.points.length) return state;

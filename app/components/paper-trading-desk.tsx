@@ -28,7 +28,6 @@ import {
   type ChartBar,
   type PriceView,
 } from "./interactive-market-chart";
-import { createPrng } from "../lib/simulation/prng";
 import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
@@ -63,7 +62,7 @@ import {
   type PricePoint,
 } from "../lib/simulation/paper";
 
-type FeedSource = "synthetic" | "pyth" | "replay";
+type FeedSource = "pyth" | "replay";
 type OrderBook = {
   asset: PaperAsset;
   source: string;
@@ -127,7 +126,6 @@ const QUICK_SIZE_MILLI: Record<PaperAsset, number> = {
   SOL: 1000,
 };
 const INITIAL_STATUS: Record<FeedSource, string> = {
-  synthetic: "SYNTHETIC",
   replay: "LOADING REPLAY",
   pyth: "CONNECTING",
 };
@@ -147,14 +145,9 @@ function formatSize(milliAsset: number) {
   return (milliAsset / 1000).toFixed(milliAsset % 1000 ? 3 : 0);
 }
 
-// The live feed starts with an empty chart; seeded synthetic history would
-// otherwise sit on a different time axis than the real prices appended to it.
+// The live feed starts with an empty chart so it contains only market data.
 function createInitialDesk() {
-  return paperReducer(createPaperState(), {
-    type: "restart-feed",
-    history: "empty",
-    at: 0,
-  });
+  return paperReducer(createPaperState(), { type: "restart-feed" });
 }
 
 export function PaperTradingDesk({ active = true }: { active?: boolean }) {
@@ -203,7 +196,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     solMilliAsset: number;
     solPriceCents: number;
   } | null>(null);
-  const random = useRef(createPrng(7264));
   const replay = useRef<PricePoint[]>([]);
   const lastToast = useRef<PaperState["trades"][number] | null>(null);
   const asset = desk.activeAsset;
@@ -264,8 +256,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     return () => window.clearTimeout(timer);
   }, [isDevnet, desk.fundingSource]);
 
-  // Live and synthetic feeds update every market so the shared portfolio is
-  // marked to current prices and quotes on inactive assets can still fill.
+  // Live prices update every market so the shared portfolio is marked to
+  // current prices and quotes on inactive assets can still fill.
   useEffect(() => {
     if (!active || source !== "pyth" || playbackPaused) return;
     let cancelled = false;
@@ -429,23 +421,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     };
   }, [active, asset, playbackPaused, source]);
   useEffect(() => {
-    if (!active || source !== "synthetic" || playbackPaused) return;
-    const timer = window.setInterval(() => {
-      const at = Date.now();
-      for (const item of PAPER_ASSETS)
-        dispatch({
-          type: "tick",
-          asset: item,
-          delta: Math.round(
-            (random.current() - 0.49) *
-              Math.max(2, PAPER_MARKETS[item].initialPriceCents * 0.0015)
-          ),
-          at,
-        });
-    }, 60000 / playbackSpeed);
-    return () => window.clearInterval(timer);
-  }, [active, playbackPaused, playbackSpeed, source]);
-  useEffect(() => {
     if (!active || source !== "replay") return;
     let cancelled = false;
     const controller = new AbortController();
@@ -530,11 +505,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
 
   function restartFeed(next: FeedSource) {
     replay.current = [];
-    dispatch({
-      type: "restart-feed",
-      history: next === "synthetic" ? "synthetic" : "empty",
-      at: Date.now(),
-    });
+    dispatch({ type: "restart-feed" });
     setPlaybackPaused(false);
     setFeedStatus(INITIAL_STATUS[next]);
     if (next === "replay") {
@@ -656,17 +627,15 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       ? `${new Date(market.points[0].at).toLocaleString()} — ${new Date(market.points.at(-1)!.at).toLocaleString()}`
       : null;
   const feedLabel =
-    source === "synthetic"
-      ? "SYNTHETIC REFERENCE"
-      : source === "replay"
-        ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
-        : feedStatus === "PYTH LIVE"
-          ? "PYTH REFERENCE"
-          : feedStatus === "LIVE FALLBACK"
-            ? "EXCHANGE FALLBACK REFERENCE"
-            : feedStatus === "CONNECTING"
-              ? "WAITING FOR LIVE QUOTE"
-              : "CURRENT QUOTE UNAVAILABLE · HISTORICAL DATA ONLY";
+    source === "replay"
+      ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
+      : feedStatus === "PYTH LIVE"
+        ? "PYTH REFERENCE"
+        : feedStatus === "LIVE FALLBACK"
+          ? "EXCHANGE FALLBACK REFERENCE"
+          : feedStatus === "CONNECTING"
+            ? "WAITING FOR LIVE QUOTE"
+            : "CURRENT QUOTE UNAVAILABLE · HISTORICAL DATA ONLY";
   const playbackControls = (
     <div className="replay-playback-actions">
       <button
@@ -714,11 +683,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       <div className="context-banner">
         <div>
           <p className="eyebrow">
-            {source === "synthetic"
-              ? "SYNTHETIC MARKET MODEL · BTC · ETH · SOL"
-              : source === "replay"
-                ? `HISTORICAL ${asset} / USD REPLAY · 1M CANDLES`
-                : "LIVE REFERENCE FEED · 5S · BTC · ETH · SOL"}
+            {source === "replay"
+              ? `HISTORICAL ${asset} / USD REPLAY · 1M CANDLES`
+              : "LIVE REFERENCE FEED · 5S · BTC · ETH · SOL"}
           </p>
           <h1>Paper Trading Desk</h1>
           <p className="tip">
@@ -870,8 +837,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       )}
       {feedStatus === "REPLAY UNAVAILABLE" && (
         <div role="status" className="notice">
-          Historical {asset}/USD data is temporarily unavailable. Switch to the
-          synthetic feed or try the replay again shortly.
+          Historical {asset}/USD data is temporarily unavailable. Try the
+          replay again shortly or return to the live market feed.
         </div>
       )}
       <div className="paper-grid">
@@ -929,11 +896,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                 label="Price feed"
                 value={source}
                 options={[
-                  {
-                    value: "synthetic",
-                    label: "Synthetic feed",
-                    icon: <IconChartLine size={14} />,
-                  },
                   {
                     value: "replay",
                     label: "Historical replay",
