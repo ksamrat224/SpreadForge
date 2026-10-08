@@ -41,77 +41,89 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 
-export const PAPER_SESSION_DISCRIMINATOR = new Uint8Array([
-  17, 225, 133, 214, 236, 37, 245, 204,
+export const PAPER_PORTFOLIO_DISCRIMINATOR = new Uint8Array([
+  47, 174, 255, 196, 25, 71, 244, 82,
 ]);
 
-export function getPaperSessionDiscriminatorBytes() {
+export function getPaperPortfolioDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    PAPER_SESSION_DISCRIMINATOR,
+    PAPER_PORTFOLIO_DISCRIMINATOR,
   );
 }
 
-export type PaperSession = {
+export type PaperPortfolio = {
   discriminator: ReadonlyUint8Array;
   authority: Address;
   sessionSigner: Address;
   registry: Address;
+  startingEquityCents: bigint;
   availableUsdcCents: bigint;
   reservedUsdcCents: bigint;
   realizedPnlCents: bigint;
+  aggregateEquityCents: bigint;
   nextOrderId: bigint;
+  nextFillId: bigint;
   expiresAt: bigint;
   status: number;
   schemaVersion: number;
   bump: number;
 };
 
-export type PaperSessionArgs = {
+export type PaperPortfolioArgs = {
   authority: Address;
   sessionSigner: Address;
   registry: Address;
+  startingEquityCents: number | bigint;
   availableUsdcCents: number | bigint;
   reservedUsdcCents: number | bigint;
   realizedPnlCents: number | bigint;
+  aggregateEquityCents: number | bigint;
   nextOrderId: number | bigint;
+  nextFillId: number | bigint;
   expiresAt: number | bigint;
   status: number;
   schemaVersion: number;
   bump: number;
 };
 
-/** Gets the encoder for {@link PaperSessionArgs} account data. */
-export function getPaperSessionEncoder(): FixedSizeEncoder<PaperSessionArgs> {
+/** Gets the encoder for {@link PaperPortfolioArgs} account data. */
+export function getPaperPortfolioEncoder(): FixedSizeEncoder<PaperPortfolioArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["authority", getAddressEncoder()],
       ["sessionSigner", getAddressEncoder()],
       ["registry", getAddressEncoder()],
+      ["startingEquityCents", getU64Encoder()],
       ["availableUsdcCents", getU64Encoder()],
       ["reservedUsdcCents", getU64Encoder()],
       ["realizedPnlCents", getI64Encoder()],
+      ["aggregateEquityCents", getU64Encoder()],
       ["nextOrderId", getU64Encoder()],
+      ["nextFillId", getU64Encoder()],
       ["expiresAt", getI64Encoder()],
       ["status", getU8Encoder()],
       ["schemaVersion", getU8Encoder()],
       ["bump", getU8Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: PAPER_SESSION_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: PAPER_PORTFOLIO_DISCRIMINATOR }),
   );
 }
 
-/** Gets the decoder for {@link PaperSession} account data. */
-export function getPaperSessionDecoder(): FixedSizeDecoder<PaperSession> {
+/** Gets the decoder for {@link PaperPortfolio} account data. */
+export function getPaperPortfolioDecoder(): FixedSizeDecoder<PaperPortfolio> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["authority", getAddressDecoder()],
     ["sessionSigner", getAddressDecoder()],
     ["registry", getAddressDecoder()],
+    ["startingEquityCents", getU64Decoder()],
     ["availableUsdcCents", getU64Decoder()],
     ["reservedUsdcCents", getU64Decoder()],
     ["realizedPnlCents", getI64Decoder()],
+    ["aggregateEquityCents", getU64Decoder()],
     ["nextOrderId", getU64Decoder()],
+    ["nextFillId", getU64Decoder()],
     ["expiresAt", getI64Decoder()],
     ["status", getU8Decoder()],
     ["schemaVersion", getU8Decoder()],
@@ -119,67 +131,75 @@ export function getPaperSessionDecoder(): FixedSizeDecoder<PaperSession> {
   ]);
 }
 
-/** Gets the codec for {@link PaperSession} account data. */
-export function getPaperSessionCodec(): FixedSizeCodec<
-  PaperSessionArgs,
-  PaperSession
+/** Gets the codec for {@link PaperPortfolio} account data. */
+export function getPaperPortfolioCodec(): FixedSizeCodec<
+  PaperPortfolioArgs,
+  PaperPortfolio
 > {
-  return combineCodec(getPaperSessionEncoder(), getPaperSessionDecoder());
+  return combineCodec(getPaperPortfolioEncoder(), getPaperPortfolioDecoder());
 }
 
-export function decodePaperSession<TAddress extends string = string>(
+export function decodePaperPortfolio<TAddress extends string = string>(
   encodedAccount: EncodedAccount<TAddress>,
-): Account<PaperSession, TAddress>;
-export function decodePaperSession<TAddress extends string = string>(
+): Account<PaperPortfolio, TAddress>;
+export function decodePaperPortfolio<TAddress extends string = string>(
   encodedAccount: MaybeEncodedAccount<TAddress>,
-): MaybeAccount<PaperSession, TAddress>;
-export function decodePaperSession<TAddress extends string = string>(
+): MaybeAccount<PaperPortfolio, TAddress>;
+export function decodePaperPortfolio<TAddress extends string = string>(
   encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
-): Account<PaperSession, TAddress> | MaybeAccount<PaperSession, TAddress> {
+): Account<PaperPortfolio, TAddress> | MaybeAccount<PaperPortfolio, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getPaperSessionDecoder(),
+    getPaperPortfolioDecoder(),
   );
 }
 
-export async function fetchPaperSession<TAddress extends string = string>(
+export async function fetchPaperPortfolio<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
   config?: FetchAccountConfig,
-): Promise<Account<PaperSession, TAddress>> {
-  const maybeAccount = await fetchMaybePaperSession(rpc, address, config);
+): Promise<Account<PaperPortfolio, TAddress>> {
+  const maybeAccount = await fetchMaybePaperPortfolio(rpc, address, config);
   assertAccountExists(maybeAccount);
   return maybeAccount;
 }
 
-export async function fetchMaybePaperSession<TAddress extends string = string>(
+export async function fetchMaybePaperPortfolio<
+  TAddress extends string = string,
+>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
   config?: FetchAccountConfig,
-): Promise<MaybeAccount<PaperSession, TAddress>> {
+): Promise<MaybeAccount<PaperPortfolio, TAddress>> {
   const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodePaperSession(maybeAccount);
+  return decodePaperPortfolio(maybeAccount);
 }
 
-export async function fetchAllPaperSession(
+export async function fetchAllPaperPortfolio(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
   config?: FetchAccountsConfig,
-): Promise<Account<PaperSession>[]> {
-  const maybeAccounts = await fetchAllMaybePaperSession(rpc, addresses, config);
+): Promise<Account<PaperPortfolio>[]> {
+  const maybeAccounts = await fetchAllMaybePaperPortfolio(
+    rpc,
+    addresses,
+    config,
+  );
   assertAccountsExist(maybeAccounts);
   return maybeAccounts;
 }
 
-export async function fetchAllMaybePaperSession(
+export async function fetchAllMaybePaperPortfolio(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
   config?: FetchAccountsConfig,
-): Promise<MaybeAccount<PaperSession>[]> {
+): Promise<MaybeAccount<PaperPortfolio>[]> {
   const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) => decodePaperSession(maybeAccount));
+  return maybeAccounts.map((maybeAccount) =>
+    decodePaperPortfolio(maybeAccount),
+  );
 }
 
-export function getPaperSessionSize(): number {
-  return 147;
+export function getPaperPortfolioSize(): number {
+  return 171;
 }

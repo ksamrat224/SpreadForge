@@ -45,7 +45,7 @@ export function getCancelPaperOrderDiscriminatorBytes() {
 export type CancelPaperOrderInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountActor extends string | AccountMeta<string> = string,
-  TAccountSession extends string | AccountMeta<string> = string,
+  TAccountPortfolio extends string | AccountMeta<string> = string,
   TAccountPosition extends string | AccountMeta<string> = string,
   TAccountOrder extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -57,9 +57,9 @@ export type CancelPaperOrderInstruction<
         ? WritableSignerAccount<TAccountActor> &
             AccountSignerMeta<TAccountActor>
         : TAccountActor,
-      TAccountSession extends string
-        ? WritableAccount<TAccountSession>
-        : TAccountSession,
+      TAccountPortfolio extends string
+        ? WritableAccount<TAccountPortfolio>
+        : TAccountPortfolio,
       TAccountPosition extends string
         ? WritableAccount<TAccountPosition>
         : TAccountPosition,
@@ -101,26 +101,26 @@ export function getCancelPaperOrderInstructionDataCodec(): FixedSizeCodec<
 
 export type CancelPaperOrderInput<
   TAccountActor extends string = string,
-  TAccountSession extends string = string,
+  TAccountPortfolio extends string = string,
   TAccountPosition extends string = string,
   TAccountOrder extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
-  session: Address<TAccountSession>;
+  portfolio: Address<TAccountPortfolio>;
   position: Address<TAccountPosition>;
   order: Address<TAccountOrder>;
 };
 
 export function getCancelPaperOrderInstruction<
   TAccountActor extends string,
-  TAccountSession extends string,
+  TAccountPortfolio extends string,
   TAccountPosition extends string,
   TAccountOrder extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
   input: CancelPaperOrderInput<
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountPosition,
     TAccountOrder
   >,
@@ -128,7 +128,7 @@ export function getCancelPaperOrderInstruction<
 ): CancelPaperOrderInstruction<
   TProgramAddress,
   TAccountActor,
-  TAccountSession,
+  TAccountPortfolio,
   TAccountPosition,
   TAccountOrder
 > {
@@ -139,7 +139,7 @@ export function getCancelPaperOrderInstruction<
   // Original accounts.
   const originalAccounts = {
     actor: { value: input.actor ?? null, isWritable: true },
-    session: { value: input.session ?? null, isWritable: true },
+    portfolio: { value: input.portfolio ?? null, isWritable: true },
     position: { value: input.position ?? null, isWritable: true },
     order: { value: input.order ?? null, isWritable: true },
   };
@@ -152,7 +152,7 @@ export function getCancelPaperOrderInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.actor),
-      getAccountMeta(accounts.session),
+      getAccountMeta(accounts.portfolio),
       getAccountMeta(accounts.position),
       getAccountMeta(accounts.order),
     ],
@@ -161,7 +161,7 @@ export function getCancelPaperOrderInstruction<
   } as CancelPaperOrderInstruction<
     TProgramAddress,
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountPosition,
     TAccountOrder
   >);
@@ -174,7 +174,7 @@ export type ParsedCancelPaperOrderInstruction<
   programAddress: Address<TProgram>;
   accounts: {
     actor: TAccountMetas[0];
-    session: TAccountMetas[1];
+    portfolio: TAccountMetas[1];
     position: TAccountMetas[2];
     order: TAccountMetas[3];
   };
@@ -203,7 +203,7 @@ export function parseCancelPaperOrderInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       actor: getNextAccount(),
-      session: getNextAccount(),
+      portfolio: getNextAccount(),
       position: getNextAccount(),
       order: getNextAccount(),
     },

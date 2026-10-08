@@ -14,6 +14,10 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -38,22 +42,24 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const OPEN_PAPER_POSITION_DISCRIMINATOR = new Uint8Array([
-  51, 96, 152, 65, 242, 7, 170, 48,
+export const PLACE_PAPER_MARKET_ORDER_DISCRIMINATOR = new Uint8Array([
+  134, 56, 14, 209, 215, 120, 248, 7,
 ]);
 
-export function getOpenPaperPositionDiscriminatorBytes() {
+export function getPlacePaperMarketOrderDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    OPEN_PAPER_POSITION_DISCRIMINATOR,
+    PLACE_PAPER_MARKET_ORDER_DISCRIMINATOR,
   );
 }
 
-export type OpenPaperPositionInstruction<
+export type PlacePaperMarketOrderInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountActor extends string | AccountMeta<string> = string,
   TAccountPortfolio extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountPosition extends string | AccountMeta<string> = string,
+  TAccountOraclePrice extends string | AccountMeta<string> = string,
+  TAccountFill extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -74,6 +80,12 @@ export type OpenPaperPositionInstruction<
       TAccountPosition extends string
         ? WritableAccount<TAccountPosition>
         : TAccountPosition,
+      TAccountOraclePrice extends string
+        ? ReadonlyAccount<TAccountOraclePrice>
+        : TAccountOraclePrice,
+      TAccountFill extends string
+        ? WritableAccount<TAccountFill>
+        : TAccountFill,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -81,72 +93,98 @@ export type OpenPaperPositionInstruction<
     ]
   >;
 
-export type OpenPaperPositionInstructionData = {
+export type PlacePaperMarketOrderInstructionData = {
   discriminator: ReadonlyUint8Array;
+  side: number;
+  quantityLots: bigint;
 };
 
-export type OpenPaperPositionInstructionDataArgs = {};
+export type PlacePaperMarketOrderInstructionDataArgs = {
+  side: number;
+  quantityLots: number | bigint;
+};
 
-export function getOpenPaperPositionInstructionDataEncoder(): FixedSizeEncoder<OpenPaperPositionInstructionDataArgs> {
+export function getPlacePaperMarketOrderInstructionDataEncoder(): FixedSizeEncoder<PlacePaperMarketOrderInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: OPEN_PAPER_POSITION_DISCRIMINATOR }),
+    getStructEncoder([
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["side", getU8Encoder()],
+      ["quantityLots", getU64Encoder()],
+    ]),
+    (value) => ({
+      ...value,
+      discriminator: PLACE_PAPER_MARKET_ORDER_DISCRIMINATOR,
+    }),
   );
 }
 
-export function getOpenPaperPositionInstructionDataDecoder(): FixedSizeDecoder<OpenPaperPositionInstructionData> {
+export function getPlacePaperMarketOrderInstructionDataDecoder(): FixedSizeDecoder<PlacePaperMarketOrderInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["side", getU8Decoder()],
+    ["quantityLots", getU64Decoder()],
   ]);
 }
 
-export function getOpenPaperPositionInstructionDataCodec(): FixedSizeCodec<
-  OpenPaperPositionInstructionDataArgs,
-  OpenPaperPositionInstructionData
+export function getPlacePaperMarketOrderInstructionDataCodec(): FixedSizeCodec<
+  PlacePaperMarketOrderInstructionDataArgs,
+  PlacePaperMarketOrderInstructionData
 > {
   return combineCodec(
-    getOpenPaperPositionInstructionDataEncoder(),
-    getOpenPaperPositionInstructionDataDecoder(),
+    getPlacePaperMarketOrderInstructionDataEncoder(),
+    getPlacePaperMarketOrderInstructionDataDecoder(),
   );
 }
 
-export type OpenPaperPositionAsyncInput<
+export type PlacePaperMarketOrderAsyncInput<
   TAccountActor extends string = string,
   TAccountPortfolio extends string = string,
   TAccountMarket extends string = string,
   TAccountPosition extends string = string,
+  TAccountOraclePrice extends string = string,
+  TAccountFill extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
   portfolio: Address<TAccountPortfolio>;
   market: Address<TAccountMarket>;
   position?: Address<TAccountPosition>;
+  oraclePrice: Address<TAccountOraclePrice>;
+  fill: Address<TAccountFill>;
   systemProgram?: Address<TAccountSystemProgram>;
+  side: PlacePaperMarketOrderInstructionDataArgs["side"];
+  quantityLots: PlacePaperMarketOrderInstructionDataArgs["quantityLots"];
 };
 
-export async function getOpenPaperPositionInstructionAsync<
+export async function getPlacePaperMarketOrderInstructionAsync<
   TAccountActor extends string,
   TAccountPortfolio extends string,
   TAccountMarket extends string,
   TAccountPosition extends string,
+  TAccountOraclePrice extends string,
+  TAccountFill extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
-  input: OpenPaperPositionAsyncInput<
+  input: PlacePaperMarketOrderAsyncInput<
     TAccountActor,
     TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
+    TAccountOraclePrice,
+    TAccountFill,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  OpenPaperPositionInstruction<
+  PlacePaperMarketOrderInstruction<
     TProgramAddress,
     TAccountActor,
     TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
+    TAccountOraclePrice,
+    TAccountFill,
     TAccountSystemProgram
   >
 > {
@@ -160,12 +198,17 @@ export async function getOpenPaperPositionInstructionAsync<
     portfolio: { value: input.portfolio ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
     position: { value: input.position ?? null, isWritable: true },
+    oraclePrice: { value: input.oraclePrice ?? null, isWritable: false },
+    fill: { value: input.fill ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
+
+  // Original args.
+  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.position.value) {
@@ -186,56 +229,74 @@ export async function getOpenPaperPositionInstructionAsync<
       getAccountMeta(accounts.portfolio),
       getAccountMeta(accounts.market),
       getAccountMeta(accounts.position),
+      getAccountMeta(accounts.oraclePrice),
+      getAccountMeta(accounts.fill),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getOpenPaperPositionInstructionDataEncoder().encode({}),
+    data: getPlacePaperMarketOrderInstructionDataEncoder().encode(
+      args as PlacePaperMarketOrderInstructionDataArgs,
+    ),
     programAddress,
-  } as OpenPaperPositionInstruction<
+  } as PlacePaperMarketOrderInstruction<
     TProgramAddress,
     TAccountActor,
     TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
+    TAccountOraclePrice,
+    TAccountFill,
     TAccountSystemProgram
   >);
 }
 
-export type OpenPaperPositionInput<
+export type PlacePaperMarketOrderInput<
   TAccountActor extends string = string,
   TAccountPortfolio extends string = string,
   TAccountMarket extends string = string,
   TAccountPosition extends string = string,
+  TAccountOraclePrice extends string = string,
+  TAccountFill extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
   portfolio: Address<TAccountPortfolio>;
   market: Address<TAccountMarket>;
   position: Address<TAccountPosition>;
+  oraclePrice: Address<TAccountOraclePrice>;
+  fill: Address<TAccountFill>;
   systemProgram?: Address<TAccountSystemProgram>;
+  side: PlacePaperMarketOrderInstructionDataArgs["side"];
+  quantityLots: PlacePaperMarketOrderInstructionDataArgs["quantityLots"];
 };
 
-export function getOpenPaperPositionInstruction<
+export function getPlacePaperMarketOrderInstruction<
   TAccountActor extends string,
   TAccountPortfolio extends string,
   TAccountMarket extends string,
   TAccountPosition extends string,
+  TAccountOraclePrice extends string,
+  TAccountFill extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
-  input: OpenPaperPositionInput<
+  input: PlacePaperMarketOrderInput<
     TAccountActor,
     TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
+    TAccountOraclePrice,
+    TAccountFill,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): OpenPaperPositionInstruction<
+): PlacePaperMarketOrderInstruction<
   TProgramAddress,
   TAccountActor,
   TAccountPortfolio,
   TAccountMarket,
   TAccountPosition,
+  TAccountOraclePrice,
+  TAccountFill,
   TAccountSystemProgram
 > {
   // Program address.
@@ -248,12 +309,17 @@ export function getOpenPaperPositionInstruction<
     portfolio: { value: input.portfolio ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
     position: { value: input.position ?? null, isWritable: true },
+    oraclePrice: { value: input.oraclePrice ?? null, isWritable: false },
+    fill: { value: input.fill ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
+
+  // Original args.
+  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
@@ -268,21 +334,27 @@ export function getOpenPaperPositionInstruction<
       getAccountMeta(accounts.portfolio),
       getAccountMeta(accounts.market),
       getAccountMeta(accounts.position),
+      getAccountMeta(accounts.oraclePrice),
+      getAccountMeta(accounts.fill),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getOpenPaperPositionInstructionDataEncoder().encode({}),
+    data: getPlacePaperMarketOrderInstructionDataEncoder().encode(
+      args as PlacePaperMarketOrderInstructionDataArgs,
+    ),
     programAddress,
-  } as OpenPaperPositionInstruction<
+  } as PlacePaperMarketOrderInstruction<
     TProgramAddress,
     TAccountActor,
     TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
+    TAccountOraclePrice,
+    TAccountFill,
     TAccountSystemProgram
   >);
 }
 
-export type ParsedOpenPaperPositionInstruction<
+export type ParsedPlacePaperMarketOrderInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -292,20 +364,22 @@ export type ParsedOpenPaperPositionInstruction<
     portfolio: TAccountMetas[1];
     market: TAccountMetas[2];
     position: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
+    oraclePrice: TAccountMetas[4];
+    fill: TAccountMetas[5];
+    systemProgram: TAccountMetas[6];
   };
-  data: OpenPaperPositionInstructionData;
+  data: PlacePaperMarketOrderInstructionData;
 };
 
-export function parseOpenPaperPositionInstruction<
+export function parsePlacePaperMarketOrderInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedOpenPaperPositionInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+): ParsedPlacePaperMarketOrderInstruction<TProgram, TAccountMetas> {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -322,8 +396,12 @@ export function parseOpenPaperPositionInstruction<
       portfolio: getNextAccount(),
       market: getNextAccount(),
       position: getNextAccount(),
+      oraclePrice: getNextAccount(),
+      fill: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getOpenPaperPositionInstructionDataDecoder().decode(instruction.data),
+    data: getPlacePaperMarketOrderInstructionDataDecoder().decode(
+      instruction.data,
+    ),
   };
 }

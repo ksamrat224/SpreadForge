@@ -53,20 +53,22 @@ export function getPaperPositionDiscriminatorBytes() {
 
 export type PaperPosition = {
   discriminator: ReadonlyUint8Array;
-  session: Address;
+  portfolio: Address;
   market: Address;
   quantityLots: bigint;
   reservedLots: bigint;
   inventoryCostCents: bigint;
+  markedValueCents: bigint;
   bump: number;
 };
 
 export type PaperPositionArgs = {
-  session: Address;
+  portfolio: Address;
   market: Address;
   quantityLots: number | bigint;
   reservedLots: number | bigint;
   inventoryCostCents: number | bigint;
+  markedValueCents: number | bigint;
   bump: number;
 };
 
@@ -75,11 +77,12 @@ export function getPaperPositionEncoder(): FixedSizeEncoder<PaperPositionArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["session", getAddressEncoder()],
+      ["portfolio", getAddressEncoder()],
       ["market", getAddressEncoder()],
       ["quantityLots", getI64Encoder()],
       ["reservedLots", getU64Encoder()],
       ["inventoryCostCents", getU64Encoder()],
+      ["markedValueCents", getU64Encoder()],
       ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: PAPER_POSITION_DISCRIMINATOR }),
@@ -90,11 +93,12 @@ export function getPaperPositionEncoder(): FixedSizeEncoder<PaperPositionArgs> {
 export function getPaperPositionDecoder(): FixedSizeDecoder<PaperPosition> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["session", getAddressDecoder()],
+    ["portfolio", getAddressDecoder()],
     ["market", getAddressDecoder()],
     ["quantityLots", getI64Decoder()],
     ["reservedLots", getU64Decoder()],
     ["inventoryCostCents", getU64Decoder()],
+    ["markedValueCents", getU64Decoder()],
     ["bump", getU8Decoder()],
   ]);
 }
@@ -165,5 +169,5 @@ export async function fetchAllMaybePaperPosition(
 }
 
 export function getPaperPositionSize(): number {
-  return 97;
+  return 105;
 }

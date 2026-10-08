@@ -53,8 +53,16 @@ pub mod result_registry {
         instructions::paper_trading::upsert_market(ctx, args)
     }
 
-    pub fn initialize_paper_session(ctx: Context<InitializePaperSession>, args: InitializePaperSessionArgs) -> Result<()> {
-        instructions::paper_trading::initialize_session(ctx, args)
+    pub fn initialize_paper_portfolio(ctx: Context<InitializePaperPortfolio>, args: InitializePaperPortfolioArgs) -> Result<()> {
+        instructions::paper_trading::initialize_portfolio(ctx, args)
+    }
+
+    pub fn delegate_paper_portfolio(ctx: Context<DelegatePaperPortfolio>) -> Result<()> {
+        instructions::delegate_paper_portfolio::handler(ctx)
+    }
+
+    pub fn renew_paper_authorization(ctx: Context<RenewPaperAuthorization>, args: RenewPaperAuthorizationArgs) -> Result<()> {
+        instructions::paper_trading::renew_authorization(ctx, args)
     }
 
     pub fn open_paper_position(ctx: Context<OpenPaperPosition>) -> Result<()> {
@@ -65,7 +73,19 @@ pub mod result_registry {
         instructions::paper_trading::place_limit_order(ctx, args)
     }
 
+    pub fn place_paper_market_order(ctx: Context<PlacePaperMarketOrder>, args: PlacePaperMarketOrderArgs) -> Result<()> {
+        instructions::paper_trading::place_market_order(ctx, args)
+    }
+
     pub fn cancel_paper_order(ctx: Context<CancelPaperOrder>) -> Result<()> {
         instructions::paper_trading::cancel_order(ctx)
+    }
+
+    pub fn match_paper_market_tick(ctx: Context<MatchPaperMarketTick>) -> Result<()> {
+        instructions::paper_trading::match_market_tick(ctx)
+    }
+
+    pub fn checkpoint_portfolio_performance(ctx: Context<CheckpointPortfolioPerformance>, week_start: i64) -> Result<()> {
+        instructions::paper_trading::checkpoint_performance(ctx, week_start)
     }
 }

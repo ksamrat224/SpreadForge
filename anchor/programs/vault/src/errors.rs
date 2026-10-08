@@ -28,10 +28,10 @@ pub enum ResultRegistryError {
     UnauthorizedPaperRegistryAuthority,
     #[msg("The paper market is disabled or belongs to a different registry.")]
     PaperMarketUnavailable,
-    #[msg("The paper session is not active.")]
-    PaperSessionNotActive,
-    #[msg("The paper session actor is not authorized or the session has expired.")]
-    UnauthorizedPaperSessionActor,
+    #[msg("The paper portfolio is inactive.")]
+    PaperPortfolioNotActive,
+    #[msg("The paper portfolio actor is not authorized or the authorization has expired.")]
+    UnauthorizedPaperPortfolioActor,
     #[msg("Paper orders require a positive integer quantity and price.")]
     InvalidPaperOrder,
     #[msg("The paper portfolio has insufficient unreserved virtual funds.")]
@@ -40,4 +40,12 @@ pub enum ResultRegistryError {
     InvalidOracleObservation,
     #[msg("This paper order cannot be cancelled by the supplied session.")]
     InvalidPaperOrderAccount,
+    #[msg("A paper portfolio already exists for this wallet.")]
+    PaperPortfolioAlreadyExists,
+    #[msg("The supplied oracle account does not satisfy the configured Pyth mirror interface.")]
+    InvalidPaperOracleAccount,
+    #[msg("The requested paper checkpoint is not due yet.")]
+    PaperCheckpointNotDue,
+    #[msg("Only aggregate performance can be written to this public account.")]
+    InvalidPaperPerformance,
 }

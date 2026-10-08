@@ -10,6 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
   getBooleanDecoder,
   getBooleanEncoder,
   getBytesDecoder,
@@ -84,6 +86,8 @@ export type UpsertPaperMarketInstructionData = {
   discriminator: ReadonlyUint8Array;
   marketId: ReadonlyUint8Array;
   oracleFeed: ReadonlyUint8Array;
+  oraclePriceAccount: Address;
+  oracleProgram: Address;
   lotSize: bigint;
   priceMultiplier: number;
   halfSpreadBps: number;
@@ -94,6 +98,8 @@ export type UpsertPaperMarketInstructionData = {
 export type UpsertPaperMarketInstructionDataArgs = {
   marketId: ReadonlyUint8Array;
   oracleFeed: ReadonlyUint8Array;
+  oraclePriceAccount: Address;
+  oracleProgram: Address;
   lotSize: number | bigint;
   priceMultiplier: number;
   halfSpreadBps: number;
@@ -107,6 +113,8 @@ export function getUpsertPaperMarketInstructionDataEncoder(): FixedSizeEncoder<U
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["marketId", fixEncoderSize(getBytesEncoder(), 16)],
       ["oracleFeed", fixEncoderSize(getBytesEncoder(), 32)],
+      ["oraclePriceAccount", getAddressEncoder()],
+      ["oracleProgram", getAddressEncoder()],
       ["lotSize", getU64Encoder()],
       ["priceMultiplier", getU32Encoder()],
       ["halfSpreadBps", getU16Encoder()],
@@ -122,6 +130,8 @@ export function getUpsertPaperMarketInstructionDataDecoder(): FixedSizeDecoder<U
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["marketId", fixDecoderSize(getBytesDecoder(), 16)],
     ["oracleFeed", fixDecoderSize(getBytesDecoder(), 32)],
+    ["oraclePriceAccount", getAddressDecoder()],
+    ["oracleProgram", getAddressDecoder()],
     ["lotSize", getU64Decoder()],
     ["priceMultiplier", getU32Decoder()],
     ["halfSpreadBps", getU16Decoder()],
@@ -152,6 +162,8 @@ export type UpsertPaperMarketInput<
   systemProgram?: Address<TAccountSystemProgram>;
   marketId: UpsertPaperMarketInstructionDataArgs["marketId"];
   oracleFeed: UpsertPaperMarketInstructionDataArgs["oracleFeed"];
+  oraclePriceAccount: UpsertPaperMarketInstructionDataArgs["oraclePriceAccount"];
+  oracleProgram: UpsertPaperMarketInstructionDataArgs["oracleProgram"];
   lotSize: UpsertPaperMarketInstructionDataArgs["lotSize"];
   priceMultiplier: UpsertPaperMarketInstructionDataArgs["priceMultiplier"];
   halfSpreadBps: UpsertPaperMarketInstructionDataArgs["halfSpreadBps"];

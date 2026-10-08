@@ -32,6 +32,9 @@ import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
 import { MarketExplorer } from "./market-explorer";
+import { useWallet } from "../lib/wallet/context";
+import { getMagicBlockConfig } from "../lib/magicblock/config";
+import { getResultRegistryProgramAddress } from "../lib/results/registry";
 import type { IndicatorId } from "../lib/indicators";
 import {
   drawdownPercent,
@@ -147,7 +150,11 @@ function createInitialDesk() {
   return paperReducer(createPaperState(), { type: "restart-feed" });
 }
 
-export function PaperTradingDesk({ active = true }: { active?: boolean }) {
+/**
+ * Legacy local-only desk retained while its visuals are migrated to the
+ * private-ER runtime. It must never be rendered as a wallet-verified desk.
+ */
+export function LocalPaperTradingDesk({ active = true }: { active?: boolean }) {
   const [desk, dispatch] = useReducer(
     paperReducer,
     undefined,
@@ -1069,6 +1076,53 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           )}
         </section>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Paper trading deliberately fails closed until the deployed program, routed
+ * Private ER runtime, and oracle-backed matching implementation are available.
+ * Rendering the old reducer here would make local, refreshable state look like
+ * an on-chain portfolio.
+ */
+export function PaperTradingDesk({ active = true }: { active?: boolean }) {
+  const { wallet } = useWallet();
+  const magicBlock = getMagicBlockConfig();
+  const programAddress = getResultRegistryProgramAddress();
+  if (!active) return null;
+  return (
+    <section className="page-shell" aria-label="Paper Trading">
+      <div className="workspace-top">
+        <span>
+          <strong>Private portfolio setup in progress.</strong> · Paper trades
+          will become wallet-authorized and persistent here.
+        </span>
+        <span className="mono">ON-CHAIN EXECUTION REQUIRED</span>
+      </div>
+      <section className="panel empty-state" style={{ padding: 42 }}>
+        <p className="eyebrow">PAPER PORTFOLIO</p>
+        <h1>Trading is temporarily disabled</h1>
+        <p>
+          We disabled the old browser-only simulator because its balances
+          disappeared on refresh and no wallet transaction verified a trade.
+          The replacement starts one persistent 10,000 virtual-USDC portfolio
+          per wallet on a Private MagicBlock Ephemeral Rollup.
+        </p>
+        <div className="control-hint" style={{ marginTop: 16 }}>
+          {!wallet
+            ? "Connect a devnet wallet to create your portfolio when the private runtime is live."
+            : !programAddress
+              ? "The result registry program has not been configured for devnet yet."
+              : !magicBlock.enabled
+                ? "Private MagicBlock execution is not enabled for this deployment."
+                : "Waiting for the deployed private-ER portfolio runtime and validated oracle routing."}
+        </div>
+        <p className="control-hint" style={{ marginTop: 12 }}>
+          No funds will be moved. The wallet will approve portfolio creation
+          and periodic authorization renewal, never individual simulated trades.
+        </p>
+      </section>
     </section>
   );
 }

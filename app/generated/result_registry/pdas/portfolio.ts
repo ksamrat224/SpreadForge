@@ -14,13 +14,12 @@ import {
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
-export type PositionSeeds = {
-  portfolio: Address;
-  market: Address;
+export type PortfolioSeeds = {
+  authority: Address;
 };
 
-export async function findPositionPda(
-  seeds: PositionSeeds,
+export async function findPortfolioPda(
+  seeds: PortfolioSeeds,
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
@@ -31,11 +30,11 @@ export async function findPositionPda(
     seeds: [
       getBytesEncoder().encode(
         new Uint8Array([
-          112, 97, 112, 101, 114, 45, 112, 111, 115, 105, 116, 105, 111, 110,
+          112, 97, 112, 101, 114, 45, 112, 111, 114, 116, 102, 111, 108, 105,
+          111,
         ]),
       ),
-      getAddressEncoder().encode(seeds.portfolio),
-      getAddressEncoder().encode(seeds.market),
+      getAddressEncoder().encode(seeds.authority),
     ],
   });
 }

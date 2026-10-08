@@ -6,9 +6,15 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./bufferPortfolio";
 export * from "./bufferSession";
+export * from "./checkpoint";
+export * from "./delegationMetadataPortfolio";
 export * from "./delegationMetadataSession";
+export * from "./delegationRecordPortfolio";
 export * from "./delegationRecordSession";
+export * from "./performance";
+export * from "./portfolio";
 export * from "./position";
 export * from "./registry";
 export * from "./session";

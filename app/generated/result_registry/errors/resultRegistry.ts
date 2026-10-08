@@ -40,10 +40,10 @@ export const RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION = 0x177a;
 export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_REGISTRY_AUTHORITY = 0x177b; // 6011
 /** PaperMarketUnavailable: The paper market is disabled or belongs to a different registry. */
 export const RESULT_REGISTRY_ERROR__PAPER_MARKET_UNAVAILABLE = 0x177c; // 6012
-/** PaperSessionNotActive: The paper session is not active. */
-export const RESULT_REGISTRY_ERROR__PAPER_SESSION_NOT_ACTIVE = 0x177d; // 6013
-/** UnauthorizedPaperSessionActor: The paper session actor is not authorized or the session has expired. */
-export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_SESSION_ACTOR = 0x177e; // 6014
+/** PaperPortfolioNotActive: The paper portfolio is inactive. */
+export const RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_NOT_ACTIVE = 0x177d; // 6013
+/** UnauthorizedPaperPortfolioActor: The paper portfolio actor is not authorized or the authorization has expired. */
+export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_PORTFOLIO_ACTOR = 0x177e; // 6014
 /** InvalidPaperOrder: Paper orders require a positive integer quantity and price. */
 export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER = 0x177f; // 6015
 /** InsufficientVirtualFunds: The paper portfolio has insufficient unreserved virtual funds. */
@@ -52,24 +52,36 @@ export const RESULT_REGISTRY_ERROR__INSUFFICIENT_VIRTUAL_FUNDS = 0x1780; // 6016
 export const RESULT_REGISTRY_ERROR__INVALID_ORACLE_OBSERVATION = 0x1781; // 6017
 /** InvalidPaperOrderAccount: This paper order cannot be cancelled by the supplied session. */
 export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER_ACCOUNT = 0x1782; // 6018
+/** PaperPortfolioAlreadyExists: A paper portfolio already exists for this wallet. */
+export const RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS = 0x1783; // 6019
+/** InvalidPaperOracleAccount: The supplied oracle account does not satisfy the configured Pyth mirror interface. */
+export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE_ACCOUNT = 0x1784; // 6020
+/** PaperCheckpointNotDue: The requested paper checkpoint is not due yet. */
+export const RESULT_REGISTRY_ERROR__PAPER_CHECKPOINT_NOT_DUE = 0x1785; // 6021
+/** InvalidPaperPerformance: Only aggregate performance can be written to this public account. */
+export const RESULT_REGISTRY_ERROR__INVALID_PAPER_PERFORMANCE = 0x1786; // 6022
 
 export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INSUFFICIENT_VIRTUAL_FUNDS
   | typeof RESULT_REGISTRY_ERROR__INVALID_HASH
   | typeof RESULT_REGISTRY_ERROR__INVALID_ORACLE_OBSERVATION
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE_ACCOUNT
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER_ACCOUNT
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_PERFORMANCE
   | typeof RESULT_REGISTRY_ERROR__INVALID_SCORE
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK
+  | typeof RESULT_REGISTRY_ERROR__PAPER_CHECKPOINT_NOT_DUE
   | typeof RESULT_REGISTRY_ERROR__PAPER_MARKET_UNAVAILABLE
-  | typeof RESULT_REGISTRY_ERROR__PAPER_SESSION_NOT_ACTIVE
+  | typeof RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS
+  | typeof RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_NOT_ACTIVE
   | typeof RESULT_REGISTRY_ERROR__SESSION_EXPIRED
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE
+  | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_PORTFOLIO_ACTOR
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_REGISTRY_AUTHORITY
-  | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_SESSION_ACTOR
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION;
@@ -81,19 +93,23 @@ if (process.env.NODE_ENV !== "production") {
     [RESULT_REGISTRY_ERROR__INSUFFICIENT_VIRTUAL_FUNDS]: `The paper portfolio has insufficient unreserved virtual funds.`,
     [RESULT_REGISTRY_ERROR__INVALID_HASH]: `Scenario, strategy, and result hashes must not be all zeroes.`,
     [RESULT_REGISTRY_ERROR__INVALID_ORACLE_OBSERVATION]: `The supplied oracle observation is stale, invalid, or non-monotonic.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE_ACCOUNT]: `The supplied oracle account does not satisfy the configured Pyth mirror interface.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER]: `Paper orders require a positive integer quantity and price.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER_ACCOUNT]: `This paper order cannot be cancelled by the supplied session.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PAPER_PERFORMANCE]: `Only aggregate performance can be written to this public account.`,
     [RESULT_REGISTRY_ERROR__INVALID_SCORE]: `The result score must be between 0 and 10,000.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION]: `The session signer or expiry is invalid.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION]: `A session must contain between 1 and 60 ticks.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK]: `The submitted tick does not advance the active session by exactly one.`,
+    [RESULT_REGISTRY_ERROR__PAPER_CHECKPOINT_NOT_DUE]: `The requested paper checkpoint is not due yet.`,
     [RESULT_REGISTRY_ERROR__PAPER_MARKET_UNAVAILABLE]: `The paper market is disabled or belongs to a different registry.`,
-    [RESULT_REGISTRY_ERROR__PAPER_SESSION_NOT_ACTIVE]: `The paper session is not active.`,
+    [RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS]: `A paper portfolio already exists for this wallet.`,
+    [RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_NOT_ACTIVE]: `The paper portfolio is inactive.`,
     [RESULT_REGISTRY_ERROR__SESSION_EXPIRED]: `The session has expired.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE]: `The session is not active.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE]: `The session can be finalized only after all ticks are complete.`,
+    [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_PORTFOLIO_ACTOR]: `The paper portfolio actor is not authorized or the authorization has expired.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_REGISTRY_AUTHORITY]: `Only the paper market registry authority may perform this action.`,
-    [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_SESSION_ACTOR]: `The paper session actor is not authorized or the session has expired.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR]: `Only the wallet authority or the scoped session signer may advance this session.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION]: `This result schema version is not supported.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION]: `The session schema version is not supported.`,

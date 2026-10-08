@@ -41,139 +41,136 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 
-export const PAPER_ORDER_DISCRIMINATOR = new Uint8Array([
-  75, 73, 93, 193, 191, 2, 218, 93,
+export const PAPER_FILL_DISCRIMINATOR = new Uint8Array([
+  192, 167, 119, 124, 13, 57, 205, 104,
 ]);
 
-export function getPaperOrderDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(PAPER_ORDER_DISCRIMINATOR);
+export function getPaperFillDiscriminatorBytes() {
+  return fixEncoderSize(getBytesEncoder(), 8).encode(PAPER_FILL_DISCRIMINATOR);
 }
 
-export type PaperOrder = {
+export type PaperFill = {
   discriminator: ReadonlyUint8Array;
   portfolio: Address;
   market: Address;
   id: bigint;
+  orderId: bigint;
   side: number;
+  quantityLots: bigint;
   priceCents: bigint;
-  remainingLots: bigint;
-  reservedCents: bigint;
-  createdAt: bigint;
-  status: number;
+  realizedPnlCents: bigint;
+  filledAt: bigint;
   bump: number;
 };
 
-export type PaperOrderArgs = {
+export type PaperFillArgs = {
   portfolio: Address;
   market: Address;
   id: number | bigint;
+  orderId: number | bigint;
   side: number;
+  quantityLots: number | bigint;
   priceCents: number | bigint;
-  remainingLots: number | bigint;
-  reservedCents: number | bigint;
-  createdAt: number | bigint;
-  status: number;
+  realizedPnlCents: number | bigint;
+  filledAt: number | bigint;
   bump: number;
 };
 
-/** Gets the encoder for {@link PaperOrderArgs} account data. */
-export function getPaperOrderEncoder(): FixedSizeEncoder<PaperOrderArgs> {
+/** Gets the encoder for {@link PaperFillArgs} account data. */
+export function getPaperFillEncoder(): FixedSizeEncoder<PaperFillArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["portfolio", getAddressEncoder()],
       ["market", getAddressEncoder()],
       ["id", getU64Encoder()],
+      ["orderId", getU64Encoder()],
       ["side", getU8Encoder()],
+      ["quantityLots", getU64Encoder()],
       ["priceCents", getU64Encoder()],
-      ["remainingLots", getU64Encoder()],
-      ["reservedCents", getU64Encoder()],
-      ["createdAt", getI64Encoder()],
-      ["status", getU8Encoder()],
+      ["realizedPnlCents", getI64Encoder()],
+      ["filledAt", getI64Encoder()],
       ["bump", getU8Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: PAPER_ORDER_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: PAPER_FILL_DISCRIMINATOR }),
   );
 }
 
-/** Gets the decoder for {@link PaperOrder} account data. */
-export function getPaperOrderDecoder(): FixedSizeDecoder<PaperOrder> {
+/** Gets the decoder for {@link PaperFill} account data. */
+export function getPaperFillDecoder(): FixedSizeDecoder<PaperFill> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["portfolio", getAddressDecoder()],
     ["market", getAddressDecoder()],
     ["id", getU64Decoder()],
+    ["orderId", getU64Decoder()],
     ["side", getU8Decoder()],
+    ["quantityLots", getU64Decoder()],
     ["priceCents", getU64Decoder()],
-    ["remainingLots", getU64Decoder()],
-    ["reservedCents", getU64Decoder()],
-    ["createdAt", getI64Decoder()],
-    ["status", getU8Decoder()],
+    ["realizedPnlCents", getI64Decoder()],
+    ["filledAt", getI64Decoder()],
     ["bump", getU8Decoder()],
   ]);
 }
 
-/** Gets the codec for {@link PaperOrder} account data. */
-export function getPaperOrderCodec(): FixedSizeCodec<
-  PaperOrderArgs,
-  PaperOrder
-> {
-  return combineCodec(getPaperOrderEncoder(), getPaperOrderDecoder());
+/** Gets the codec for {@link PaperFill} account data. */
+export function getPaperFillCodec(): FixedSizeCodec<PaperFillArgs, PaperFill> {
+  return combineCodec(getPaperFillEncoder(), getPaperFillDecoder());
 }
 
-export function decodePaperOrder<TAddress extends string = string>(
+export function decodePaperFill<TAddress extends string = string>(
   encodedAccount: EncodedAccount<TAddress>,
-): Account<PaperOrder, TAddress>;
-export function decodePaperOrder<TAddress extends string = string>(
+): Account<PaperFill, TAddress>;
+export function decodePaperFill<TAddress extends string = string>(
   encodedAccount: MaybeEncodedAccount<TAddress>,
-): MaybeAccount<PaperOrder, TAddress>;
-export function decodePaperOrder<TAddress extends string = string>(
+): MaybeAccount<PaperFill, TAddress>;
+export function decodePaperFill<TAddress extends string = string>(
   encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
-): Account<PaperOrder, TAddress> | MaybeAccount<PaperOrder, TAddress> {
+): Account<PaperFill, TAddress> | MaybeAccount<PaperFill, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getPaperOrderDecoder(),
+    getPaperFillDecoder(),
   );
 }
 
-export async function fetchPaperOrder<TAddress extends string = string>(
+export async function fetchPaperFill<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
   config?: FetchAccountConfig,
-): Promise<Account<PaperOrder, TAddress>> {
-  const maybeAccount = await fetchMaybePaperOrder(rpc, address, config);
+): Promise<Account<PaperFill, TAddress>> {
+  const maybeAccount = await fetchMaybePaperFill(rpc, address, config);
   assertAccountExists(maybeAccount);
   return maybeAccount;
 }
 
-export async function fetchMaybePaperOrder<TAddress extends string = string>(
+export async function fetchMaybePaperFill<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
   config?: FetchAccountConfig,
-): Promise<MaybeAccount<PaperOrder, TAddress>> {
+): Promise<MaybeAccount<PaperFill, TAddress>> {
   const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodePaperOrder(maybeAccount);
+  return decodePaperFill(maybeAccount);
 }
 
-export async function fetchAllPaperOrder(
+export async function fetchAllPaperFill(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
   config?: FetchAccountsConfig,
-): Promise<Account<PaperOrder>[]> {
-  const maybeAccounts = await fetchAllMaybePaperOrder(rpc, addresses, config);
+): Promise<Account<PaperFill>[]> {
+  const maybeAccounts = await fetchAllMaybePaperFill(rpc, addresses, config);
   assertAccountsExist(maybeAccounts);
   return maybeAccounts;
 }
 
-export async function fetchAllMaybePaperOrder(
+export async function fetchAllMaybePaperFill(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
   config?: FetchAccountsConfig,
-): Promise<MaybeAccount<PaperOrder>[]> {
+): Promise<MaybeAccount<PaperFill>[]> {
   const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) => decodePaperOrder(maybeAccount));
+  return maybeAccounts.map((maybeAccount) => decodePaperFill(maybeAccount));
 }
 
-export function getPaperOrderSize(): number {
-  return 115;
+export function getPaperFillSize(): number {
+  return 122;
 }

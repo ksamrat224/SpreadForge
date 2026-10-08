@@ -12,6 +12,8 @@ import {
   fixEncoderSize,
   getBytesDecoder,
   getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   transformEncoder,
@@ -30,30 +32,31 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
-import { findPositionPda } from "../pdas";
+import { findCheckpointPda } from "../pdas";
 import { RESULT_REGISTRY_PROGRAM_ADDRESS } from "../programs";
 import {
   expectAddress,
+  expectSome,
   getAccountMetaFactory,
   type ResolvedAccount,
 } from "../shared";
 
-export const OPEN_PAPER_POSITION_DISCRIMINATOR = new Uint8Array([
-  51, 96, 152, 65, 242, 7, 170, 48,
+export const CHECKPOINT_PORTFOLIO_PERFORMANCE_DISCRIMINATOR = new Uint8Array([
+  61, 46, 156, 26, 99, 186, 122, 144,
 ]);
 
-export function getOpenPaperPositionDiscriminatorBytes() {
+export function getCheckpointPortfolioPerformanceDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    OPEN_PAPER_POSITION_DISCRIMINATOR,
+    CHECKPOINT_PORTFOLIO_PERFORMANCE_DISCRIMINATOR,
   );
 }
 
-export type OpenPaperPositionInstruction<
+export type CheckpointPortfolioPerformanceInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountActor extends string | AccountMeta<string> = string,
   TAccountPortfolio extends string | AccountMeta<string> = string,
-  TAccountMarket extends string | AccountMeta<string> = string,
-  TAccountPosition extends string | AccountMeta<string> = string,
+  TAccountPerformance extends string | AccountMeta<string> = string,
+  TAccountCheckpoint extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -68,12 +71,12 @@ export type OpenPaperPositionInstruction<
       TAccountPortfolio extends string
         ? WritableAccount<TAccountPortfolio>
         : TAccountPortfolio,
-      TAccountMarket extends string
-        ? ReadonlyAccount<TAccountMarket>
-        : TAccountMarket,
-      TAccountPosition extends string
-        ? WritableAccount<TAccountPosition>
-        : TAccountPosition,
+      TAccountPerformance extends string
+        ? WritableAccount<TAccountPerformance>
+        : TAccountPerformance,
+      TAccountCheckpoint extends string
+        ? WritableAccount<TAccountCheckpoint>
+        : TAccountCheckpoint,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -81,72 +84,83 @@ export type OpenPaperPositionInstruction<
     ]
   >;
 
-export type OpenPaperPositionInstructionData = {
+export type CheckpointPortfolioPerformanceInstructionData = {
   discriminator: ReadonlyUint8Array;
+  weekStart: bigint;
 };
 
-export type OpenPaperPositionInstructionDataArgs = {};
+export type CheckpointPortfolioPerformanceInstructionDataArgs = {
+  weekStart: number | bigint;
+};
 
-export function getOpenPaperPositionInstructionDataEncoder(): FixedSizeEncoder<OpenPaperPositionInstructionDataArgs> {
+export function getCheckpointPortfolioPerformanceInstructionDataEncoder(): FixedSizeEncoder<CheckpointPortfolioPerformanceInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: OPEN_PAPER_POSITION_DISCRIMINATOR }),
+    getStructEncoder([
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["weekStart", getI64Encoder()],
+    ]),
+    (value) => ({
+      ...value,
+      discriminator: CHECKPOINT_PORTFOLIO_PERFORMANCE_DISCRIMINATOR,
+    }),
   );
 }
 
-export function getOpenPaperPositionInstructionDataDecoder(): FixedSizeDecoder<OpenPaperPositionInstructionData> {
+export function getCheckpointPortfolioPerformanceInstructionDataDecoder(): FixedSizeDecoder<CheckpointPortfolioPerformanceInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["weekStart", getI64Decoder()],
   ]);
 }
 
-export function getOpenPaperPositionInstructionDataCodec(): FixedSizeCodec<
-  OpenPaperPositionInstructionDataArgs,
-  OpenPaperPositionInstructionData
+export function getCheckpointPortfolioPerformanceInstructionDataCodec(): FixedSizeCodec<
+  CheckpointPortfolioPerformanceInstructionDataArgs,
+  CheckpointPortfolioPerformanceInstructionData
 > {
   return combineCodec(
-    getOpenPaperPositionInstructionDataEncoder(),
-    getOpenPaperPositionInstructionDataDecoder(),
+    getCheckpointPortfolioPerformanceInstructionDataEncoder(),
+    getCheckpointPortfolioPerformanceInstructionDataDecoder(),
   );
 }
 
-export type OpenPaperPositionAsyncInput<
+export type CheckpointPortfolioPerformanceAsyncInput<
   TAccountActor extends string = string,
   TAccountPortfolio extends string = string,
-  TAccountMarket extends string = string,
-  TAccountPosition extends string = string,
+  TAccountPerformance extends string = string,
+  TAccountCheckpoint extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
   portfolio: Address<TAccountPortfolio>;
-  market: Address<TAccountMarket>;
-  position?: Address<TAccountPosition>;
+  performance: Address<TAccountPerformance>;
+  checkpoint?: Address<TAccountCheckpoint>;
   systemProgram?: Address<TAccountSystemProgram>;
+  weekStart: CheckpointPortfolioPerformanceInstructionDataArgs["weekStart"];
 };
 
-export async function getOpenPaperPositionInstructionAsync<
+export async function getCheckpointPortfolioPerformanceInstructionAsync<
   TAccountActor extends string,
   TAccountPortfolio extends string,
-  TAccountMarket extends string,
-  TAccountPosition extends string,
+  TAccountPerformance extends string,
+  TAccountCheckpoint extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
-  input: OpenPaperPositionAsyncInput<
+  input: CheckpointPortfolioPerformanceAsyncInput<
     TAccountActor,
     TAccountPortfolio,
-    TAccountMarket,
-    TAccountPosition,
+    TAccountPerformance,
+    TAccountCheckpoint,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  OpenPaperPositionInstruction<
+  CheckpointPortfolioPerformanceInstruction<
     TProgramAddress,
     TAccountActor,
     TAccountPortfolio,
-    TAccountMarket,
-    TAccountPosition,
+    TAccountPerformance,
+    TAccountCheckpoint,
     TAccountSystemProgram
   >
 > {
@@ -158,8 +172,8 @@ export async function getOpenPaperPositionInstructionAsync<
   const originalAccounts = {
     actor: { value: input.actor ?? null, isWritable: true },
     portfolio: { value: input.portfolio ?? null, isWritable: true },
-    market: { value: input.market ?? null, isWritable: false },
-    position: { value: input.position ?? null, isWritable: true },
+    performance: { value: input.performance ?? null, isWritable: true },
+    checkpoint: { value: input.checkpoint ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -167,11 +181,14 @@ export async function getOpenPaperPositionInstructionAsync<
     ResolvedAccount
   >;
 
+  // Original args.
+  const args = { ...input };
+
   // Resolve default values.
-  if (!accounts.position.value) {
-    accounts.position.value = await findPositionPda({
-      portfolio: expectAddress(accounts.portfolio.value),
-      market: expectAddress(accounts.market.value),
+  if (!accounts.checkpoint.value) {
+    accounts.checkpoint.value = await findCheckpointPda({
+      performance: expectAddress(accounts.performance.value),
+      weekStart: expectSome(args.weekStart),
     });
   }
   if (!accounts.systemProgram.value) {
@@ -184,58 +201,61 @@ export async function getOpenPaperPositionInstructionAsync<
     accounts: [
       getAccountMeta(accounts.actor),
       getAccountMeta(accounts.portfolio),
-      getAccountMeta(accounts.market),
-      getAccountMeta(accounts.position),
+      getAccountMeta(accounts.performance),
+      getAccountMeta(accounts.checkpoint),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getOpenPaperPositionInstructionDataEncoder().encode({}),
+    data: getCheckpointPortfolioPerformanceInstructionDataEncoder().encode(
+      args as CheckpointPortfolioPerformanceInstructionDataArgs,
+    ),
     programAddress,
-  } as OpenPaperPositionInstruction<
+  } as CheckpointPortfolioPerformanceInstruction<
     TProgramAddress,
     TAccountActor,
     TAccountPortfolio,
-    TAccountMarket,
-    TAccountPosition,
+    TAccountPerformance,
+    TAccountCheckpoint,
     TAccountSystemProgram
   >);
 }
 
-export type OpenPaperPositionInput<
+export type CheckpointPortfolioPerformanceInput<
   TAccountActor extends string = string,
   TAccountPortfolio extends string = string,
-  TAccountMarket extends string = string,
-  TAccountPosition extends string = string,
+  TAccountPerformance extends string = string,
+  TAccountCheckpoint extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
   portfolio: Address<TAccountPortfolio>;
-  market: Address<TAccountMarket>;
-  position: Address<TAccountPosition>;
+  performance: Address<TAccountPerformance>;
+  checkpoint: Address<TAccountCheckpoint>;
   systemProgram?: Address<TAccountSystemProgram>;
+  weekStart: CheckpointPortfolioPerformanceInstructionDataArgs["weekStart"];
 };
 
-export function getOpenPaperPositionInstruction<
+export function getCheckpointPortfolioPerformanceInstruction<
   TAccountActor extends string,
   TAccountPortfolio extends string,
-  TAccountMarket extends string,
-  TAccountPosition extends string,
+  TAccountPerformance extends string,
+  TAccountCheckpoint extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
-  input: OpenPaperPositionInput<
+  input: CheckpointPortfolioPerformanceInput<
     TAccountActor,
     TAccountPortfolio,
-    TAccountMarket,
-    TAccountPosition,
+    TAccountPerformance,
+    TAccountCheckpoint,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): OpenPaperPositionInstruction<
+): CheckpointPortfolioPerformanceInstruction<
   TProgramAddress,
   TAccountActor,
   TAccountPortfolio,
-  TAccountMarket,
-  TAccountPosition,
+  TAccountPerformance,
+  TAccountCheckpoint,
   TAccountSystemProgram
 > {
   // Program address.
@@ -246,14 +266,17 @@ export function getOpenPaperPositionInstruction<
   const originalAccounts = {
     actor: { value: input.actor ?? null, isWritable: true },
     portfolio: { value: input.portfolio ?? null, isWritable: true },
-    market: { value: input.market ?? null, isWritable: false },
-    position: { value: input.position ?? null, isWritable: true },
+    performance: { value: input.performance ?? null, isWritable: true },
+    checkpoint: { value: input.checkpoint ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
+
+  // Original args.
+  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
@@ -266,23 +289,25 @@ export function getOpenPaperPositionInstruction<
     accounts: [
       getAccountMeta(accounts.actor),
       getAccountMeta(accounts.portfolio),
-      getAccountMeta(accounts.market),
-      getAccountMeta(accounts.position),
+      getAccountMeta(accounts.performance),
+      getAccountMeta(accounts.checkpoint),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getOpenPaperPositionInstructionDataEncoder().encode({}),
+    data: getCheckpointPortfolioPerformanceInstructionDataEncoder().encode(
+      args as CheckpointPortfolioPerformanceInstructionDataArgs,
+    ),
     programAddress,
-  } as OpenPaperPositionInstruction<
+  } as CheckpointPortfolioPerformanceInstruction<
     TProgramAddress,
     TAccountActor,
     TAccountPortfolio,
-    TAccountMarket,
-    TAccountPosition,
+    TAccountPerformance,
+    TAccountCheckpoint,
     TAccountSystemProgram
   >);
 }
 
-export type ParsedOpenPaperPositionInstruction<
+export type ParsedCheckpointPortfolioPerformanceInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -290,21 +315,21 @@ export type ParsedOpenPaperPositionInstruction<
   accounts: {
     actor: TAccountMetas[0];
     portfolio: TAccountMetas[1];
-    market: TAccountMetas[2];
-    position: TAccountMetas[3];
+    performance: TAccountMetas[2];
+    checkpoint: TAccountMetas[3];
     systemProgram: TAccountMetas[4];
   };
-  data: OpenPaperPositionInstructionData;
+  data: CheckpointPortfolioPerformanceInstructionData;
 };
 
-export function parseOpenPaperPositionInstruction<
+export function parseCheckpointPortfolioPerformanceInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedOpenPaperPositionInstruction<TProgram, TAccountMetas> {
+): ParsedCheckpointPortfolioPerformanceInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 5) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
@@ -320,10 +345,12 @@ export function parseOpenPaperPositionInstruction<
     accounts: {
       actor: getNextAccount(),
       portfolio: getNextAccount(),
-      market: getNextAccount(),
-      position: getNextAccount(),
+      performance: getNextAccount(),
+      checkpoint: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getOpenPaperPositionInstructionDataDecoder().decode(instruction.data),
+    data: getCheckpointPortfolioPerformanceInstructionDataDecoder().decode(
+      instruction.data,
+    ),
   };
 }

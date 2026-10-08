@@ -55,7 +55,7 @@ export function getPlacePaperLimitOrderDiscriminatorBytes() {
 export type PlacePaperLimitOrderInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountActor extends string | AccountMeta<string> = string,
-  TAccountSession extends string | AccountMeta<string> = string,
+  TAccountPortfolio extends string | AccountMeta<string> = string,
   TAccountMarket extends string | AccountMeta<string> = string,
   TAccountPosition extends string | AccountMeta<string> = string,
   TAccountOrder extends string | AccountMeta<string> = string,
@@ -70,9 +70,9 @@ export type PlacePaperLimitOrderInstruction<
         ? WritableSignerAccount<TAccountActor> &
             AccountSignerMeta<TAccountActor>
         : TAccountActor,
-      TAccountSession extends string
-        ? WritableAccount<TAccountSession>
-        : TAccountSession,
+      TAccountPortfolio extends string
+        ? WritableAccount<TAccountPortfolio>
+        : TAccountPortfolio,
       TAccountMarket extends string
         ? ReadonlyAccount<TAccountMarket>
         : TAccountMarket,
@@ -138,14 +138,14 @@ export function getPlacePaperLimitOrderInstructionDataCodec(): FixedSizeCodec<
 
 export type PlacePaperLimitOrderAsyncInput<
   TAccountActor extends string = string,
-  TAccountSession extends string = string,
+  TAccountPortfolio extends string = string,
   TAccountMarket extends string = string,
   TAccountPosition extends string = string,
   TAccountOrder extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
-  session: Address<TAccountSession>;
+  portfolio: Address<TAccountPortfolio>;
   market: Address<TAccountMarket>;
   position?: Address<TAccountPosition>;
   order: Address<TAccountOrder>;
@@ -157,7 +157,7 @@ export type PlacePaperLimitOrderAsyncInput<
 
 export async function getPlacePaperLimitOrderInstructionAsync<
   TAccountActor extends string,
-  TAccountSession extends string,
+  TAccountPortfolio extends string,
   TAccountMarket extends string,
   TAccountPosition extends string,
   TAccountOrder extends string,
@@ -166,7 +166,7 @@ export async function getPlacePaperLimitOrderInstructionAsync<
 >(
   input: PlacePaperLimitOrderAsyncInput<
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
     TAccountOrder,
@@ -177,7 +177,7 @@ export async function getPlacePaperLimitOrderInstructionAsync<
   PlacePaperLimitOrderInstruction<
     TProgramAddress,
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
     TAccountOrder,
@@ -191,7 +191,7 @@ export async function getPlacePaperLimitOrderInstructionAsync<
   // Original accounts.
   const originalAccounts = {
     actor: { value: input.actor ?? null, isWritable: true },
-    session: { value: input.session ?? null, isWritable: true },
+    portfolio: { value: input.portfolio ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
     position: { value: input.position ?? null, isWritable: true },
     order: { value: input.order ?? null, isWritable: true },
@@ -208,7 +208,7 @@ export async function getPlacePaperLimitOrderInstructionAsync<
   // Resolve default values.
   if (!accounts.position.value) {
     accounts.position.value = await findPositionPda({
-      session: expectAddress(accounts.session.value),
+      portfolio: expectAddress(accounts.portfolio.value),
       market: expectAddress(accounts.market.value),
     });
   }
@@ -221,7 +221,7 @@ export async function getPlacePaperLimitOrderInstructionAsync<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.actor),
-      getAccountMeta(accounts.session),
+      getAccountMeta(accounts.portfolio),
       getAccountMeta(accounts.market),
       getAccountMeta(accounts.position),
       getAccountMeta(accounts.order),
@@ -234,7 +234,7 @@ export async function getPlacePaperLimitOrderInstructionAsync<
   } as PlacePaperLimitOrderInstruction<
     TProgramAddress,
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
     TAccountOrder,
@@ -244,14 +244,14 @@ export async function getPlacePaperLimitOrderInstructionAsync<
 
 export type PlacePaperLimitOrderInput<
   TAccountActor extends string = string,
-  TAccountSession extends string = string,
+  TAccountPortfolio extends string = string,
   TAccountMarket extends string = string,
   TAccountPosition extends string = string,
   TAccountOrder extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   actor: TransactionSigner<TAccountActor>;
-  session: Address<TAccountSession>;
+  portfolio: Address<TAccountPortfolio>;
   market: Address<TAccountMarket>;
   position: Address<TAccountPosition>;
   order: Address<TAccountOrder>;
@@ -263,7 +263,7 @@ export type PlacePaperLimitOrderInput<
 
 export function getPlacePaperLimitOrderInstruction<
   TAccountActor extends string,
-  TAccountSession extends string,
+  TAccountPortfolio extends string,
   TAccountMarket extends string,
   TAccountPosition extends string,
   TAccountOrder extends string,
@@ -272,7 +272,7 @@ export function getPlacePaperLimitOrderInstruction<
 >(
   input: PlacePaperLimitOrderInput<
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
     TAccountOrder,
@@ -282,7 +282,7 @@ export function getPlacePaperLimitOrderInstruction<
 ): PlacePaperLimitOrderInstruction<
   TProgramAddress,
   TAccountActor,
-  TAccountSession,
+  TAccountPortfolio,
   TAccountMarket,
   TAccountPosition,
   TAccountOrder,
@@ -295,7 +295,7 @@ export function getPlacePaperLimitOrderInstruction<
   // Original accounts.
   const originalAccounts = {
     actor: { value: input.actor ?? null, isWritable: true },
-    session: { value: input.session ?? null, isWritable: true },
+    portfolio: { value: input.portfolio ?? null, isWritable: true },
     market: { value: input.market ?? null, isWritable: false },
     position: { value: input.position ?? null, isWritable: true },
     order: { value: input.order ?? null, isWritable: true },
@@ -319,7 +319,7 @@ export function getPlacePaperLimitOrderInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.actor),
-      getAccountMeta(accounts.session),
+      getAccountMeta(accounts.portfolio),
       getAccountMeta(accounts.market),
       getAccountMeta(accounts.position),
       getAccountMeta(accounts.order),
@@ -332,7 +332,7 @@ export function getPlacePaperLimitOrderInstruction<
   } as PlacePaperLimitOrderInstruction<
     TProgramAddress,
     TAccountActor,
-    TAccountSession,
+    TAccountPortfolio,
     TAccountMarket,
     TAccountPosition,
     TAccountOrder,
@@ -347,7 +347,7 @@ export type ParsedPlacePaperLimitOrderInstruction<
   programAddress: Address<TProgram>;
   accounts: {
     actor: TAccountMetas[0];
-    session: TAccountMetas[1];
+    portfolio: TAccountMetas[1];
     market: TAccountMetas[2];
     position: TAccountMetas[3];
     order: TAccountMetas[4];
@@ -378,7 +378,7 @@ export function parsePlacePaperLimitOrderInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       actor: getNextAccount(),
-      session: getNextAccount(),
+      portfolio: getNextAccount(),
       market: getNextAccount(),
       position: getNextAccount(),
       order: getNextAccount(),

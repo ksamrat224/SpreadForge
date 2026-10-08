@@ -61,6 +61,13 @@ export type PaperMarket = {
   marketId: ReadonlyUint8Array;
   /** Pyth / MagicBlock oracle identity. The program never accepts a client price. */
   oracleFeed: ReadonlyUint8Array;
+  /**
+   * MagicBlock/Pyth price-update account. The account is passed to match
+   * and must be owned by `oracle_program`; its data is decoded as the
+   * reviewed Pyth-mirror wire format below.
+   */
+  oraclePriceAccount: Address;
+  oracleProgram: Address;
   lotSize: bigint;
   priceMultiplier: number;
   halfSpreadBps: number;
@@ -74,6 +81,13 @@ export type PaperMarketArgs = {
   marketId: ReadonlyUint8Array;
   /** Pyth / MagicBlock oracle identity. The program never accepts a client price. */
   oracleFeed: ReadonlyUint8Array;
+  /**
+   * MagicBlock/Pyth price-update account. The account is passed to match
+   * and must be owned by `oracle_program`; its data is decoded as the
+   * reviewed Pyth-mirror wire format below.
+   */
+  oraclePriceAccount: Address;
+  oracleProgram: Address;
   lotSize: number | bigint;
   priceMultiplier: number;
   halfSpreadBps: number;
@@ -90,6 +104,8 @@ export function getPaperMarketEncoder(): FixedSizeEncoder<PaperMarketArgs> {
       ["registry", getAddressEncoder()],
       ["marketId", fixEncoderSize(getBytesEncoder(), 16)],
       ["oracleFeed", fixEncoderSize(getBytesEncoder(), 32)],
+      ["oraclePriceAccount", getAddressEncoder()],
+      ["oracleProgram", getAddressEncoder()],
       ["lotSize", getU64Encoder()],
       ["priceMultiplier", getU32Encoder()],
       ["halfSpreadBps", getU16Encoder()],
@@ -108,6 +124,8 @@ export function getPaperMarketDecoder(): FixedSizeDecoder<PaperMarket> {
     ["registry", getAddressDecoder()],
     ["marketId", fixDecoderSize(getBytesDecoder(), 16)],
     ["oracleFeed", fixDecoderSize(getBytesDecoder(), 32)],
+    ["oraclePriceAccount", getAddressDecoder()],
+    ["oracleProgram", getAddressDecoder()],
     ["lotSize", getU64Decoder()],
     ["priceMultiplier", getU32Decoder()],
     ["halfSpreadBps", getU16Decoder()],
@@ -179,5 +197,5 @@ export async function fetchAllMaybePaperMarket(
 }
 
 export function getPaperMarketSize(): number {
-  return 112;
+  return 176;
 }

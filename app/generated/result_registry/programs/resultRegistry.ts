@@ -19,26 +19,36 @@ import {
 import {
   parseAdvanceSessionInstruction,
   parseCancelPaperOrderInstruction,
+  parseCheckpointPortfolioPerformanceInstruction,
+  parseDelegatePaperPortfolioInstruction,
   parseDelegateSessionInstruction,
   parseFinalizeSessionInstruction,
   parseInitializePaperMarketRegistryInstruction,
-  parseInitializePaperSessionInstruction,
+  parseInitializePaperPortfolioInstruction,
   parseInitializeSessionInstruction,
+  parseMatchPaperMarketTickInstruction,
   parseOpenPaperPositionInstruction,
   parsePlacePaperLimitOrderInstruction,
+  parsePlacePaperMarketOrderInstruction,
   parseProcessUndelegationInstruction,
+  parseRenewPaperAuthorizationInstruction,
   parseSubmitResultInstruction,
   parseUpsertPaperMarketInstruction,
   type ParsedAdvanceSessionInstruction,
   type ParsedCancelPaperOrderInstruction,
+  type ParsedCheckpointPortfolioPerformanceInstruction,
+  type ParsedDelegatePaperPortfolioInstruction,
   type ParsedDelegateSessionInstruction,
   type ParsedFinalizeSessionInstruction,
   type ParsedInitializePaperMarketRegistryInstruction,
-  type ParsedInitializePaperSessionInstruction,
+  type ParsedInitializePaperPortfolioInstruction,
   type ParsedInitializeSessionInstruction,
+  type ParsedMatchPaperMarketTickInstruction,
   type ParsedOpenPaperPositionInstruction,
   type ParsedPlacePaperLimitOrderInstruction,
+  type ParsedPlacePaperMarketOrderInstruction,
   type ParsedProcessUndelegationInstruction,
+  type ParsedRenewPaperAuthorizationInstruction,
   type ParsedSubmitResultInstruction,
   type ParsedUpsertPaperMarketInstruction,
 } from "../instructions";
@@ -47,11 +57,14 @@ export const RESULT_REGISTRY_PROGRAM_ADDRESS =
   "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">;
 
 export enum ResultRegistryAccount {
+  PaperFill,
   PaperMarket,
   PaperMarketRegistry,
   PaperOrder,
+  PaperPortfolio,
   PaperPosition,
-  PaperSession,
+  PortfolioCheckpoint,
+  PortfolioPerformance,
   ResultRecord,
   SessionState,
 }
@@ -60,6 +73,17 @@ export function identifyResultRegistryAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ResultRegistryAccount {
   const data = "data" in account ? account.data : account;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([192, 167, 119, 124, 13, 57, 205, 104]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PaperFill;
+  }
   if (
     containsBytes(
       data,
@@ -97,6 +121,17 @@ export function identifyResultRegistryAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([47, 174, 255, 196, 25, 71, 244, 82]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PaperPortfolio;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([122, 153, 51, 225, 0, 219, 91, 40]),
       ),
       0,
@@ -108,12 +143,23 @@ export function identifyResultRegistryAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([17, 225, 133, 214, 236, 37, 245, 204]),
+        new Uint8Array([63, 4, 201, 215, 168, 52, 254, 157]),
       ),
       0,
     )
   ) {
-    return ResultRegistryAccount.PaperSession;
+    return ResultRegistryAccount.PortfolioCheckpoint;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([29, 65, 235, 196, 81, 18, 65, 196]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PortfolioPerformance;
   }
   if (
     containsBytes(
@@ -145,14 +191,19 @@ export function identifyResultRegistryAccount(
 export enum ResultRegistryInstruction {
   AdvanceSession,
   CancelPaperOrder,
+  CheckpointPortfolioPerformance,
+  DelegatePaperPortfolio,
   DelegateSession,
   FinalizeSession,
   InitializePaperMarketRegistry,
-  InitializePaperSession,
+  InitializePaperPortfolio,
   InitializeSession,
+  MatchPaperMarketTick,
   OpenPaperPosition,
   PlacePaperLimitOrder,
+  PlacePaperMarketOrder,
   ProcessUndelegation,
+  RenewPaperAuthorization,
   SubmitResult,
   UpsertPaperMarket,
 }
@@ -182,6 +233,28 @@ export function identifyResultRegistryInstruction(
     )
   ) {
     return ResultRegistryInstruction.CancelPaperOrder;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([61, 46, 156, 26, 99, 186, 122, 144]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.CheckpointPortfolioPerformance;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([26, 189, 130, 246, 19, 217, 253, 238]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.DelegatePaperPortfolio;
   }
   if (
     containsBytes(
@@ -220,12 +293,12 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([242, 156, 53, 69, 206, 103, 32, 100]),
+        new Uint8Array([86, 218, 227, 84, 207, 187, 231, 122]),
       ),
       0,
     )
   ) {
-    return ResultRegistryInstruction.InitializePaperSession;
+    return ResultRegistryInstruction.InitializePaperPortfolio;
   }
   if (
     containsBytes(
@@ -237,6 +310,17 @@ export function identifyResultRegistryInstruction(
     )
   ) {
     return ResultRegistryInstruction.InitializeSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([166, 197, 221, 88, 20, 20, 15, 47]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.MatchPaperMarketTick;
   }
   if (
     containsBytes(
@@ -264,12 +348,34 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([134, 56, 14, 209, 215, 120, 248, 7]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.PlacePaperMarketOrder;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([196, 28, 41, 206, 48, 37, 51, 167]),
       ),
       0,
     )
   ) {
     return ResultRegistryInstruction.ProcessUndelegation;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([28, 135, 214, 137, 178, 226, 174, 209]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.RenewPaperAuthorization;
   }
   if (
     containsBytes(
@@ -308,6 +414,12 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.CancelPaperOrder;
     } & ParsedCancelPaperOrderInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.CheckpointPortfolioPerformance;
+    } & ParsedCheckpointPortfolioPerformanceInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.DelegatePaperPortfolio;
+    } & ParsedDelegatePaperPortfolioInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.DelegateSession;
     } & ParsedDelegateSessionInstruction<TProgram>)
   | ({
@@ -317,11 +429,14 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.InitializePaperMarketRegistry;
     } & ParsedInitializePaperMarketRegistryInstruction<TProgram>)
   | ({
-      instructionType: ResultRegistryInstruction.InitializePaperSession;
-    } & ParsedInitializePaperSessionInstruction<TProgram>)
+      instructionType: ResultRegistryInstruction.InitializePaperPortfolio;
+    } & ParsedInitializePaperPortfolioInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.InitializeSession;
     } & ParsedInitializeSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.MatchPaperMarketTick;
+    } & ParsedMatchPaperMarketTickInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.OpenPaperPosition;
     } & ParsedOpenPaperPositionInstruction<TProgram>)
@@ -329,8 +444,14 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.PlacePaperLimitOrder;
     } & ParsedPlacePaperLimitOrderInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.PlacePaperMarketOrder;
+    } & ParsedPlacePaperMarketOrderInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.ProcessUndelegation;
     } & ParsedProcessUndelegationInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.RenewPaperAuthorization;
+    } & ParsedRenewPaperAuthorizationInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.SubmitResult;
     } & ParsedSubmitResultInstruction<TProgram>)
@@ -357,6 +478,21 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parseCancelPaperOrderInstruction(instruction),
       };
     }
+    case ResultRegistryInstruction.CheckpointPortfolioPerformance: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType:
+          ResultRegistryInstruction.CheckpointPortfolioPerformance,
+        ...parseCheckpointPortfolioPerformanceInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.DelegatePaperPortfolio: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.DelegatePaperPortfolio,
+        ...parseDelegatePaperPortfolioInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.DelegateSession: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -379,11 +515,11 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parseInitializePaperMarketRegistryInstruction(instruction),
       };
     }
-    case ResultRegistryInstruction.InitializePaperSession: {
+    case ResultRegistryInstruction.InitializePaperPortfolio: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: ResultRegistryInstruction.InitializePaperSession,
-        ...parseInitializePaperSessionInstruction(instruction),
+        instructionType: ResultRegistryInstruction.InitializePaperPortfolio,
+        ...parseInitializePaperPortfolioInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.InitializeSession: {
@@ -391,6 +527,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
       return {
         instructionType: ResultRegistryInstruction.InitializeSession,
         ...parseInitializeSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.MatchPaperMarketTick: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.MatchPaperMarketTick,
+        ...parseMatchPaperMarketTickInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.OpenPaperPosition: {
@@ -407,11 +550,25 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parsePlacePaperLimitOrderInstruction(instruction),
       };
     }
+    case ResultRegistryInstruction.PlacePaperMarketOrder: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.PlacePaperMarketOrder,
+        ...parsePlacePaperMarketOrderInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.ProcessUndelegation: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: ResultRegistryInstruction.ProcessUndelegation,
         ...parseProcessUndelegationInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.RenewPaperAuthorization: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.RenewPaperAuthorization,
+        ...parseRenewPaperAuthorizationInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.SubmitResult: {

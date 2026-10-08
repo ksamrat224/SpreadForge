@@ -229,7 +229,7 @@ The goal is to finish core development early enough to leave several days for te
 
 # Phase 6A — Persistent Paper Portfolio / Private ER
 
-**Status: foundation implemented; not deployed or connected to the live desk yet.**
+**Status: persistent portfolio program foundation implemented; not deployed or connected to the live desk yet.**
 
 ## Completed
 
@@ -240,14 +240,18 @@ The goal is to finish core development early enough to leave several days for te
 - [x] Constrain paper actions to the wallet authority or scoped memory-only session signer
 - [x] Generate Codama TypeScript bindings and add paper-session start-plan coverage
 - [x] Keep all paper balances virtual; no instruction receives or transfers SPL tokens
+- [x] Replace prototype `PaperSession` with a wallet-derived persistent `PaperPortfolio` PDA initialized once with 1,000,000 virtual-USDC cents
+- [x] Add 24-hour scoped authorization renewal, private positions/orders/fills, deterministic market/limit execution, reservations, partial fills, and cross-market aggregate-equity accounting
+- [x] Add a MagicBlock Pyth-oracle mirror account interface that verifies account address, owner, feed ID, positive price, and five-second freshness before execution
+- [x] Add public aggregate-only `PortfolioPerformance` and weekly `PortfolioCheckpoint` account layouts
+- [x] Add a portfolio delegation instruction and regenerate Codama bindings for the persistent portfolio instruction set
 
 ## Next implementation steps
 
-- [ ] Replace the prototype `PaperSession` with one persistent `PaperPortfolio` PDA per wallet; no reset path
-- [ ] Add public aggregate-only `PortfolioPerformance` and weekly checkpoint records; never publish positions, orders, fills, or per-asset balances
-- [ ] Integrate validated MagicBlock/Pyth ER oracle accounts and reject stale, wrong-feed, or non-monotonic observations
-- [ ] Implement on-chain market orders, deterministic virtual-liquidity matching, partial fills, P&L/equity marking, and one-minute/trade checkpoints
-- [ ] Delegate the portfolio to a Private ER and add 24-hour session-key renewal without per-trade wallet prompts
+- [ ] Deploy the upgraded program and its required MagicBlock Pyth mirror/oracle environment to devnet; configure and verify the real private ER account owner/data layout before enabling any market
+- [ ] Add direct Pyth confidence/verification-level decoding once the chosen MagicBlock Pyth account type is provisioned; the current reviewed mirror interface fails closed until then
+- [ ] Add a `PaperTradingRuntime` transaction transport: wallet-signed initialization/delegation/renewal, session-key ER actions, routed account reads, and one-second open-desk matching
+- [ ] Add selective Private-ER-to-base performance commit verification; do not enable public ranking unless it can commit aggregate-only data without revealing private state
 - [ ] Replace `PaperTradingDesk` reducer writes with the private-ER runtime after the program is deployed and end-to-end validated
 - [ ] Require connected devnet wallets for ranked portfolios and add the Portfolio page
 - [ ] Add a separate Paper Trading leaderboard with All-time and Weekly return-% rankings

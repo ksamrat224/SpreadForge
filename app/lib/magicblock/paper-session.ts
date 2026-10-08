@@ -1,92 +1,72 @@
+import { type Address, type KeyPairSigner, type TransactionSigner } from "@solana/kit";
 import {
-  getAddressEncoder,
-  getBytesEncoder,
-  getProgramDerivedAddress,
-  getU64Encoder,
-  type Address,
-  type KeyPairSigner,
-  type TransactionSigner,
-} from "@solana/kit";
-import {
+  findPortfolioPda,
   findRegistryPda,
-  getInitializePaperSessionInstruction,
+  getDelegatePaperPortfolioInstructionAsync,
+  getInitializePaperPortfolioInstruction,
 } from "../../generated/result_registry";
-import { createRunNonce } from "../results/registry";
 import {
   createInMemorySessionSigner,
   createSessionExpiry,
   DEFAULT_SESSION_TTL_SECONDS,
 } from "./session";
 
-const PAPER_SESSION_SEED = new TextEncoder().encode("paper-session");
-
-/**
- * Base-layer half of a private paper session. The resulting PDA is delegated
- * by the ER transport after this instruction has been wallet-authorized.
- */
-export type PaperSessionStartPlan = {
-  sessionAddress: Address;
+/** Base-layer setup for the one permanent, wallet-owned portfolio. */
+export type PaperPortfolioStartPlan = {
+  portfolioAddress: Address;
   registryAddress: Address;
-  runNonce: bigint;
   sessionSigner: KeyPairSigner;
-  initializeInstruction: ReturnType<typeof getInitializePaperSessionInstruction>;
+  initializeInstruction: ReturnType<typeof getInitializePaperPortfolioInstruction>;
+  delegateInstruction: Awaited<ReturnType<typeof getDelegatePaperPortfolioInstructionAsync>>;
 };
 
-export async function findPaperSessionPda({
+export async function findPaperPortfolioPda({
   authority,
-  runNonce,
   programAddress,
 }: {
   authority: Address;
-  runNonce: bigint;
   programAddress: Address;
 }) {
-  return getProgramDerivedAddress({
-    programAddress,
-    seeds: [
-      getBytesEncoder().encode(PAPER_SESSION_SEED),
-      getAddressEncoder().encode(authority),
-      getU64Encoder().encode(runNonce),
-    ],
-  });
+  return findPortfolioPda({ authority }, { programAddress });
 }
 
-export async function buildPaperSessionStartPlan({
+export async function buildPaperPortfolioStartPlan({
   authority,
   programAddress,
-  runNonce = createRunNonce(),
   expiresAt = createSessionExpiry(),
   sessionSigner,
 }: {
   authority: TransactionSigner;
   programAddress: Address;
-  runNonce?: bigint;
   expiresAt?: number;
   sessionSigner?: KeyPairSigner;
-}): Promise<PaperSessionStartPlan> {
+}): Promise<PaperPortfolioStartPlan> {
   const now = Math.floor(Date.now() / 1000);
   if (expiresAt <= now || expiresAt > now + DEFAULT_SESSION_TTL_SECONDS * 96)
     throw new Error("Paper session expiry must be within the allowed session TTL.");
   const signer = sessionSigner ?? (await createInMemorySessionSigner());
-  const [[sessionAddress], [registryAddress]] = await Promise.all([
-    findPaperSessionPda({ authority: authority.address, runNonce, programAddress }),
+  const [[portfolioAddress], [registryAddress]] = await Promise.all([
+    findPaperPortfolioPda({ authority: authority.address, programAddress }),
     findRegistryPda({ programAddress }),
   ]);
+  const delegateInstruction = await getDelegatePaperPortfolioInstructionAsync(
+    { authority, portfolio: portfolioAddress, ownerProgram: programAddress },
+    { programAddress }
+  );
   return {
-    sessionAddress,
+    portfolioAddress,
     registryAddress,
-    runNonce,
     sessionSigner: signer,
-    initializeInstruction: getInitializePaperSessionInstruction(
+    initializeInstruction: getInitializePaperPortfolioInstruction(
       {
         authority,
         registry: registryAddress,
-        session: sessionAddress,
+        portfolio: portfolioAddress,
         sessionSigner: signer.address,
-        runNonce,
         expiresAt,
       },
       { programAddress }
     ),
+    delegateInstruction,
   };
 }
