@@ -227,6 +227,36 @@ The goal is to finish core development early enough to leave several days for te
 
 ---
 
+# Phase 6A — Persistent Paper Portfolio / Private ER
+
+**Status: foundation implemented; not deployed or connected to the live desk yet.**
+
+## Completed
+
+- [x] Remove the optional devnet-SOL mirror, 10-SOL cap, and virtual-SOL conversion flow from Live Paper Desk
+- [x] Standardize local paper practice on a 10,000 simulated-USDC starting balance
+- [x] Add Anchor account models for a controlled paper-market registry, markets, virtual paper sessions, positions, and limit orders
+- [x] Add registry setup, market upsert, paper-session initialization, position creation, limit-order reservation, and cancellation instructions
+- [x] Constrain paper actions to the wallet authority or scoped memory-only session signer
+- [x] Generate Codama TypeScript bindings and add paper-session start-plan coverage
+- [x] Keep all paper balances virtual; no instruction receives or transfers SPL tokens
+
+## Next implementation steps
+
+- [ ] Replace the prototype `PaperSession` with one persistent `PaperPortfolio` PDA per wallet; no reset path
+- [ ] Add public aggregate-only `PortfolioPerformance` and weekly checkpoint records; never publish positions, orders, fills, or per-asset balances
+- [ ] Integrate validated MagicBlock/Pyth ER oracle accounts and reject stale, wrong-feed, or non-monotonic observations
+- [ ] Implement on-chain market orders, deterministic virtual-liquidity matching, partial fills, P&L/equity marking, and one-minute/trade checkpoints
+- [ ] Delegate the portfolio to a Private ER and add 24-hour session-key renewal without per-trade wallet prompts
+- [ ] Replace `PaperTradingDesk` reducer writes with the private-ER runtime after the program is deployed and end-to-end validated
+- [ ] Require connected devnet wallets for ranked portfolios and add the Portfolio page
+- [ ] Add a separate Paper Trading leaderboard with All-time and Weekly return-% rankings
+- [ ] Add LiteSVM/Surfpool integration coverage for private routing, oracle validation, portfolio accounting, and aggregate-only publication
+
+**Definition of done:** one wallet has one persistent 10,000-USDC virtual portfolio, can trade enabled assets through a Private ER without moving real funds, and appears globally by aggregate return while its holdings and orders remain private.
+
+---
+
 # Phase 7 — Product Polish
 
 **Target: Oct 4–6**

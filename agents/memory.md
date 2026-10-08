@@ -140,10 +140,19 @@ Optional after core is done: 3. Volatility Spike 4. Liquidity Drain
 
 ### Live Market Data
 
-- Live Paper Desk uses real BTC/USD, ETH/USD, and SOL/USD reference prices with a shared simulated USDC portfolio; all balances and execution remain simulated. Faucet SOL pays devnet fees only and is never trading capital.
+- Live Paper Desk uses real BTC/USD, ETH/USD, SOL/USD, and the enabled paper-market catalog as reference prices with a shared simulated 10,000-USDC portfolio; all balances and execution remain simulated. Faucet SOL pays devnet fees only and is never trading capital.
 - Live market data must show freshness and a stale/unavailable state.
 - Provider API keys must remain server-side.
 - The live-practice adapter must have a demo-safe fallback.
+
+### Persistent Paper Portfolio Direction
+
+- The user-facing product direction is one persistent, wallet-owned paper portfolio rather than timed or resettable trading sessions.
+- Every ranked portfolio starts with exactly 10,000 virtual USDC, has no wallet-balance/SOL mirror, and shares buying power across enabled assets.
+- Active portfolio state should execute in a Private MagicBlock ER. A short-lived, memory-only authorization signer may remove per-trade wallet prompts, but never has real-asset authority.
+- The public layer may contain only aggregate performance: equity, return, and update time. Positions, orders, fills, and per-asset balances remain private.
+- The future Paper Trading leaderboard ranks All-time and Weekly return %, separately from deterministic Challenge Lab scores.
+- Current implementation status: fixed-USDC local desk and initial registry/session/position/order Anchor primitives exist; persistent portfolio, oracle-validated execution, Private ER routing, and global performance records are still pending deployment and integration.
 
 ## Architecture Decision
 
