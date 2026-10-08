@@ -24,4 +24,20 @@ pub enum ResultRegistryError {
     SessionNotComplete,
     #[msg("The session schema version is not supported.")]
     UnsupportedSessionSchemaVersion,
+    #[msg("Only the paper market registry authority may perform this action.")]
+    UnauthorizedPaperRegistryAuthority,
+    #[msg("The paper market is disabled or belongs to a different registry.")]
+    PaperMarketUnavailable,
+    #[msg("The paper session is not active.")]
+    PaperSessionNotActive,
+    #[msg("The paper session actor is not authorized or the session has expired.")]
+    UnauthorizedPaperSessionActor,
+    #[msg("Paper orders require a positive integer quantity and price.")]
+    InvalidPaperOrder,
+    #[msg("The paper portfolio has insufficient unreserved virtual funds.")]
+    InsufficientVirtualFunds,
+    #[msg("The supplied oracle observation is stale, invalid, or non-monotonic.")]
+    InvalidOracleObservation,
+    #[msg("This paper order cannot be cancelled by the supplied session.")]
+    InvalidPaperOrderAccount,
 }

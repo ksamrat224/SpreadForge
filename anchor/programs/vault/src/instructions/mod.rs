@@ -3,6 +3,7 @@ pub mod delegate_session;
 pub mod finalize_session;
 pub mod initialize_session;
 pub mod submit_result;
+pub mod paper_trading;
 
 pub(crate) use advance_session::__client_accounts_advance_session;
 pub use advance_session::{AdvanceSession, AdvanceSessionArgs};
@@ -14,3 +15,10 @@ pub(crate) use initialize_session::__client_accounts_initialize_session;
 pub use initialize_session::{InitializeSession, InitializeSessionArgs};
 pub(crate) use submit_result::__client_accounts_submit_result;
 pub use submit_result::{SubmitResult, SubmitResultArgs};
+pub(crate) use paper_trading::__client_accounts_initialize_paper_market_registry;
+pub(crate) use paper_trading::__client_accounts_upsert_paper_market;
+pub(crate) use paper_trading::__client_accounts_initialize_paper_session;
+pub(crate) use paper_trading::__client_accounts_open_paper_position;
+pub(crate) use paper_trading::__client_accounts_place_paper_limit_order;
+pub(crate) use paper_trading::__client_accounts_cancel_paper_order;
+pub use paper_trading::*;

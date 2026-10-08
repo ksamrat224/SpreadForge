@@ -44,4 +44,28 @@ pub mod result_registry {
     pub fn finalize_session(ctx: Context<FinalizeSession>) -> Result<()> {
         instructions::finalize_session::handler(ctx)
     }
+
+    pub fn initialize_paper_market_registry(ctx: Context<InitializePaperMarketRegistry>) -> Result<()> {
+        instructions::paper_trading::initialize_registry(ctx)
+    }
+
+    pub fn upsert_paper_market(ctx: Context<UpsertPaperMarket>, args: UpsertPaperMarketArgs) -> Result<()> {
+        instructions::paper_trading::upsert_market(ctx, args)
+    }
+
+    pub fn initialize_paper_session(ctx: Context<InitializePaperSession>, args: InitializePaperSessionArgs) -> Result<()> {
+        instructions::paper_trading::initialize_session(ctx, args)
+    }
+
+    pub fn open_paper_position(ctx: Context<OpenPaperPosition>) -> Result<()> {
+        instructions::paper_trading::open_position(ctx)
+    }
+
+    pub fn place_paper_limit_order(ctx: Context<PlacePaperLimitOrder>, args: PlacePaperLimitOrderArgs) -> Result<()> {
+        instructions::paper_trading::place_limit_order(ctx, args)
+    }
+
+    pub fn cancel_paper_order(ctx: Context<CancelPaperOrder>) -> Result<()> {
+        instructions::paper_trading::cancel_order(ctx)
+    }
 }
