@@ -6,7 +6,6 @@ import {
   IconArrowDownRight,
   IconHistory,
   IconActivity,
-  IconBolt,
   IconChartLine,
   IconChartAreaLine,
   IconChartCandle,
@@ -28,11 +27,14 @@ import {
   type ChartBar,
   type PriceView,
 } from "./interactive-market-chart";
-import { createPrng } from "../lib/simulation/prng";
 import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
+import { MarketExplorer } from "./market-explorer";
+import { useCluster } from "./cluster-context";
+import { useWallet } from "../lib/wallet/context";
+import { useBalance } from "../lib/hooks/use-balance";
 import type { IndicatorId } from "../lib/indicators";
 import {
   drawdownPercent,
@@ -54,12 +56,13 @@ import {
   PAPER_ASSETS,
   PAPER_MARKETS,
   paperReducer,
+  WALLET_PAPER_SOL_CAP_MILLI,
   type PaperAsset,
   type PaperState,
   type PricePoint,
 } from "../lib/simulation/paper";
 
-type FeedSource = "synthetic" | "pyth" | "replay";
+type FeedSource = "pyth" | "replay";
 type OrderBook = {
   asset: PaperAsset;
   source: string;
@@ -117,13 +120,13 @@ const PAPER_CHART_OPTIONS: ChartViewOption<PaperChartView>[] = [
   },
 ];
 const PRICE_VIEWS = ["line", "area", "candles", "ohlc", "heikin"];
-const QUICK_SIZE_MILLI: Record<PaperAsset, number> = {
-  BTC: 1,
-  ETH: 100,
-  SOL: 1000,
-};
+const QUICK_SIZE_MILLI = Object.fromEntries(
+  PAPER_ASSETS.map((asset) => [
+    asset,
+    Math.max(1, Math.round(100_000 / PAPER_MARKETS[asset].initialPriceCents)),
+  ])
+) as Record<PaperAsset, number>;
 const INITIAL_STATUS: Record<FeedSource, string> = {
-  synthetic: "SYNTHETIC",
   replay: "LOADING REPLAY",
   pyth: "CONNECTING",
 };
@@ -143,17 +146,19 @@ function formatSize(milliAsset: number) {
   return (milliAsset / 1000).toFixed(milliAsset % 1000 ? 3 : 0);
 }
 
-// The live feed starts with an empty chart; seeded synthetic history would
-// otherwise sit on a different time axis than the real prices appended to it.
+// The live feed starts with an empty chart so it contains only market data.
 function createInitialDesk() {
-  return paperReducer(createPaperState(), {
-    type: "restart-feed",
-    history: "empty",
-    at: 0,
-  });
+  return paperReducer(createPaperState(), { type: "restart-feed" });
 }
 
 export function PaperTradingDesk({ active = true }: { active?: boolean }) {
+  const { cluster } = useCluster();
+  const { wallet } = useWallet();
+  const {
+    lamports: walletLamports,
+    isLoading: isWalletBalanceLoading,
+    error: walletBalanceError,
+  } = useBalance(cluster === "devnet" ? wallet?.account.address : undefined);
   const [desk, dispatch] = useReducer(
     paperReducer,
     undefined,
@@ -169,6 +174,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [timeframe, setTimeframe] = useState(15);
   const [range, setRange] = useState<HistoryRange>("1D");
+  const [liveRefreshEpoch, setLiveRefreshEpoch] = useState(0);
   const [indicators, setIndicators] = useState<IndicatorId[]>([]);
   // Live exchange order book for the active asset, plus the spread sampled
   // at each poll so the spread view has history.
@@ -187,12 +193,22 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [limit, setLimit] = useState("");
   const [size, setSize] = useState(formatSize(QUICK_SIZE_MILLI.SOL));
   const [confirmReset, setConfirmReset] = useState(false);
-  const random = useRef(createPrng(7264));
+  const [walletSnapshot, setWalletSnapshot] = useState<{
+    solMilliAsset: number;
+    solPriceCents: number;
+  } | null>(null);
   const replay = useRef<PricePoint[]>([]);
   const lastToast = useRef<PaperState["trades"][number] | null>(null);
   const asset = desk.activeAsset;
+  const trackedAssetsKey = PAPER_ASSETS.filter(
+    (item) =>
+      item === asset ||
+      desk.positions[item].quantityMilliAsset > 0 ||
+      desk.quotes.some((quote) => quote.asset === item)
+  ).join(",");
   const liveKey = `${asset}-${range}`;
   const market = desk.markets[asset];
+  const solMarket = desk.markets.SOL;
   const position = desk.positions[asset];
   const equity = getPaperEquityCents(desk);
   const pnl = equity - desk.startEquityCents;
@@ -201,12 +217,54 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const sizeMilliAsset = Math.round(Number(size) * 1000);
   const hasLiveFeed =
     feedStatus === "PYTH LIVE" || feedStatus === "LIVE FALLBACK";
+  const currentQuoteState =
+    source !== "pyth"
+      ? "available"
+      : hasLiveFeed
+        ? "available"
+        : feedStatus === "CONNECTING"
+          ? "loading"
+          : "unavailable";
+  const isDevnet = cluster === "devnet";
+  const walletSolMilliAsset =
+    isDevnet && walletLamports !== null
+      ? Math.min(
+          WALLET_PAPER_SOL_CAP_MILLI,
+          Number(BigInt(walletLamports) / 1_000_000n)
+        )
+      : 0;
+  const walletSolCapped =
+    isDevnet &&
+    walletLamports !== null &&
+    BigInt(walletLamports) > BigInt(WALLET_PAPER_SOL_CAP_MILLI) * 1_000_000n;
+  const canStartWalletPractice =
+    isDevnet &&
+    !!wallet &&
+    !isWalletBalanceLoading &&
+    !walletBalanceError &&
+    walletSolMilliAsset > 0 &&
+    hasLiveFeed &&
+    solMarket.points.length > 0;
+  const walletPracticeValueCents = Math.round(
+    (walletSolMilliAsset * solMarket.priceCents) / 1000
+  );
   const tradingPaused =
     (source === "pyth" && !hasLiveFeed) ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
 
-  // Live and synthetic feeds update every market so the shared portfolio is
-  // marked to current prices and quotes on inactive assets can still fill.
+  // A virtual snapshot is meaningful only for the devnet wallet it came from.
+  // Switching clusters returns the desk to its normal fixed practice balance.
+  useEffect(() => {
+    if (isDevnet || desk.fundingSource !== "wallet") return;
+    const timer = window.setTimeout(() => {
+      setWalletSnapshot(null);
+      dispatch({ type: "reset", seed: createPaperSessionSeed() });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [isDevnet, desk.fundingSource]);
+
+  // Live prices update every market so the shared portfolio is marked to
+  // current prices and quotes on inactive assets can still fill.
   useEffect(() => {
     if (!active || source !== "pyth" || playbackPaused) return;
     let cancelled = false;
@@ -232,18 +290,19 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       };
     };
     const refresh = async () => {
-      const results = await Promise.allSettled(PAPER_ASSETS.map(load));
+      const assetsToLoad = trackedAssetsKey.split(",") as PaperAsset[];
+      const results = await Promise.allSettled(assetsToLoad.map(load));
       if (cancelled) return;
       results.forEach((result, i) => {
         if (result.status === "fulfilled")
           dispatch({
             type: "tick",
-            asset: PAPER_ASSETS[i],
+            asset: assetsToLoad[i],
             priceCents: result.value.priceCents,
             at: result.value.publishedAt,
           });
       });
-      const current = results[PAPER_ASSETS.indexOf(asset)];
+      const current = results[assetsToLoad.indexOf(asset)];
       if (current.status === "fulfilled")
         setLiveBars((bars) =>
           bars?.key === liveKey && bars.status === "ready"
@@ -273,7 +332,15 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [active, asset, liveKey, playbackPaused, source]);
+  }, [
+    active,
+    asset,
+    liveKey,
+    liveRefreshEpoch,
+    playbackPaused,
+    source,
+    trackedAssetsKey,
+  ]);
   useEffect(() => {
     if (!active || source !== "pyth") return;
     let cancelled = false;
@@ -370,23 +437,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     };
   }, [active, asset, playbackPaused, source]);
   useEffect(() => {
-    if (!active || source !== "synthetic" || playbackPaused) return;
-    const timer = window.setInterval(() => {
-      const at = Date.now();
-      for (const item of PAPER_ASSETS)
-        dispatch({
-          type: "tick",
-          asset: item,
-          delta: Math.round(
-            (random.current() - 0.49) *
-              Math.max(2, PAPER_MARKETS[item].initialPriceCents * 0.0015)
-          ),
-          at,
-        });
-    }, 60000 / playbackSpeed);
-    return () => window.clearInterval(timer);
-  }, [active, playbackPaused, playbackSpeed, source]);
-  useEffect(() => {
     if (!active || source !== "replay") return;
     let cancelled = false;
     const controller = new AbortController();
@@ -471,11 +521,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
 
   function restartFeed(next: FeedSource) {
     replay.current = [];
-    dispatch({
-      type: "restart-feed",
-      history: next === "synthetic" ? "synthetic" : "empty",
-      at: Date.now(),
-    });
+    dispatch({ type: "restart-feed" });
     setPlaybackPaused(false);
     setFeedStatus(INITIAL_STATUS[next]);
     if (next === "replay") {
@@ -500,10 +546,37 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   }
   function reset() {
     if (!confirmReset) return setConfirmReset(true);
-    dispatch({ type: "reset", seed: createPaperSessionSeed() });
+    if (walletSnapshot)
+      dispatch({
+        type: "start-wallet-session",
+        seed: createPaperSessionSeed(),
+        ...walletSnapshot,
+      });
+    else dispatch({ type: "reset", seed: createPaperSessionSeed() });
     restartFeed(source);
     setConfirmReset(false);
-    toast.success("Paper portfolio reset to 10,000 simulated USDC.");
+    toast.success(
+      walletSnapshot
+        ? "Wallet-linked practice reset to its original virtual SOL snapshot."
+        : "Paper portfolio reset to 10,000 simulated USDC."
+    );
+  }
+  function startWalletPractice() {
+    if (!canStartWalletPractice) return;
+    const snapshot = {
+      solMilliAsset: walletSolMilliAsset,
+      solPriceCents: solMarket.priceCents,
+    };
+    setWalletSnapshot(snapshot);
+    dispatch({
+      type: "start-wallet-session",
+      seed: createPaperSessionSeed(),
+      ...snapshot,
+    });
+    setConfirmReset(false);
+    toast.success(
+      `Started with ${formatSize(snapshot.solMilliAsset)} virtual SOL. No wallet funds moved.`
+    );
   }
   // Orders are stamped on the market's clock, so replayed history and live
   // polls line up with trades when analytics rebuild the portfolio.
@@ -570,13 +643,15 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       ? `${new Date(market.points[0].at).toLocaleString()} — ${new Date(market.points.at(-1)!.at).toLocaleString()}`
       : null;
   const feedLabel =
-    source === "synthetic"
-      ? "SYNTHETIC REFERENCE"
-      : source === "replay"
-        ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
+    source === "replay"
+      ? `HISTORICAL REPLAY · ${(historicalProvider ?? "LOADING").toUpperCase()}`
+      : feedStatus === "PYTH LIVE"
+        ? "PYTH REFERENCE"
         : feedStatus === "LIVE FALLBACK"
           ? "EXCHANGE FALLBACK REFERENCE"
-          : "PYTH REFERENCE";
+          : feedStatus === "CONNECTING"
+            ? "WAITING FOR LIVE QUOTE"
+            : "CURRENT QUOTE UNAVAILABLE · HISTORICAL DATA ONLY";
   const playbackControls = (
     <div className="replay-playback-actions">
       <button
@@ -621,27 +696,65 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         </span>
         <span className="mono">MANUAL EXECUTION / UNRANKED</span>
       </div>
-      <div className="context-banner">
-        <div>
-          <p className="eyebrow">
-            {source === "synthetic"
-              ? "SYNTHETIC MARKET MODEL · BTC · ETH · SOL"
-              : source === "replay"
-                ? `HISTORICAL ${asset} / USD REPLAY · 1M CANDLES`
-                : "LIVE REFERENCE FEED · 5S · BTC · ETH · SOL"}
-          </p>
-          <h1>Paper Trading Desk</h1>
-          <p className="tip">
-            <IconBolt size={14} />
-            Practice real decisions across BTC, ETH and SOL with one shared
-            10,000 USDC simulated portfolio.
-          </p>
-        </div>
-        <span className="feed-live">
-          <i />
-          {feedStatus}
-        </span>
-      </div>
+
+      {isDevnet && (
+        <section
+          className="wallet-practice panel"
+          aria-label="Devnet wallet practice"
+        >
+          <div>
+            <p className="eyebrow">OPTIONAL DEVNET WALLET PRACTICE</p>
+            <h2>Mirror SOL, then practice the conversion</h2>
+            <p>
+              Read-only snapshot only. Your devnet SOL stays in your wallet;
+              this desk creates virtual SOL and simulated USDC only.
+            </p>
+          </div>
+          <div className="wallet-practice-stats">
+            <span>
+              <small>DEVNET SOL</small>
+              <b>
+                {isWalletBalanceLoading
+                  ? "Loading…"
+                  : wallet
+                    ? `${formatSize(walletSolMilliAsset)} SOL`
+                    : "Connect wallet"}
+              </b>
+            </span>
+            <span>
+              <small>LIVE REFERENCE</small>
+              <b>{hasLiveFeed ? money(solMarket.priceCents) : "Waiting…"}</b>
+            </span>
+            <span>
+              <small>VIRTUAL VALUE</small>
+              <b>
+                {canStartWalletPractice ? money(walletPracticeValueCents) : "—"}
+              </b>
+            </span>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!canStartWalletPractice}
+              onClick={startWalletPractice}
+            >
+              {desk.fundingSource === "wallet"
+                ? "Start new wallet session"
+                : "Start wallet-backed practice"}
+            </button>
+          </div>
+          <small className="control-hint">
+            {walletSolCapped
+              ? "Practice mirrors the first 10 SOL only; the rest remains untouched."
+              : !wallet
+                ? "Connect a devnet wallet with faucet SOL to mirror a virtual starting position."
+                : walletBalanceError
+                  ? "Could not read the wallet balance. Fixed 10,000-USDC practice remains available."
+                  : walletSolMilliAsset === 0
+                    ? "No devnet SOL found. Fixed 10,000-USDC practice remains available."
+                    : "No SOL is transferred, wrapped, swapped, or used as collateral."}
+          </small>
+        </section>
+      )}
       <div className="paper-portfolio panel">
         <Metric
           label={`${asset} BALANCE`}
@@ -665,6 +778,48 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           tone={pnl >= 0 ? "profit" : "loss"}
         />
       </div>
+      {desk.fundingSource === "wallet" &&
+        walletSnapshot &&
+        desk.trades.length === 0 &&
+        desk.quotes.length === 0 &&
+        desk.positions.SOL.quantityMilliAsset ===
+          walletSnapshot.solMilliAsset && (
+          <div className="wallet-convert panel">
+            <div>
+              <p className="eyebrow">SIMULATED CONVERSION</p>
+              <strong>
+                Convert {formatSize(walletSnapshot.solMilliAsset)} virtual SOL
+                to simulated USDC
+              </strong>
+              <small>
+                Uses the current live SOL/USD reference. This does not sign or
+                send a wallet transaction.
+              </small>
+            </div>
+            <button
+              className="btn sell"
+              type="button"
+              disabled={tradingPaused || source !== "pyth"}
+              onClick={() =>
+                dispatch({
+                  type: "market",
+                  asset: "SOL",
+                  side: "sell",
+                  sizeMilliAsset: walletSnapshot.solMilliAsset,
+                  at: marketNow(),
+                })
+              }
+            >
+              Convert to{" "}
+              {money(
+                Math.round(
+                  (walletSnapshot.solMilliAsset * solMarket.priceCents) / 1000
+                )
+              )}{" "}
+              USDC
+            </button>
+          </div>
+        )}
       {desk.error && (
         <div role="alert" className="notice">
           {desk.error}
@@ -672,14 +827,24 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       )}
       {feedStatus === "FEED UNAVAILABLE" && (
         <div role="status" className="notice">
-          Live {asset} reference unavailable or stale. Trading is paused; switch
-          to the synthetic feed to continue.
+          <span>
+            Live {asset} reference unavailable or stale. Historical candles may
+            still be visible, but the current quote is hidden and trading is
+            paused.
+          </span>
+          <button
+            className="btn ghost notice-action"
+            type="button"
+            onClick={() => setLiveRefreshEpoch((epoch) => epoch + 1)}
+          >
+            Retry live quote
+          </button>
         </div>
       )}
       {feedStatus === "REPLAY UNAVAILABLE" && (
         <div role="status" className="notice">
-          Historical {asset}/USD data is temporarily unavailable. Switch to the
-          synthetic feed or try the replay again shortly.
+          Historical {asset}/USD data is temporarily unavailable. Try the replay
+          again shortly or return to the live market feed.
         </div>
       )}
       <div className="paper-grid">
@@ -695,36 +860,43 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                   <small>{feedLabel} · PAPER MARKET</small>
                 </div>
               </div>
-              <div className="price-readout">
-                <strong>{money(market.priceCents, 3)}</strong>
-                <span className={`change-badge ${change < 0 ? "loss" : ""}`}>
-                  {change >= 0 ? "+" : ""}
-                  {change.toFixed(2)}%
-                </span>
+              <div className={`price-readout ${currentQuoteState}`}>
+                {currentQuoteState === "available" ? (
+                  <>
+                    <strong>{money(market.priceCents, 3)}</strong>
+                    <span
+                      className={`change-badge ${change < 0 ? "loss" : ""}`}
+                    >
+                      {change >= 0 ? "+" : ""}
+                      {change.toFixed(2)}%
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <strong>
+                      {currentQuoteState === "loading"
+                        ? "LOADING LIVE QUOTE"
+                        : "LIVE QUOTE UNAVAILABLE"}
+                    </strong>
+                    <span className="change-badge neutral">
+                      {rangeBars?.status === "ready"
+                        ? "HISTORICAL CHART ONLY"
+                        : "TRADING PAUSED"}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
             <div className="market-header-controls">
-              <ThemedSelect
-                className="cluster-select"
-                label="Market"
-                value={asset}
-                options={PAPER_ASSETS.map((item) => ({
-                  value: item,
-                  label: PAPER_MARKETS[item].label,
-                  icon: <AssetLogo asset={item} size={14} />,
-                }))}
-                onChange={changeAsset}
+              <MarketExplorer
+                activeAsset={asset}
+                onSelectMarket={changeAsset}
               />
               <ThemedSelect
                 className="cluster-select"
                 label="Price feed"
                 value={source}
                 options={[
-                  {
-                    value: "synthetic",
-                    label: "Synthetic feed",
-                    icon: <IconChartLine size={14} />,
-                  },
                   {
                     value: "replay",
                     label: "Historical replay",
@@ -754,9 +926,13 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
               ))}
               <span className="control-hint" style={{ marginLeft: "auto" }}>
                 {rangeBars?.status === "ready"
-                  ? `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV + live ${feedStatus === "PYTH LIVE" ? "Pyth" : "exchange"} price`
+                  ? currentQuoteState === "available"
+                    ? `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV + live ${feedStatus === "PYTH LIVE" ? "Pyth" : "exchange"} price`
+                    : `${formatInterval(rangeBars.intervalSeconds)} candles · ${(rangeBars.source ?? "exchange").toUpperCase()} OHLCV · current quote unavailable`
                   : rangeBars?.status === "failed"
-                    ? "Range history unavailable · showing polled prices"
+                    ? currentQuoteState === "available"
+                      ? "Range history unavailable · showing live polled prices"
+                      : "Range history and current quote unavailable"
                     : "Loading range history…"}
               </span>
             </div>

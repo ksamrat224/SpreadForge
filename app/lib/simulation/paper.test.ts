@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { createPaperState, getPaperEquityCents, paperReducer } from "./paper";
+import {
+  createPaperState,
+  getPaperEquityCents,
+  PAPER_ASSETS,
+  paperReducer,
+  WALLET_PAPER_SOL_CAP_MILLI,
+} from "./paper";
 
 describe("shared multi-asset paper portfolio", () => {
   it("starts with 10,000 USDC and no crypto inventory", () => {
     const state = createPaperState();
     expect(state.usdcCents).toBe(1_000_000);
-    expect(state.positions).toEqual({
-      BTC: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      ETH: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      SOL: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-    });
+    expect(Object.keys(state.positions)).toEqual(PAPER_ASSETS);
+    expect(Object.values(state.positions)).toEqual(
+      PAPER_ASSETS.map(() => ({ quantityMilliAsset: 0, inventoryCostCents: 0 }))
+    );
   });
   it("shares USDC across BTC and ETH purchases while retaining both positions", () => {
     let state = createPaperState();
@@ -99,11 +104,7 @@ describe("shared multi-asset paper portfolio", () => {
   });
   it("clears every chart on a feed restart and re-anchors change on the first live price", () => {
     let state = createPaperState();
-    state = paperReducer(state, {
-      type: "restart-feed",
-      history: "empty",
-      at: 0,
-    });
+    state = paperReducer(state, { type: "restart-feed" });
     expect(state.markets.BTC.points).toHaveLength(0);
     expect(state.markets.SOL.points).toHaveLength(0);
     state = paperReducer(state, {
@@ -115,17 +116,81 @@ describe("shared multi-asset paper portfolio", () => {
     expect(state.markets.SOL.startPriceCents).toBe(12_000);
     expect(state.markets.SOL.points).toHaveLength(1);
   });
-  it("seeds synthetic history on the real clock ending at the current price", () => {
-    const at = 1_800_000_000_000;
+  it("caps a wallet-backed session at 10 virtual SOL and values it at the snapshot price", () => {
     const state = paperReducer(createPaperState(), {
-      type: "restart-feed",
-      history: "synthetic",
-      at,
+      type: "start-wallet-session",
+      seed: 22,
+      solMilliAsset: 25_000,
+      solPriceCents: 15_000,
     });
-    expect(state.markets.ETH.points).toHaveLength(150);
-    expect(state.markets.ETH.points.at(-1)).toMatchObject({
-      at,
-      priceCents: state.markets.ETH.priceCents,
+    expect(state.fundingSource).toBe("wallet");
+    expect(state.usdcCents).toBe(0);
+    expect(state.positions.SOL).toEqual({
+      quantityMilliAsset: WALLET_PAPER_SOL_CAP_MILLI,
+      inventoryCostCents: 150_000,
     });
+    expect(state.startEquityCents).toBe(150_000);
+    expect(getPaperEquityCents(state)).toBe(150_000);
+  });
+  it("keeps fixed practice when a wallet snapshot has no virtual SOL", () => {
+    const initial = createPaperState();
+    const state = paperReducer(initial, {
+      type: "start-wallet-session",
+      seed: 22,
+      solMilliAsset: 0,
+      solPriceCents: 15_000,
+    });
+    expect(state).toBe(initial);
+    expect(state.fundingSource).toBe("fixed");
+    expect(state.usdcCents).toBe(1_000_000);
+  });
+  it("converts virtual SOL through the simulated reducer without a wallet operation", () => {
+    let state = paperReducer(createPaperState(), {
+      type: "start-wallet-session",
+      seed: 22,
+      solMilliAsset: 2_000,
+      solPriceCents: 15_000,
+    });
+    state = paperReducer(state, {
+      type: "market",
+      asset: "SOL",
+      side: "sell",
+      sizeMilliAsset: 2_000,
+      at: 1,
+    });
+    expect(state.fundingSource).toBe("wallet");
+    expect(state.positions.SOL.quantityMilliAsset).toBe(0);
+    expect(state.usdcCents).toBe(30_000);
+    expect(state.trades).toHaveLength(1);
+    expect(state.trades[0]).toMatchObject({
+      source: "MARKET",
+      side: "sell",
+      asset: "SOL",
+    });
+  });
+  it("replaces a wallet session only when a new explicit snapshot is provided", () => {
+    let state = paperReducer(createPaperState(), {
+      type: "start-wallet-session",
+      seed: 22,
+      solMilliAsset: 1_000,
+      solPriceCents: 15_000,
+    });
+    state = paperReducer(state, {
+      type: "market",
+      asset: "SOL",
+      side: "sell",
+      sizeMilliAsset: 1_000,
+      at: 1,
+    });
+    state = paperReducer(state, {
+      type: "start-wallet-session",
+      seed: 23,
+      solMilliAsset: 2_000,
+      solPriceCents: 20_000,
+    });
+    expect(state.positions.SOL.quantityMilliAsset).toBe(2_000);
+    expect(state.usdcCents).toBe(0);
+    expect(state.startEquityCents).toBe(40_000);
+    expect(state.trades).toHaveLength(0);
   });
 });

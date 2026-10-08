@@ -15,7 +15,7 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 - Spread, order-size, inventory-cap, and refresh-cycle strategy controls
 - Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
 - Dark terminal UI with DM Sans, JetBrains Mono, Tabler icons, responsive desktop/tablet/mobile layouts, and a persistent theme preference
-- Paper Desk: BTC/USDC, ETH/USDC, and SOL/USDC markets with live Pyth references, historical replay, synthetic fallback, shared simulated USDC buying power, reserved balances, and simulated trade history. Faucet SOL is only for devnet transaction fees.
+- Paper Desk: BTC/USDC, ETH/USDC, and SOL/USDC markets with live Pyth references, historical replay, shared simulated USDC buying power, reserved balances, and simulated trade history. Faucet SOL is only for devnet transaction fees.
 - Personal browser-backed run history plus a devnet wallet-committed leaderboard (All-time and Weekly); no score is presented as independently verified
 - Challenge drawer, speed controls, radial score meter, execution feed, illustrative depth ladder, and completion dialog
 - Local deterministic runtime plus a MagicBlock runtime adapter with deterministic local fallback

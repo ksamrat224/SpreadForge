@@ -247,7 +247,7 @@ Triggered automatically at Tick 60.
 Independent manual practice desk with simulated balances: **$1,500.00 USDC** and **10.00 SOL**.
 
 ### 6.1 Feed Banner & Portfolio Strip
-- **Top Banner:** Eyebrow `SYNTHETIC PYTH FEED · 400MS`, Title `Paper Trading Desk`, `FEED LIVE` pulsing indicator.
+- **Top Banner:** Eyebrow `LIVE PYTH FEED · 5S`, Title `Paper Trading Desk`, live-status indicator.
 - **Portfolio Strip:** 4 equal horizontal metric tiles:
   1. `SOL BALANCE`: `10.00 SOL` ($1,468.20 notional)
   2. `USDC BALANCE`: `$1,500.00`

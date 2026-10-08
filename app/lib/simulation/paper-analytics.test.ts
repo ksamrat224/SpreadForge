@@ -8,11 +8,7 @@ function tick(state: PaperState, priceCents: number, at: number) {
 
 describe("paper portfolio history", () => {
   it("shows inventory and equity only from the moment a trade happened", () => {
-    let state = paperReducer(createPaperState(), {
-      type: "restart-feed",
-      history: "empty",
-      at: 0,
-    });
+    let state = paperReducer(createPaperState(), { type: "restart-feed" });
     state = tick(state, 10_000, 1_000);
     state = tick(state, 10_000, 2_000);
     state = paperReducer(state, {

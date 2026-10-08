@@ -1,8 +1,29 @@
-import { createPrng } from "./prng";
-
-export const PAPER_ASSETS = ["BTC", "ETH", "SOL"] as const;
+export const PAPER_ASSETS = [
+  "BTC",
+  "ETH",
+  "SOL",
+  "XRP",
+  "ADA",
+  "DOGE",
+  "AVAX",
+  "LINK",
+  "DOT",
+  "LTC",
+  "BCH",
+  "UNI",
+  "AAVE",
+  "SUI",
+  "ATOM",
+  "NEAR",
+  "ETC",
+  "XLM",
+  "HBAR",
+  "SHIB",
+] as const;
 export type PaperAsset = (typeof PAPER_ASSETS)[number];
 export type Side = "buy" | "sell";
+/** The maximum real devnet balance that can be mirrored into practice. */
+export const WALLET_PAPER_SOL_CAP_MILLI = 10_000;
 export type PricePoint = { priceCents: number; at: number; sequence: number };
 export const PAPER_MARKETS: Record<
   PaperAsset,
@@ -11,6 +32,23 @@ export const PAPER_MARKETS: Record<
   BTC: { label: "BTC / USDC", initialPriceCents: 6_500_000 },
   ETH: { label: "ETH / USDC", initialPriceCents: 350_000 },
   SOL: { label: "SOL / USDC", initialPriceCents: 14_682 },
+  XRP: { label: "XRP / USDC", initialPriceCents: 250 },
+  ADA: { label: "ADA / USDC", initialPriceCents: 70 },
+  DOGE: { label: "DOGE / USDC", initialPriceCents: 20 },
+  AVAX: { label: "AVAX / USDC", initialPriceCents: 2_500 },
+  LINK: { label: "LINK / USDC", initialPriceCents: 1_500 },
+  DOT: { label: "DOT / USDC", initialPriceCents: 500 },
+  LTC: { label: "LTC / USDC", initialPriceCents: 9_000 },
+  BCH: { label: "BCH / USDC", initialPriceCents: 35_000 },
+  UNI: { label: "UNI / USDC", initialPriceCents: 700 },
+  AAVE: { label: "AAVE / USDC", initialPriceCents: 18_000 },
+  SUI: { label: "SUI / USDC", initialPriceCents: 300 },
+  ATOM: { label: "ATOM / USDC", initialPriceCents: 500 },
+  NEAR: { label: "NEAR / USDC", initialPriceCents: 400 },
+  ETC: { label: "ETC / USDC", initialPriceCents: 2_500 },
+  XLM: { label: "XLM / USDC", initialPriceCents: 30 },
+  HBAR: { label: "HBAR / USDC", initialPriceCents: 20 },
+  SHIB: { label: "1K SHIB / USDC", initialPriceCents: 2 },
 };
 type Position = { quantityMilliAsset: number; inventoryCostCents: number };
 type Market = {
@@ -29,6 +67,7 @@ type Quote = {
 export type Trade = Quote & { source: "MARKET" | "LIMIT" };
 export type PaperState = {
   marketSeed: number;
+  fundingSource: "fixed" | "wallet";
   activeAsset: PaperAsset;
   markets: Record<PaperAsset, Market>;
   positions: Record<PaperAsset, Position>;
@@ -42,10 +81,16 @@ export type PaperState = {
 };
 export type PaperAction =
   | { type: "reset"; seed: number }
+  | {
+      type: "start-wallet-session";
+      seed: number;
+      solMilliAsset: number;
+      solPriceCents: number;
+    }
   | { type: "select-asset"; asset: PaperAsset }
   | { type: "load-history"; asset: PaperAsset; points: PricePoint[] }
   /** Drops chart history for every market when the price feed changes. */
-  | { type: "restart-feed"; history: "empty" | "synthetic"; at: number }
+  | { type: "restart-feed" }
   | {
       type: "tick";
       asset: PaperAsset;
@@ -75,50 +120,24 @@ export function createPaperSessionSeed() {
   globalThis.crypto.getRandomValues(v);
   return v[0];
 }
-function points(
-  asset: PaperAsset,
-  seed: number,
-  endPriceCents = PAPER_MARKETS[asset].initialPriceCents,
-  endAt = 0
-) {
-  const random = createPrng(seed);
-  let price = endPriceCents;
-  const items = Array.from({ length: 150 }, (_, i) => {
-    price = Math.max(
-      100,
-      price + Math.round((random() - 0.5) * Math.max(2, price * 0.0015))
-    );
-    return { priceCents: price, at: endAt + (i - 149) * 400, sequence: i };
-  });
-  const offset = endPriceCents - items.at(-1)!.priceCents;
-  return items.map((point) => ({
-    ...point,
-    priceCents: point.priceCents + offset,
-  }));
-}
 export function createPaperState(seed = 149): PaperState {
   const markets = Object.fromEntries(
-    PAPER_ASSETS.map((asset, i) => {
-      const history = points(asset, seed + i);
-      return [
-        asset,
-        {
-          priceCents: history.at(-1)!.priceCents,
-          startPriceCents: history.at(-1)!.priceCents,
-          points: history,
-        },
-      ];
+    PAPER_ASSETS.map((asset) => {
+      const priceCents = PAPER_MARKETS[asset].initialPriceCents;
+      return [asset, { priceCents, startPriceCents: priceCents, points: [] }];
     })
-  ) as Record<PaperAsset, Market>;
+  ) as unknown as Record<PaperAsset, Market>;
   return {
     marketSeed: seed,
+    fundingSource: "fixed",
     activeAsset: "SOL",
     markets,
-    positions: {
-      BTC: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      ETH: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      SOL: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-    },
+    positions: Object.fromEntries(
+      PAPER_ASSETS.map((asset) => [
+        asset,
+        { quantityMilliAsset: 0, inventoryCostCents: 0 },
+      ])
+    ) as Record<PaperAsset, Position>,
     usdcCents: 1_000_000,
     startEquityCents: 1_000_000,
     realizedPnlCents: 0,
@@ -126,6 +145,51 @@ export function createPaperState(seed = 149): PaperState {
     trades: [],
     error: "",
     nextId: 1,
+  };
+}
+
+/**
+ * Starts a read-only wallet-linked practice session. The caller supplies only
+ * a rounded virtual SOL amount and a public market reference; this reducer
+ * never receives a wallet, signer, RPC client, or private key.
+ */
+function startWalletSession(
+  state: PaperState,
+  seed: number,
+  solMilliAsset: number,
+  solPriceCents: number
+): PaperState {
+  const virtualSol = Math.min(WALLET_PAPER_SOL_CAP_MILLI, solMilliAsset);
+  if (
+    !Number.isInteger(virtualSol) ||
+    virtualSol <= 0 ||
+    !Number.isSafeInteger(solPriceCents) ||
+    solPriceCents <= 0
+  )
+    return state;
+  const startingEquityCents = Math.round((virtualSol * solPriceCents) / 1000);
+  const fixed = createPaperState(seed);
+  return {
+    ...fixed,
+    fundingSource: "wallet",
+    activeAsset: "SOL",
+    markets: {
+      ...state.markets,
+      SOL: {
+        ...state.markets.SOL,
+        priceCents: solPriceCents,
+        startPriceCents: solPriceCents,
+      },
+    },
+    positions: {
+      ...fixed.positions,
+      SOL: {
+        quantityMilliAsset: virtualSol,
+        inventoryCostCents: startingEquityCents,
+      },
+    },
+    usdcCents: 0,
+    startEquityCents: startingEquityCents,
   };
 }
 export function getPositionValueCents(state: PaperState, asset: PaperAsset) {
@@ -161,7 +225,9 @@ function reserves(state: PaperState) {
     }),
     {
       cash: 0,
-      assets: { BTC: 0, ETH: 0, SOL: 0 } as Record<PaperAsset, number>,
+      assets: Object.fromEntries(
+        PAPER_ASSETS.map((asset) => [asset, 0])
+      ) as Record<PaperAsset, number>,
     }
   );
 }
@@ -227,6 +293,13 @@ export function paperReducer(
   action: PaperAction
 ): PaperState {
   if (action.type === "reset") return createPaperState(action.seed);
+  if (action.type === "start-wallet-session")
+    return startWalletSession(
+      state,
+      action.seed,
+      action.solMilliAsset,
+      action.solPriceCents
+    );
   if (action.type === "select-asset")
     return { ...state, activeAsset: action.asset, error: "" };
   if (action.type === "cancel")
@@ -239,26 +312,18 @@ export function paperReducer(
     return {
       ...state,
       markets: Object.fromEntries(
-        PAPER_ASSETS.map((asset, i) => {
+        PAPER_ASSETS.map((asset) => {
           const { priceCents } = state.markets[asset];
           return [
             asset,
             {
               priceCents,
               startPriceCents: priceCents,
-              points:
-                action.history === "synthetic"
-                  ? points(
-                      asset,
-                      state.marketSeed + action.at + i,
-                      priceCents,
-                      action.at
-                    )
-                  : [],
+              points: [],
             },
           ];
         })
-      ) as Record<PaperAsset, Market>,
+      ) as unknown as Record<PaperAsset, Market>,
     };
   if (action.type === "load-history") {
     if (!action.points.length) return state;

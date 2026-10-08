@@ -51,5 +51,14 @@ export function AssetLogo({
 }) {
   if (asset === "BTC") return <BitcoinLogo size={size} />;
   if (asset === "ETH") return <EthereumLogo size={size} />;
-  return <SolanaLogo size={size} />;
+  if (asset === "SOL") return <SolanaLogo size={size} />;
+  return (
+    <span
+      className="asset-fallback-logo"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      {asset.slice(0, 1)}
+    </span>
+  );
 }
