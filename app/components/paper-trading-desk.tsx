@@ -32,9 +32,6 @@ import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
 import { MarketExplorer } from "./market-explorer";
-import { useCluster } from "./cluster-context";
-import { useWallet } from "../lib/wallet/context";
-import { useBalance } from "../lib/hooks/use-balance";
 import type { IndicatorId } from "../lib/indicators";
 import {
   drawdownPercent,
@@ -56,7 +53,6 @@ import {
   PAPER_ASSETS,
   PAPER_MARKETS,
   paperReducer,
-  WALLET_PAPER_SOL_CAP_MILLI,
   type PaperAsset,
   type PaperState,
   type PricePoint,
@@ -152,13 +148,6 @@ function createInitialDesk() {
 }
 
 export function PaperTradingDesk({ active = true }: { active?: boolean }) {
-  const { cluster } = useCluster();
-  const { wallet } = useWallet();
-  const {
-    lamports: walletLamports,
-    isLoading: isWalletBalanceLoading,
-    error: walletBalanceError,
-  } = useBalance(cluster === "devnet" ? wallet?.account.address : undefined);
   const [desk, dispatch] = useReducer(
     paperReducer,
     undefined,
@@ -193,10 +182,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [limit, setLimit] = useState("");
   const [size, setSize] = useState(formatSize(QUICK_SIZE_MILLI.SOL));
   const [confirmReset, setConfirmReset] = useState(false);
-  const [walletSnapshot, setWalletSnapshot] = useState<{
-    solMilliAsset: number;
-    solPriceCents: number;
-  } | null>(null);
   const replay = useRef<PricePoint[]>([]);
   const lastToast = useRef<PaperState["trades"][number] | null>(null);
   const asset = desk.activeAsset;
@@ -208,7 +193,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   ).join(",");
   const liveKey = `${asset}-${range}`;
   const market = desk.markets[asset];
-  const solMarket = desk.markets.SOL;
   const position = desk.positions[asset];
   const equity = getPaperEquityCents(desk);
   const pnl = equity - desk.startEquityCents;
@@ -225,43 +209,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         : feedStatus === "CONNECTING"
           ? "loading"
           : "unavailable";
-  const isDevnet = cluster === "devnet";
-  const walletSolMilliAsset =
-    isDevnet && walletLamports !== null
-      ? Math.min(
-          WALLET_PAPER_SOL_CAP_MILLI,
-          Number(BigInt(walletLamports) / 1_000_000n)
-        )
-      : 0;
-  const walletSolCapped =
-    isDevnet &&
-    walletLamports !== null &&
-    BigInt(walletLamports) > BigInt(WALLET_PAPER_SOL_CAP_MILLI) * 1_000_000n;
-  const canStartWalletPractice =
-    isDevnet &&
-    !!wallet &&
-    !isWalletBalanceLoading &&
-    !walletBalanceError &&
-    walletSolMilliAsset > 0 &&
-    hasLiveFeed &&
-    solMarket.points.length > 0;
-  const walletPracticeValueCents = Math.round(
-    (walletSolMilliAsset * solMarket.priceCents) / 1000
-  );
   const tradingPaused =
     (source === "pyth" && !hasLiveFeed) ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY");
-
-  // A virtual snapshot is meaningful only for the devnet wallet it came from.
-  // Switching clusters returns the desk to its normal fixed practice balance.
-  useEffect(() => {
-    if (isDevnet || desk.fundingSource !== "wallet") return;
-    const timer = window.setTimeout(() => {
-      setWalletSnapshot(null);
-      dispatch({ type: "reset", seed: createPaperSessionSeed() });
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [isDevnet, desk.fundingSource]);
 
   // Live prices update every market so the shared portfolio is marked to
   // current prices and quotes on inactive assets can still fill.
@@ -546,36 +496,11 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   }
   function reset() {
     if (!confirmReset) return setConfirmReset(true);
-    if (walletSnapshot)
-      dispatch({
-        type: "start-wallet-session",
-        seed: createPaperSessionSeed(),
-        ...walletSnapshot,
-      });
-    else dispatch({ type: "reset", seed: createPaperSessionSeed() });
+    dispatch({ type: "reset", seed: createPaperSessionSeed() });
     restartFeed(source);
     setConfirmReset(false);
     toast.success(
-      walletSnapshot
-        ? "Wallet-linked practice reset to its original virtual SOL snapshot."
-        : "Paper portfolio reset to 10,000 simulated USDC."
-    );
-  }
-  function startWalletPractice() {
-    if (!canStartWalletPractice) return;
-    const snapshot = {
-      solMilliAsset: walletSolMilliAsset,
-      solPriceCents: solMarket.priceCents,
-    };
-    setWalletSnapshot(snapshot);
-    dispatch({
-      type: "start-wallet-session",
-      seed: createPaperSessionSeed(),
-      ...snapshot,
-    });
-    setConfirmReset(false);
-    toast.success(
-      `Started with ${formatSize(snapshot.solMilliAsset)} virtual SOL. No wallet funds moved.`
+      "Paper portfolio reset to 10,000 simulated USDC."
     );
   }
   // Orders are stamped on the market's clock, so replayed history and live
@@ -697,64 +622,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         <span className="mono">MANUAL EXECUTION / UNRANKED</span>
       </div>
 
-      {isDevnet && (
-        <section
-          className="wallet-practice panel"
-          aria-label="Devnet wallet practice"
-        >
-          <div>
-            <p className="eyebrow">OPTIONAL DEVNET WALLET PRACTICE</p>
-            <h2>Mirror SOL, then practice the conversion</h2>
-            <p>
-              Read-only snapshot only. Your devnet SOL stays in your wallet;
-              this desk creates virtual SOL and simulated USDC only.
-            </p>
-          </div>
-          <div className="wallet-practice-stats">
-            <span>
-              <small>DEVNET SOL</small>
-              <b>
-                {isWalletBalanceLoading
-                  ? "Loading…"
-                  : wallet
-                    ? `${formatSize(walletSolMilliAsset)} SOL`
-                    : "Connect wallet"}
-              </b>
-            </span>
-            <span>
-              <small>LIVE REFERENCE</small>
-              <b>{hasLiveFeed ? money(solMarket.priceCents) : "Waiting…"}</b>
-            </span>
-            <span>
-              <small>VIRTUAL VALUE</small>
-              <b>
-                {canStartWalletPractice ? money(walletPracticeValueCents) : "—"}
-              </b>
-            </span>
-            <button
-              className="btn primary"
-              type="button"
-              disabled={!canStartWalletPractice}
-              onClick={startWalletPractice}
-            >
-              {desk.fundingSource === "wallet"
-                ? "Start new wallet session"
-                : "Start wallet-backed practice"}
-            </button>
-          </div>
-          <small className="control-hint">
-            {walletSolCapped
-              ? "Practice mirrors the first 10 SOL only; the rest remains untouched."
-              : !wallet
-                ? "Connect a devnet wallet with faucet SOL to mirror a virtual starting position."
-                : walletBalanceError
-                  ? "Could not read the wallet balance. Fixed 10,000-USDC practice remains available."
-                  : walletSolMilliAsset === 0
-                    ? "No devnet SOL found. Fixed 10,000-USDC practice remains available."
-                    : "No SOL is transferred, wrapped, swapped, or used as collateral."}
-          </small>
-        </section>
-      )}
       <div className="paper-portfolio panel">
         <Metric
           label={`${asset} BALANCE`}
@@ -778,48 +645,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           tone={pnl >= 0 ? "profit" : "loss"}
         />
       </div>
-      {desk.fundingSource === "wallet" &&
-        walletSnapshot &&
-        desk.trades.length === 0 &&
-        desk.quotes.length === 0 &&
-        desk.positions.SOL.quantityMilliAsset ===
-          walletSnapshot.solMilliAsset && (
-          <div className="wallet-convert panel">
-            <div>
-              <p className="eyebrow">SIMULATED CONVERSION</p>
-              <strong>
-                Convert {formatSize(walletSnapshot.solMilliAsset)} virtual SOL
-                to simulated USDC
-              </strong>
-              <small>
-                Uses the current live SOL/USD reference. This does not sign or
-                send a wallet transaction.
-              </small>
-            </div>
-            <button
-              className="btn sell"
-              type="button"
-              disabled={tradingPaused || source !== "pyth"}
-              onClick={() =>
-                dispatch({
-                  type: "market",
-                  asset: "SOL",
-                  side: "sell",
-                  sizeMilliAsset: walletSnapshot.solMilliAsset,
-                  at: marketNow(),
-                })
-              }
-            >
-              Convert to{" "}
-              {money(
-                Math.round(
-                  (walletSnapshot.solMilliAsset * solMarket.priceCents) / 1000
-                )
-              )}{" "}
-              USDC
-            </button>
-          </div>
-        )}
       {desk.error && (
         <div role="alert" className="notice">
           {desk.error}
