@@ -6,7 +6,6 @@ import {
   IconArrowDownRight,
   IconHistory,
   IconActivity,
-  IconBolt,
   IconChartLine,
   IconChartAreaLine,
   IconChartCandle,
@@ -32,6 +31,7 @@ import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
+import { MarketExplorer } from "./market-explorer";
 import { useCluster } from "./cluster-context";
 import { useWallet } from "../lib/wallet/context";
 import { useBalance } from "../lib/hooks/use-balance";
@@ -120,11 +120,12 @@ const PAPER_CHART_OPTIONS: ChartViewOption<PaperChartView>[] = [
   },
 ];
 const PRICE_VIEWS = ["line", "area", "candles", "ohlc", "heikin"];
-const QUICK_SIZE_MILLI: Record<PaperAsset, number> = {
-  BTC: 1,
-  ETH: 100,
-  SOL: 1000,
-};
+const QUICK_SIZE_MILLI = Object.fromEntries(
+  PAPER_ASSETS.map((asset) => [
+    asset,
+    Math.max(1, Math.round(100_000 / PAPER_MARKETS[asset].initialPriceCents)),
+  ])
+) as Record<PaperAsset, number>;
 const INITIAL_STATUS: Record<FeedSource, string> = {
   replay: "LOADING REPLAY",
   pyth: "CONNECTING",
@@ -199,6 +200,12 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const replay = useRef<PricePoint[]>([]);
   const lastToast = useRef<PaperState["trades"][number] | null>(null);
   const asset = desk.activeAsset;
+  const trackedAssetsKey = PAPER_ASSETS.filter(
+    (item) =>
+      item === asset ||
+      desk.positions[item].quantityMilliAsset > 0 ||
+      desk.quotes.some((quote) => quote.asset === item)
+  ).join(",");
   const liveKey = `${asset}-${range}`;
   const market = desk.markets[asset];
   const solMarket = desk.markets.SOL;
@@ -283,18 +290,19 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       };
     };
     const refresh = async () => {
-      const results = await Promise.allSettled(PAPER_ASSETS.map(load));
+      const assetsToLoad = trackedAssetsKey.split(",") as PaperAsset[];
+      const results = await Promise.allSettled(assetsToLoad.map(load));
       if (cancelled) return;
       results.forEach((result, i) => {
         if (result.status === "fulfilled")
           dispatch({
             type: "tick",
-            asset: PAPER_ASSETS[i],
+            asset: assetsToLoad[i],
             priceCents: result.value.priceCents,
             at: result.value.publishedAt,
           });
       });
-      const current = results[PAPER_ASSETS.indexOf(asset)];
+      const current = results[assetsToLoad.indexOf(asset)];
       if (current.status === "fulfilled")
         setLiveBars((bars) =>
           bars?.key === liveKey && bars.status === "ready"
@@ -324,7 +332,15 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [active, asset, liveKey, liveRefreshEpoch, playbackPaused, source]);
+  }, [
+    active,
+    asset,
+    liveKey,
+    liveRefreshEpoch,
+    playbackPaused,
+    source,
+    trackedAssetsKey,
+  ]);
   useEffect(() => {
     if (!active || source !== "pyth") return;
     let cancelled = false;
@@ -680,9 +696,12 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         </span>
         <span className="mono">MANUAL EXECUTION / UNRANKED</span>
       </div>
-      
+
       {isDevnet && (
-        <section className="wallet-practice panel" aria-label="Devnet wallet practice">
+        <section
+          className="wallet-practice panel"
+          aria-label="Devnet wallet practice"
+        >
           <div>
             <p className="eyebrow">OPTIONAL DEVNET WALLET PRACTICE</p>
             <h2>Mirror SOL, then practice the conversion</h2>
@@ -708,7 +727,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             </span>
             <span>
               <small>VIRTUAL VALUE</small>
-              <b>{canStartWalletPractice ? money(walletPracticeValueCents) : "—"}</b>
+              <b>
+                {canStartWalletPractice ? money(walletPracticeValueCents) : "—"}
+              </b>
             </span>
             <button
               className="btn primary"
@@ -761,7 +782,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         walletSnapshot &&
         desk.trades.length === 0 &&
         desk.quotes.length === 0 &&
-        desk.positions.SOL.quantityMilliAsset === walletSnapshot.solMilliAsset && (
+        desk.positions.SOL.quantityMilliAsset ===
+          walletSnapshot.solMilliAsset && (
           <div className="wallet-convert panel">
             <div>
               <p className="eyebrow">SIMULATED CONVERSION</p>
@@ -788,11 +810,13 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                 })
               }
             >
-              Convert to {money(
+              Convert to{" "}
+              {money(
                 Math.round(
                   (walletSnapshot.solMilliAsset * solMarket.priceCents) / 1000
                 )
-              )} USDC
+              )}{" "}
+              USDC
             </button>
           </div>
         )}
@@ -819,8 +843,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       )}
       {feedStatus === "REPLAY UNAVAILABLE" && (
         <div role="status" className="notice">
-          Historical {asset}/USD data is temporarily unavailable. Try the
-          replay again shortly or return to the live market feed.
+          Historical {asset}/USD data is temporarily unavailable. Try the replay
+          again shortly or return to the live market feed.
         </div>
       )}
       <div className="paper-grid">
@@ -840,7 +864,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                 {currentQuoteState === "available" ? (
                   <>
                     <strong>{money(market.priceCents, 3)}</strong>
-                    <span className={`change-badge ${change < 0 ? "loss" : ""}`}>
+                    <span
+                      className={`change-badge ${change < 0 ? "loss" : ""}`}
+                    >
                       {change >= 0 ? "+" : ""}
                       {change.toFixed(2)}%
                     </span>
@@ -862,16 +888,9 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
               </div>
             </div>
             <div className="market-header-controls">
-              <ThemedSelect
-                className="cluster-select"
-                label="Market"
-                value={asset}
-                options={PAPER_ASSETS.map((item) => ({
-                  value: item,
-                  label: PAPER_MARKETS[item].label,
-                  icon: <AssetLogo asset={item} size={14} />,
-                }))}
-                onChange={changeAsset}
+              <MarketExplorer
+                activeAsset={asset}
+                onSelectMarket={changeAsset}
               />
               <ThemedSelect
                 className="cluster-select"

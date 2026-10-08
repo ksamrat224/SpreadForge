@@ -23,6 +23,110 @@ export const MARKET_ASSETS = {
     coinbase: "SOL-USD",
     binance: "SOLUSDT",
   },
+  "xrp-usd": {
+    asset: "XRP",
+    coinbase: "XRP-USD",
+    kraken: "XRPUSD",
+    binance: "XRPUSDT",
+  },
+  "ada-usd": {
+    asset: "ADA",
+    coinbase: "ADA-USD",
+    kraken: "ADAUSD",
+    binance: "ADAUSDT",
+  },
+  "doge-usd": {
+    asset: "DOGE",
+    coinbase: "DOGE-USD",
+    kraken: "DOGEUSD",
+    binance: "DOGEUSDT",
+  },
+  "avax-usd": {
+    asset: "AVAX",
+    coinbase: "AVAX-USD",
+    kraken: "AVAXUSD",
+    binance: "AVAXUSDT",
+  },
+  "link-usd": {
+    asset: "LINK",
+    coinbase: "LINK-USD",
+    kraken: "LINKUSD",
+    binance: "LINKUSDT",
+  },
+  "dot-usd": {
+    asset: "DOT",
+    coinbase: "DOT-USD",
+    kraken: "DOTUSD",
+    binance: "DOTUSDT",
+  },
+  "ltc-usd": {
+    asset: "LTC",
+    coinbase: "LTC-USD",
+    kraken: "LTCUSD",
+    binance: "LTCUSDT",
+  },
+  "bch-usd": {
+    asset: "BCH",
+    coinbase: "BCH-USD",
+    kraken: "BCHUSD",
+    binance: "BCHUSDT",
+  },
+  "uni-usd": {
+    asset: "UNI",
+    coinbase: "UNI-USD",
+    kraken: "UNIUSD",
+    binance: "UNIUSDT",
+  },
+  "aave-usd": {
+    asset: "AAVE",
+    coinbase: "AAVE-USD",
+    kraken: "AAVEUSD",
+    binance: "AAVEUSDT",
+  },
+  "sui-usd": {
+    asset: "SUI",
+    coinbase: "SUI-USD",
+    kraken: "SUIUSD",
+    binance: "SUIUSDT",
+  },
+  "atom-usd": {
+    asset: "ATOM",
+    coinbase: "ATOM-USD",
+    kraken: "ATOMUSD",
+    binance: "ATOMUSDT",
+  },
+  "near-usd": {
+    asset: "NEAR",
+    coinbase: "NEAR-USD",
+    kraken: "NEARUSD",
+    binance: "NEARUSDT",
+  },
+  "etc-usd": {
+    asset: "ETC",
+    coinbase: "ETC-USD",
+    kraken: "ETCUSD",
+    binance: "ETCUSDT",
+  },
+  "xlm-usd": {
+    asset: "XLM",
+    coinbase: "XLM-USD",
+    kraken: "XLMUSD",
+    binance: "XLMUSDT",
+  },
+  "hbar-usd": {
+    asset: "HBAR",
+    coinbase: "HBAR-USD",
+    kraken: "HBARUSD",
+    binance: "HBARUSDT",
+  },
+  // Prices are quoted per 1,000 SHIB to retain cent-accurate paper accounting.
+  "shib-usd": {
+    asset: "SHIB",
+    coinbase: "SHIB-USD",
+    kraken: "SHIBUSD",
+    binance: "SHIBUSDT",
+    priceMultiplier: 1000,
+  },
 } as const;
 export type MarketId = keyof typeof MARKET_ASSETS;
 export function getMarketAsset(value: string) {

@@ -1,4 +1,25 @@
-export const PAPER_ASSETS = ["BTC", "ETH", "SOL"] as const;
+export const PAPER_ASSETS = [
+  "BTC",
+  "ETH",
+  "SOL",
+  "XRP",
+  "ADA",
+  "DOGE",
+  "AVAX",
+  "LINK",
+  "DOT",
+  "LTC",
+  "BCH",
+  "UNI",
+  "AAVE",
+  "SUI",
+  "ATOM",
+  "NEAR",
+  "ETC",
+  "XLM",
+  "HBAR",
+  "SHIB",
+] as const;
 export type PaperAsset = (typeof PAPER_ASSETS)[number];
 export type Side = "buy" | "sell";
 /** The maximum real devnet balance that can be mirrored into practice. */
@@ -11,6 +32,23 @@ export const PAPER_MARKETS: Record<
   BTC: { label: "BTC / USDC", initialPriceCents: 6_500_000 },
   ETH: { label: "ETH / USDC", initialPriceCents: 350_000 },
   SOL: { label: "SOL / USDC", initialPriceCents: 14_682 },
+  XRP: { label: "XRP / USDC", initialPriceCents: 250 },
+  ADA: { label: "ADA / USDC", initialPriceCents: 70 },
+  DOGE: { label: "DOGE / USDC", initialPriceCents: 20 },
+  AVAX: { label: "AVAX / USDC", initialPriceCents: 2_500 },
+  LINK: { label: "LINK / USDC", initialPriceCents: 1_500 },
+  DOT: { label: "DOT / USDC", initialPriceCents: 500 },
+  LTC: { label: "LTC / USDC", initialPriceCents: 9_000 },
+  BCH: { label: "BCH / USDC", initialPriceCents: 35_000 },
+  UNI: { label: "UNI / USDC", initialPriceCents: 700 },
+  AAVE: { label: "AAVE / USDC", initialPriceCents: 18_000 },
+  SUI: { label: "SUI / USDC", initialPriceCents: 300 },
+  ATOM: { label: "ATOM / USDC", initialPriceCents: 500 },
+  NEAR: { label: "NEAR / USDC", initialPriceCents: 400 },
+  ETC: { label: "ETC / USDC", initialPriceCents: 2_500 },
+  XLM: { label: "XLM / USDC", initialPriceCents: 30 },
+  HBAR: { label: "HBAR / USDC", initialPriceCents: 20 },
+  SHIB: { label: "1K SHIB / USDC", initialPriceCents: 2 },
 };
 type Position = { quantityMilliAsset: number; inventoryCostCents: number };
 type Market = {
@@ -94,11 +132,12 @@ export function createPaperState(seed = 149): PaperState {
     fundingSource: "fixed",
     activeAsset: "SOL",
     markets,
-    positions: {
-      BTC: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      ETH: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      SOL: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-    },
+    positions: Object.fromEntries(
+      PAPER_ASSETS.map((asset) => [
+        asset,
+        { quantityMilliAsset: 0, inventoryCostCents: 0 },
+      ])
+    ) as Record<PaperAsset, Position>,
     usdcCents: 1_000_000,
     startEquityCents: 1_000_000,
     realizedPnlCents: 0,
@@ -186,7 +225,9 @@ function reserves(state: PaperState) {
     }),
     {
       cash: 0,
-      assets: { BTC: 0, ETH: 0, SOL: 0 } as Record<PaperAsset, number>,
+      assets: Object.fromEntries(
+        PAPER_ASSETS.map((asset) => [asset, 0])
+      ) as Record<PaperAsset, number>,
     }
   );
 }

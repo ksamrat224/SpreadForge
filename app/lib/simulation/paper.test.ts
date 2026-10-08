@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createPaperState,
   getPaperEquityCents,
+  PAPER_ASSETS,
   paperReducer,
   WALLET_PAPER_SOL_CAP_MILLI,
 } from "./paper";
@@ -10,11 +11,10 @@ describe("shared multi-asset paper portfolio", () => {
   it("starts with 10,000 USDC and no crypto inventory", () => {
     const state = createPaperState();
     expect(state.usdcCents).toBe(1_000_000);
-    expect(state.positions).toEqual({
-      BTC: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      ETH: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-      SOL: { quantityMilliAsset: 0, inventoryCostCents: 0 },
-    });
+    expect(Object.keys(state.positions)).toEqual(PAPER_ASSETS);
+    expect(Object.values(state.positions)).toEqual(
+      PAPER_ASSETS.map(() => ({ quantityMilliAsset: 0, inventoryCostCents: 0 }))
+    );
   });
   it("shares USDC across BTC and ETH purchases while retaining both positions", () => {
     let state = createPaperState();

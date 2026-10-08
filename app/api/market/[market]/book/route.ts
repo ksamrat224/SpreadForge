@@ -4,10 +4,10 @@ import type { BookLevel } from "../../../../lib/market-history";
 
 const LEVELS = 100;
 
-function levels(rows: unknown): BookLevel[] {
+function levels(rows: unknown, priceMultiplier = 1): BookLevel[] {
   return (Array.isArray(rows) ? rows : []).slice(0, LEVELS).flatMap((row) => {
     if (!Array.isArray(row)) return [];
-    const priceCents = Math.round(Number(row[0]) * 100);
+    const priceCents = Math.round(Number(row[0]) * 100 * priceMultiplier);
     const size = Number(row[1]);
     return Number.isSafeInteger(priceCents) &&
       priceCents > 0 &&
@@ -58,8 +58,10 @@ export async function GET(
       const response = await fetch(provider.url, { cache: "no-store" });
       if (!response.ok) throw new Error(provider.source + " unavailable");
       const book = provider.book(await response.json());
-      const bids = levels(book.bids);
-      const asks = levels(book.asks);
+      const priceMultiplier =
+        "priceMultiplier" in market ? market.priceMultiplier : 1;
+      const bids = levels(book.bids, priceMultiplier);
+      const asks = levels(book.asks, priceMultiplier);
       // A crossed or empty book is unusable; try the next provider.
       if (
         !bids.length ||

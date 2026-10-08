@@ -27,14 +27,15 @@ const REPLAY = {
 
 function candle(
   row: unknown,
-  columns: Provider["columns"]
+  columns: Provider["columns"],
+  priceMultiplier = 1
 ): HistoryCandle | null {
   if (!Array.isArray(row)) return null;
   const [time, open, high, low, close, volume] = columns.map((index) =>
     Number(row[index])
   );
   const cents = [open, high, low, close].map((value) =>
-    Math.round(value * 100)
+    Math.round(value * 100 * priceMultiplier)
   );
   if (
     !Number.isFinite(time) ||
@@ -112,7 +113,13 @@ export async function GET(
         ...new Map(
           provider
             .rows(await response.json())
-            .map((row) => candle(row, provider.columns))
+            .map((row) =>
+              candle(
+                row,
+                provider.columns,
+                "priceMultiplier" in market ? market.priceMultiplier : 1
+              )
+            )
             .filter((item): item is HistoryCandle => !!item && item.at >= since)
             .map((item) => [item.at, item])
         ).values(),
