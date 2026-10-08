@@ -7,8 +7,14 @@
  */
 
 export * from "./advanceSession";
+export * from "./cancelPaperOrder";
 export * from "./delegateSession";
 export * from "./finalizeSession";
+export * from "./initializePaperMarketRegistry";
+export * from "./initializePaperSession";
 export * from "./initializeSession";
+export * from "./openPaperPosition";
+export * from "./placePaperLimitOrder";
 export * from "./processUndelegation";
 export * from "./submitResult";
+export * from "./upsertPaperMarket";

@@ -9,4 +9,6 @@
 export * from "./bufferSession";
 export * from "./delegationMetadataSession";
 export * from "./delegationRecordSession";
+export * from "./position";
+export * from "./registry";
 export * from "./session";
