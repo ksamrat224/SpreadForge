@@ -24,6 +24,11 @@ export type WalletSession = {
     transaction: Uint8Array,
     chain: string
   ) => Promise<Uint8Array>;
+  /** Signs a short-lived Private ER authentication challenge. */
+  signMessage?: (message: Uint8Array) => Promise<{
+    signedMessage: Uint8Array;
+    signature: Uint8Array;
+  }>;
 };
 
 export type WalletConnector = WalletConnectorMetadata & {

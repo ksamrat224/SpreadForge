@@ -10,6 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getStructDecoder,
@@ -104,13 +106,27 @@ export type DelegatePaperPortfolioInstruction<
 
 export type DelegatePaperPortfolioInstructionData = {
   discriminator: ReadonlyUint8Array;
+  /**
+   * MagicBlock-provisioned TEE validator identity. It is explicit so the
+   * router never silently selects a public ER for private portfolio state.
+   */
+  validator: Address;
 };
 
-export type DelegatePaperPortfolioInstructionDataArgs = {};
+export type DelegatePaperPortfolioInstructionDataArgs = {
+  /**
+   * MagicBlock-provisioned TEE validator identity. It is explicit so the
+   * router never silently selects a public ER for private portfolio state.
+   */
+  validator: Address;
+};
 
 export function getDelegatePaperPortfolioInstructionDataEncoder(): FixedSizeEncoder<DelegatePaperPortfolioInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
+    getStructEncoder([
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["validator", getAddressEncoder()],
+    ]),
     (value) => ({
       ...value,
       discriminator: DELEGATE_PAPER_PORTFOLIO_DISCRIMINATOR,
@@ -121,6 +137,7 @@ export function getDelegatePaperPortfolioInstructionDataEncoder(): FixedSizeEnco
 export function getDelegatePaperPortfolioInstructionDataDecoder(): FixedSizeDecoder<DelegatePaperPortfolioInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["validator", getAddressDecoder()],
   ]);
 }
 
@@ -152,6 +169,7 @@ export type DelegatePaperPortfolioAsyncInput<
   ownerProgram?: Address<TAccountOwnerProgram>;
   delegationProgram?: Address<TAccountDelegationProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
+  validator: DelegatePaperPortfolioInstructionDataArgs["validator"];
 };
 
 export async function getDelegatePaperPortfolioInstructionAsync<
@@ -218,6 +236,9 @@ export async function getDelegatePaperPortfolioInstructionAsync<
     ResolvedAccount
   >;
 
+  // Original args.
+  const args = { ...input };
+
   // Resolve default values.
   if (!accounts.portfolio.value) {
     accounts.portfolio.value = await findPortfolioPda({
@@ -268,7 +289,9 @@ export async function getDelegatePaperPortfolioInstructionAsync<
       getAccountMeta(accounts.delegationProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getDelegatePaperPortfolioInstructionDataEncoder().encode({}),
+    data: getDelegatePaperPortfolioInstructionDataEncoder().encode(
+      args as DelegatePaperPortfolioInstructionDataArgs,
+    ),
     programAddress,
   } as DelegatePaperPortfolioInstruction<
     TProgramAddress,
@@ -301,6 +324,7 @@ export type DelegatePaperPortfolioInput<
   ownerProgram?: Address<TAccountOwnerProgram>;
   delegationProgram?: Address<TAccountDelegationProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
+  validator: DelegatePaperPortfolioInstructionDataArgs["validator"];
 };
 
 export function getDelegatePaperPortfolioInstruction<
@@ -365,6 +389,9 @@ export function getDelegatePaperPortfolioInstruction<
     ResolvedAccount
   >;
 
+  // Original args.
+  const args = { ...input };
+
   // Resolve default values.
   if (!accounts.delegationProgram.value) {
     accounts.delegationProgram.value =
@@ -391,7 +418,9 @@ export function getDelegatePaperPortfolioInstruction<
       getAccountMeta(accounts.delegationProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getDelegatePaperPortfolioInstructionDataEncoder().encode({}),
+    data: getDelegatePaperPortfolioInstructionDataEncoder().encode(
+      args as DelegatePaperPortfolioInstructionDataArgs,
+    ),
     programAddress,
   } as DelegatePaperPortfolioInstruction<
     TProgramAddress,

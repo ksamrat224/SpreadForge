@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        constants::{RESULT_SEED, SESSION_SEED},
+        constants::{PAPER_PERFORMANCE_SEED, PAPER_PORTFOLIO_SEED, PAPER_REGISTRY_SEED, RESULT_SEED, SESSION_SEED},
         ID as PROGRAM_ID,
     };
     use anchor_lang::system_program;
     use litesvm::LiteSVM;
     use solana_sdk::{
+        clock::Clock,
         hash::hash,
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -63,6 +64,29 @@ mod tests {
             &PROGRAM_ID,
         )
         .0
+    }
+
+    fn paper_registry_pda() -> Pubkey {
+        Pubkey::find_program_address(&[PAPER_REGISTRY_SEED], &PROGRAM_ID).0
+    }
+
+    fn paper_portfolio_pda(authority: &Pubkey) -> Pubkey {
+        Pubkey::find_program_address(&[PAPER_PORTFOLIO_SEED, authority.as_ref()], &PROGRAM_ID).0
+    }
+
+    fn paper_performance_pda(authority: &Pubkey) -> Pubkey {
+        Pubkey::find_program_address(&[PAPER_PERFORMANCE_SEED, authority.as_ref()], &PROGRAM_ID).0
+    }
+
+    fn initialize_paper_registry_ix(authority: &Pubkey, registry: &Pubkey) -> Instruction {
+        Instruction { program_id: PROGRAM_ID, accounts: vec![AccountMeta::new(*authority, true), AccountMeta::new(*registry, false), AccountMeta::new_readonly(system_program::ID, false)], data: hash(b"global:initialize_paper_market_registry").to_bytes()[..8].to_vec() }
+    }
+
+    fn initialize_paper_portfolio_ix(authority: &Pubkey, registry: &Pubkey, portfolio: &Pubkey, performance: &Pubkey, session_signer: &Pubkey) -> Instruction {
+        let mut data = hash(b"global:initialize_paper_portfolio").to_bytes()[..8].to_vec();
+        data.extend_from_slice(session_signer.as_ref());
+        data.extend_from_slice(&(1_800_000_000_i64).to_le_bytes());
+        Instruction { program_id: PROGRAM_ID, accounts: vec![AccountMeta::new(*authority, true), AccountMeta::new_readonly(*registry, false), AccountMeta::new(*portfolio, false), AccountMeta::new(*performance, false), AccountMeta::new_readonly(system_program::ID, false)], data }
     }
 
     fn submit_ix(authority: &Pubkey, result: &Pubkey, args: &SubmitArgs) -> Instruction {
@@ -261,5 +285,24 @@ mod tests {
                 &svm,
             ))
             .is_err());
+    }
+
+    #[test]
+    fn initializes_a_paper_portfolio_with_exact_virtual_usdc() {
+        let mut svm = svm();
+        let mut clock = svm.get_sysvar::<Clock>();
+        clock.unix_timestamp = 1_799_999_000;
+        svm.set_sysvar::<Clock>(&clock);
+        let authority = Keypair::new();
+        let session_signer = Keypair::new();
+        svm.airdrop(&authority.pubkey(), LAMPORTS_PER_SOL).unwrap();
+        let registry = paper_registry_pda();
+        svm.send_transaction(signed_tx(&authority, initialize_paper_registry_ix(&authority.pubkey(), &registry), &svm)).unwrap();
+        let portfolio = paper_portfolio_pda(&authority.pubkey());
+        let performance = paper_performance_pda(&authority.pubkey());
+        svm.send_transaction(signed_tx(&authority, initialize_paper_portfolio_ix(&authority.pubkey(), &registry, &portfolio, &performance, &session_signer.pubkey()), &svm)).unwrap();
+        let account = svm.get_account(&portfolio).expect("portfolio exists");
+        assert_eq!(account.owner, PROGRAM_ID);
+        assert_eq!(account.data.len(), 171);
     }
 }

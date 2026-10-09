@@ -1,38 +1,47 @@
 //! Private, virtual-only portfolio instructions. No SPL Token accounts or CPIs.
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
+use ephemeral_rollups_sdk::{
+    access_control::{
+        instructions::{CreateEphemeralPermissionCpi, UpdateEphemeralPermissionCpi},
+        structs::{
+            EphemeralMembersArgs, EphemeralPermission, Member, PERMISSION_SEED,
+            ACCOUNT_SIGNATURES_FLAG, AUTHORITY_FLAG, TX_BALANCES_FLAG, TX_LOGS_FLAG,
+            TX_MESSAGE_FLAG,
+        },
+    },
+    consts::{EPHEMERAL_VAULT_ID, MAGIC_PROGRAM_ID, PERMISSION_PROGRAM_ID},
+    ephemeral_accounts::rent,
+};
+use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 use crate::{constants::*, errors::ResultRegistryError, state::{PaperFill, PaperMarket, PaperMarketRegistry, PaperOrder, PaperPortfolio, PaperPosition, PortfolioCheckpoint, PortfolioPerformance}};
 
-const ORACLE_MIRROR_HEADER_BYTES: usize = 8;
-const ORACLE_MIRROR_DATA_BYTES: usize = ORACLE_MIRROR_HEADER_BYTES + 32 + 8 + 4 + 8;
 #[derive(Clone, Copy)] struct OracleObservation { price: i64, exponent: i32, published_at: i64 }
 
-/// Pyth data must arrive through a MagicBlock oracle-mirror account. The
-/// caller never provides a price: account address, owner, feed and freshness
-/// are all checked on-chain before any state transition.
+/// MagicBlock publishes Pyth Lazer updates as `PriceUpdateV2` accounts. The
+/// caller never provides a price: address, program owner, Pyth feed identity,
+/// verification level and five-second freshness are all checked on-chain.
 fn read_oracle(market: &PaperMarket, oracle: &AccountInfo) -> Result<OracleObservation> {
     require_keys_eq!(*oracle.owner, market.oracle_program, ResultRegistryError::InvalidPaperOracleAccount);
     require_keys_eq!(oracle.key(), market.oracle_price_account, ResultRegistryError::InvalidPaperOracleAccount);
     let data = oracle.try_borrow_data()?;
-    require!(data.len() >= ORACLE_MIRROR_DATA_BYTES, ResultRegistryError::InvalidPaperOracleAccount);
-    let feed_offset = ORACLE_MIRROR_HEADER_BYTES;
-    require!(data[feed_offset..feed_offset + 32] == market.oracle_feed, ResultRegistryError::InvalidPaperOracleAccount);
-    let price_offset = feed_offset + 32;
-    let price = i64::from_le_bytes(data[price_offset..price_offset + 8].try_into().map_err(|_| error!(ResultRegistryError::InvalidPaperOracleAccount))?);
-    let exponent_offset = price_offset + 8;
-    let exponent = i32::from_le_bytes(data[exponent_offset..exponent_offset + 4].try_into().map_err(|_| error!(ResultRegistryError::InvalidPaperOracleAccount))?);
-    let timestamp_offset = exponent_offset + 4;
-    let published_at = i64::from_le_bytes(data[timestamp_offset..timestamp_offset + 8].try_into().map_err(|_| error!(ResultRegistryError::InvalidPaperOracleAccount))?);
-    let now = Clock::get()?.unix_timestamp;
-    require!(price > 0 && published_at <= now && now - published_at <= PAPER_MAX_ORACLE_AGE_SECONDS, ResultRegistryError::InvalidOracleObservation);
-    Ok(OracleObservation { price, exponent, published_at })
+    let mut bytes: &[u8] = &data;
+    let update = PriceUpdateV2::try_deserialize(&mut bytes).map_err(|_| error!(ResultRegistryError::InvalidPaperOracleAccount))?;
+    let price = update.get_price_no_older_than(&Clock::get()?, PAPER_MAX_ORACLE_AGE_SECONDS as u64, &market.oracle_feed).map_err(|_| error!(ResultRegistryError::InvalidOracleObservation))?;
+    require!(price.price > 0, ResultRegistryError::InvalidOracleObservation);
+    Ok(OracleObservation { price: price.price, exponent: price.exponent, published_at: price.publish_time })
 }
 fn active_actor(portfolio: &PaperPortfolio, actor: Pubkey) -> Result<()> {
     require!(portfolio.status == PaperPortfolio::ACTIVE, ResultRegistryError::PaperPortfolioNotActive);
     require!(actor == portfolio.authority || (actor == portfolio.session_signer && Clock::get()?.unix_timestamp <= portfolio.expires_at), ResultRegistryError::UnauthorizedPaperPortfolioActor); Ok(())
 }
 fn cents_from_oracle(o: OracleObservation, market: &PaperMarket) -> Result<u64> {
-    require!(o.exponent <= 0, ResultRegistryError::InvalidOracleObservation);
-    let scale = 10_u128.checked_pow((-o.exponent) as u32).ok_or(ResultRegistryError::InvalidOracleObservation)?;
+    // MagicBlock's Pyth Lazer publisher encodes a positive decimal scale
+    // (raw / 10^exponent), while standard Pyth updates normally use a
+    // negative exponent. Both forms use the absolute decimal scale here.
+    let exponent = o.exponent.checked_abs().ok_or(ResultRegistryError::InvalidOracleObservation)?;
+    require!(exponent <= 18, ResultRegistryError::InvalidOracleObservation);
+    let scale = 10_u128.checked_pow(exponent as u32).ok_or(ResultRegistryError::InvalidOracleObservation)?;
     let cents = (o.price as u128).checked_mul(market.price_multiplier as u128).ok_or(ResultRegistryError::InvalidPaperOrder)?.checked_div(scale).ok_or(ResultRegistryError::InvalidOracleObservation)?;
     u64::try_from(cents).map_err(|_| error!(ResultRegistryError::InvalidPaperOrder))
 }
@@ -49,7 +58,65 @@ pub fn upsert_market(ctx: Context<UpsertPaperMarket>, args: UpsertPaperMarketArg
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)] pub struct InitializePaperPortfolioArgs { pub session_signer: Pubkey, pub expires_at: i64 }
 #[derive(Accounts)] #[instruction(args: InitializePaperPortfolioArgs)] pub struct InitializePaperPortfolio<'info> { #[account(mut)] pub authority: Signer<'info>, pub registry: Account<'info, PaperMarketRegistry>, #[account(init, payer = authority, space = PaperPortfolio::SPACE, seeds = [PAPER_PORTFOLIO_SEED, authority.key().as_ref()], bump)] pub portfolio: Account<'info, PaperPortfolio>, #[account(init, payer = authority, space = PortfolioPerformance::SPACE, seeds = [PAPER_PERFORMANCE_SEED, authority.key().as_ref()], bump)] pub performance: Account<'info, PortfolioPerformance>, pub system_program: Program<'info, System> }
-pub fn initialize_portfolio(ctx: Context<InitializePaperPortfolio>, args: InitializePaperPortfolioArgs) -> Result<()> { let now = Clock::get()?.unix_timestamp; require!(args.session_signer != Pubkey::default() && args.expires_at > now && args.expires_at <= now + PAPER_AUTHORIZATION_SECONDS, ResultRegistryError::UnauthorizedPaperPortfolioActor); let p = &mut ctx.accounts.portfolio; p.authority = ctx.accounts.authority.key(); p.session_signer = args.session_signer; p.registry = ctx.accounts.registry.key(); p.starting_equity_cents = PAPER_STARTING_USDC_CENTS; p.available_usdc_cents = PAPER_STARTING_USDC_CENTS; p.reserved_usdc_cents = 0; p.realized_pnl_cents = 0; p.aggregate_equity_cents = PAPER_STARTING_USDC_CENTS; p.next_order_id = 0; p.next_fill_id = 0; p.expires_at = args.expires_at; p.status = PaperPortfolio::ACTIVE; p.schema_version = PAPER_SCHEMA_VERSION; p.bump = ctx.bumps.portfolio; let perf = &mut ctx.accounts.performance; perf.authority = p.authority; perf.starting_equity_cents = PAPER_STARTING_USDC_CENTS; perf.current_equity_cents = PAPER_STARTING_USDC_CENTS; perf.return_bps = 0; perf.latest_checkpoint_at = now; perf.created_at = now; perf.schema_version = PAPER_SCHEMA_VERSION; perf.bump = ctx.bumps.performance; Ok(()) }
+pub fn initialize_portfolio(ctx: Context<InitializePaperPortfolio>, args: InitializePaperPortfolioArgs) -> Result<()> { let now = Clock::get()?.unix_timestamp; require!(args.session_signer != Pubkey::default() && args.expires_at > now && args.expires_at <= now + PAPER_AUTHORIZATION_SECONDS, ResultRegistryError::UnauthorizedPaperPortfolioActor); let p = &mut ctx.accounts.portfolio; p.authority = ctx.accounts.authority.key(); p.session_signer = args.session_signer; p.registry = ctx.accounts.registry.key(); p.starting_equity_cents = PAPER_STARTING_USDC_CENTS; p.available_usdc_cents = PAPER_STARTING_USDC_CENTS; p.reserved_usdc_cents = 0; p.realized_pnl_cents = 0; p.aggregate_equity_cents = PAPER_STARTING_USDC_CENTS; p.next_order_id = 0; p.next_fill_id = 0; p.expires_at = args.expires_at; p.status = PaperPortfolio::ACTIVE; p.schema_version = PAPER_SCHEMA_VERSION; p.bump = ctx.bumps.portfolio; let perf = &mut ctx.accounts.performance; perf.authority = p.authority; perf.starting_equity_cents = PAPER_STARTING_USDC_CENTS; perf.current_equity_cents = PAPER_STARTING_USDC_CENTS; perf.return_bps = 0; perf.latest_checkpoint_at = now; perf.created_at = now; perf.schema_version = PAPER_SCHEMA_VERSION; perf.bump = ctx.bumps.performance;
+    // The delegated portfolio PDA pays the ER-local permission rent. This is
+    // lamports only; virtual USDC is fixed above and no real asset is moved.
+    transfer(CpiContext::new(System::id(), Transfer { from: ctx.accounts.authority.to_account_info(), to: p.to_account_info() }), rent(EphemeralPermission::size_of(PAPER_PERMISSION_MEMBER_COUNT) as u32))?;
+    Ok(()) }
+
+/// Creates the ER-local privacy gate after the portfolio has been delegated.
+/// This instruction must be routed to the router-selected Private ER, never
+/// sent to base layer. It is idempotent so a client can safely retry after an
+/// interrupted setup flow.
+#[derive(Accounts)]
+pub struct InitializePaperPortfolioPermission<'info> {
+    pub actor: Signer<'info>,
+    #[account(mut, seeds = [PAPER_PORTFOLIO_SEED, portfolio.authority.as_ref()], bump = portfolio.bump)]
+    pub portfolio: Account<'info, PaperPortfolio>,
+    /// CHECK: PDA and owner are checked below and by the permission program.
+    #[account(mut, seeds = [PERMISSION_SEED, portfolio.key().as_ref()], bump, seeds::program = permission_program.key())]
+    pub permission: UncheckedAccount<'info>,
+    /// CHECK: fixed MagicBlock access-control program.
+    #[account(address = PERMISSION_PROGRAM_ID)]
+    pub permission_program: UncheckedAccount<'info>,
+    /// CHECK: fixed MagicBlock ephemeral rent vault.
+    #[account(mut, address = EPHEMERAL_VAULT_ID)]
+    pub ephemeral_vault: UncheckedAccount<'info>,
+    /// CHECK: fixed MagicBlock program consumed by the permission CPI.
+    #[account(address = MAGIC_PROGRAM_ID)]
+    pub magic_program: UncheckedAccount<'info>,
+}
+pub fn initialize_portfolio_permission(ctx: Context<InitializePaperPortfolioPermission>) -> Result<()> {
+    active_actor(&ctx.accounts.portfolio, ctx.accounts.actor.key())?;
+    let all_visibility = AUTHORITY_FLAG | TX_LOGS_FLAG | TX_BALANCES_FLAG | TX_MESSAGE_FLAG | ACCOUNT_SIGNATURES_FLAG;
+    let members = vec![
+        Member { flags: all_visibility, pubkey: ctx.accounts.portfolio.authority },
+        Member { flags: all_visibility, pubkey: ctx.accounts.portfolio.session_signer },
+    ];
+    let bump = [ctx.accounts.portfolio.bump];
+    let seeds: &[&[u8]] = &[PAPER_PORTFOLIO_SEED, ctx.accounts.portfolio.authority.as_ref(), &bump];
+    if ctx.accounts.permission.owner == &PERMISSION_PROGRAM_ID && !ctx.accounts.permission.data_is_empty() {
+        // PER bootstrap intentionally happens in two ER transactions. The
+        // permission account is first created publicly, then this update seals
+        // it to the portfolio owner and short-lived session key. MagicBlock's
+        // Permission Program applies the new membership atomically here.
+        let args = EphemeralMembersArgs { is_private: true, members };
+        UpdateEphemeralPermissionCpi {
+            payer: ctx.accounts.portfolio.to_account_info(), permissioned_account: ctx.accounts.portfolio.to_account_info(), permission: ctx.accounts.permission.to_account_info(), vault: ctx.accounts.ephemeral_vault.to_account_info(), magic_program: ctx.accounts.magic_program.to_account_info(), permission_program: ctx.accounts.permission_program.to_account_info(), authority: ctx.accounts.portfolio.to_account_info(), authority_is_signer: false, args,
+        }.invoke_signed(&[seeds])?;
+    } else {
+        // The initial permission must be public. A subsequent invocation of
+        // this idempotent instruction sees the permission and performs the
+        // private-member update above. Do not create a private permission in
+        // the bootstrap transaction: it can prevent the TEE from admitting the
+        // very client that needs to complete the setup.
+        let args = EphemeralMembersArgs { is_private: false, members: vec![] };
+        CreateEphemeralPermissionCpi {
+            payer: ctx.accounts.portfolio.to_account_info(), permissioned_account: ctx.accounts.portfolio.to_account_info(), permission: ctx.accounts.permission.to_account_info(), vault: ctx.accounts.ephemeral_vault.to_account_info(), magic_program: ctx.accounts.magic_program.to_account_info(), permission_program: ctx.accounts.permission_program.to_account_info(), args,
+        }.invoke_signed(&[seeds])?;
+    }
+    Ok(())
+}
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)] pub struct RenewPaperAuthorizationArgs { pub session_signer: Pubkey, pub expires_at: i64 }
 #[derive(Accounts)] pub struct RenewPaperAuthorization<'info> { #[account(mut)] pub authority: Signer<'info>, #[account(mut, seeds = [PAPER_PORTFOLIO_SEED, authority.key().as_ref()], bump = portfolio.bump, has_one = authority)] pub portfolio: Account<'info, PaperPortfolio> }
 pub fn renew_authorization(ctx: Context<RenewPaperAuthorization>, args: RenewPaperAuthorizationArgs) -> Result<()> { let now = Clock::get()?.unix_timestamp; require!(args.session_signer != Pubkey::default() && args.expires_at > now && args.expires_at <= now + PAPER_AUTHORIZATION_SECONDS, ResultRegistryError::UnauthorizedPaperPortfolioActor); ctx.accounts.portfolio.session_signer = args.session_signer; ctx.accounts.portfolio.expires_at = args.expires_at; Ok(()) }

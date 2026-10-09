@@ -60,6 +60,8 @@ export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE_ACCOUNT = 0x1784; // 60
 export const RESULT_REGISTRY_ERROR__PAPER_CHECKPOINT_NOT_DUE = 0x1785; // 6021
 /** InvalidPaperPerformance: Only aggregate performance can be written to this public account. */
 export const RESULT_REGISTRY_ERROR__INVALID_PAPER_PERFORMANCE = 0x1786; // 6022
+/** InvalidPrivateErValidator: A Private ER validator must be explicitly configured for paper portfolios. */
+export const RESULT_REGISTRY_ERROR__INVALID_PRIVATE_ER_VALIDATOR = 0x1787; // 6023
 
 export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INSUFFICIENT_VIRTUAL_FUNDS
@@ -69,6 +71,7 @@ export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER_ACCOUNT
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_PERFORMANCE
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PRIVATE_ER_VALIDATOR
   | typeof RESULT_REGISTRY_ERROR__INVALID_SCORE
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION
@@ -97,6 +100,7 @@ if (process.env.NODE_ENV !== "production") {
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER]: `Paper orders require a positive integer quantity and price.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER_ACCOUNT]: `This paper order cannot be cancelled by the supplied session.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_PERFORMANCE]: `Only aggregate performance can be written to this public account.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PRIVATE_ER_VALIDATOR]: `A Private ER validator must be explicitly configured for paper portfolios.`,
     [RESULT_REGISTRY_ERROR__INVALID_SCORE]: `The result score must be between 0 and 10,000.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION]: `The session signer or expiry is invalid.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION]: `A session must contain between 1 and 60 ticks.`,

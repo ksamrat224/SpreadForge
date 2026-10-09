@@ -8,6 +8,9 @@ vi.mock("./interactive-market-chart", () => ({
 vi.mock("../lib/wallet/context", () => ({
   useWallet: () => ({ wallet: undefined }),
 }));
+vi.mock("./cluster-context", () => ({
+  useCluster: () => ({ cluster: "devnet", setCluster: vi.fn() }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -15,10 +18,10 @@ afterEach(() => {
 });
 
 describe("on-chain paper-trading gate", () => {
-  it("does not render browser-only execution before the private ER runtime exists", () => {
+  it("does not render browser-only execution before a wallet is connected", () => {
     render(<PaperTradingDesk />);
-    expect(screen.getByText("Trading is temporarily disabled")).toBeTruthy();
-    expect(screen.getByText(/disappeared on refresh/i)).toBeTruthy();
+    expect(screen.getByText("Create your paper portfolio")).toBeTruthy();
+    expect(screen.getByText(/Connect a devnet wallet/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /buy/i })).toBeNull();
   });
 });

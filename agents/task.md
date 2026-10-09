@@ -231,6 +231,8 @@ The goal is to finish core development early enough to leave several days for te
 
 **Status: persistent portfolio program foundation implemented; not deployed or connected to the live desk yet.**
 
+**Devnet deployment update (Oct 8, 2026):** Result Registry program deployed at `2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w`; Paper Market Registry initialized at `C7rAYuL9oA35SFKyKQwMfttdzmkVD3SDmeUku5qD3C2t`. No paper markets, portfolios, positions, or orders have been created.
+
 ## Completed
 
 - [x] Remove the optional devnet-SOL mirror, 10-SOL cap, and virtual-SOL conversion flow from Live Paper Desk
@@ -245,6 +247,7 @@ The goal is to finish core development early enough to leave several days for te
 - [x] Add a MagicBlock Pyth-oracle mirror account interface that verifies account address, owner, feed ID, positive price, and five-second freshness before execution
 - [x] Add public aggregate-only `PortfolioPerformance` and weekly `PortfolioCheckpoint` account layouts
 - [x] Add a portfolio delegation instruction and regenerate Codama bindings for the persistent portfolio instruction set
+- [x] Deploy the upgraded Result Registry program to devnet and initialize its Paper Market Registry PDA
 
 ## Next implementation steps
 

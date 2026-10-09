@@ -20,7 +20,8 @@ custom-panic = []
 
 [dependencies]
 anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
-ephemeral-rollups-sdk = { version = "0.16.2", features = ["anchor"] }
+ephemeral-rollups-sdk = { version = "0.16.2", features = ["anchor", "access-control"] }
+pyth-solana-receiver-sdk = "2.0.0"
 
 [dev-dependencies]
 litesvm = "0.10.0"

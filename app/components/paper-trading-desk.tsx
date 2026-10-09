@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import {
   IconArrowUpRight,
   IconArrowDownRight,
@@ -33,7 +33,18 @@ import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
 import { MarketExplorer } from "./market-explorer";
 import { useWallet } from "../lib/wallet/context";
+import { useCluster } from "./cluster-context";
 import { getMagicBlockConfig } from "../lib/magicblock/config";
+import {
+  authenticatePrivateEr,
+  getPrivateErRpcProxyUrl,
+  getPrivateErTransactionRelayUrl,
+} from "../lib/magicblock/private-er-auth";
+import {
+  PaperTradingRuntime,
+  sendPaperTransaction,
+  type PaperPortfolioRuntimeState,
+} from "../lib/magicblock/paper-session";
 import { getResultRegistryProgramAddress } from "../lib/results/registry";
 import type { IndicatorId } from "../lib/indicators";
 import {
@@ -1087,40 +1098,211 @@ export function LocalPaperTradingDesk({ active = true }: { active?: boolean }) {
  * an on-chain portfolio.
  */
 export function PaperTradingDesk({ active = true }: { active?: boolean }) {
-  const { wallet } = useWallet();
-  const magicBlock = getMagicBlockConfig();
+  const { wallet, signer } = useWallet();
+  const { cluster, setCluster } = useCluster();
+  // Environment configuration is immutable during a browser session. Keeping
+  // this reference stable prevents routed-account loading from restarting on
+  // every state update.
+  const magicBlock = useMemo(() => getMagicBlockConfig(), []);
   const programAddress = getResultRegistryProgramAddress();
+  const runtime = useRef<PaperTradingRuntime | null>(null);
+  const initialLoadKey = useRef<string | null>(null);
+  const [portfolioState, setPortfolioState] = useState<PaperPortfolioRuntimeState | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
+  const authenticate = useCallback(async () => {
+    if (!wallet) throw new Error("Connect a wallet before authorizing Private ER access.");
+    await authenticatePrivateEr(wallet);
+  }, [wallet]);
+
+  const loadPortfolio = useCallback(async () => {
+    // The deployed registry and configured MagicBlock base RPC are devnet
+    // only. Do not let a wallet preview a devnet transaction as mainnet,
+    // testnet, or localhost: wallets can surface that as "insufficient SOL".
+    if (cluster !== "devnet") {
+      runtime.current = null;
+      setPortfolioState(null);
+      setRuntimeError(null);
+      return;
+    }
+    if (!signer || !programAddress) return;
+    const nextRuntime = new PaperTradingRuntime(
+      signer,
+      programAddress,
+      async ({ instructions, computeUnits }) => {
+        const result = await sendPaperTransaction({
+          url: magicBlock.baseRpcUrl,
+          payer: signer,
+          instructions,
+          computeUnits,
+        });
+        return result.context.signature;
+      },
+      magicBlock,
+      magicBlock.privateErAuthEnabled ? getPrivateErRpcProxyUrl() : null,
+      magicBlock.privateErAuthEnabled ? authenticate : null,
+      magicBlock.privateErAuthEnabled ? getPrivateErTransactionRelayUrl() : null
+    );
+    runtime.current = nextRuntime;
+    try {
+      setRuntimeError(null);
+      setPortfolioState(await nextRuntime.load());
+    } catch (error) {
+      setPortfolioState(null);
+      setRuntimeError(error instanceof Error ? error.message : "Could not load the private portfolio runtime.");
+    }
+  }, [authenticate, cluster, magicBlock, programAddress, signer]);
+
+  const portfolioLoadKey = `${active}:${cluster}:${signer?.address ?? ""}:${programAddress ?? ""}`;
+  useEffect(() => {
+    if (!active) {
+      initialLoadKey.current = null;
+      return;
+    }
+    // Rendering an error/loading state must not recreate the runtime and start
+    // another thirty-request ER polling loop. A wallet, cluster, or tab change
+    // produces a new key; explicit retries remain available through the UI.
+    if (initialLoadKey.current === portfolioLoadKey) return;
+    initialLoadKey.current = portfolioLoadKey;
+    const timer = window.setTimeout(() => { void loadPortfolio(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [active, loadPortfolio, portfolioLoadKey]);
+
+  const createPortfolio = useCallback(async () => {
+    if (!runtime.current) return;
+    setIsWorking(true);
+    try {
+      setRuntimeError(null);
+      setPortfolioState(await runtime.current.createPortfolio());
+    } catch (error) {
+      setRuntimeError(error instanceof Error ? error.message : "Portfolio creation failed.");
+    } finally { setIsWorking(false); }
+  }, []);
+
+  const renewAuthorization = useCallback(async () => {
+    if (!runtime.current) return;
+    setIsWorking(true);
+    try {
+      setRuntimeError(null);
+      setPortfolioState(await runtime.current.renewAuthorization());
+    } catch (error) {
+      setRuntimeError(error instanceof Error ? error.message : "Authorization renewal failed.");
+    } finally { setIsWorking(false); }
+  }, []);
+
+  const authorizePrivateAccess = useCallback(async () => {
+    setIsWorking(true);
+    try {
+      setRuntimeError(null);
+      await authenticate();
+      await loadPortfolio();
+    } catch (error) {
+      setRuntimeError(error instanceof Error ? error.message : "Private ER authorization failed.");
+    } finally { setIsWorking(false); }
+  }, [authenticate, loadPortfolio]);
+
+  const recoverPrivateRouting = useCallback(async () => {
+    if (!runtime.current) return;
+    setIsWorking(true);
+    try {
+      setRuntimeError(null);
+      setPortfolioState(await runtime.current.recoverPrivateRouting());
+    } catch (error) {
+      setRuntimeError(error instanceof Error ? error.message : "Private routing recovery failed.");
+    } finally { setIsWorking(false); }
+  }, []);
+
   if (!active) return null;
+  const isDevnet = cluster === "devnet";
+  const canConfigure = Boolean(isDevnet && wallet && signer && wallet.signMessage && programAddress && magicBlock.enabled && magicBlock.privateErUrl && magicBlock.privateErValidator && magicBlock.privateErAuthEnabled);
+  const isReady = portfolioState?.kind === "ready";
+  const isReadOnly = portfolioState?.kind === "read-only";
+  const routingRequired = portfolioState?.kind === "routing-required";
+  const privateAccessRequired = portfolioState?.kind === "private-access-required";
   return (
     <section className="page-shell" aria-label="Paper Trading">
       <div className="workspace-top">
         <span>
-          <strong>Private portfolio setup in progress.</strong> · Paper trades
-          will become wallet-authorized and persistent here.
+          <strong>Private paper portfolio.</strong> · Balances and fills are read from the routed ER.
         </span>
         <span className="mono">ON-CHAIN EXECUTION REQUIRED</span>
       </div>
       <section className="panel empty-state" style={{ padding: 42 }}>
         <p className="eyebrow">PAPER PORTFOLIO</p>
-        <h1>Trading is temporarily disabled</h1>
+        <h1>{isReady ? "Portfolio ready" : isReadOnly ? "Renew trading authorization" : privateAccessRequired ? "Private ER access required" : routingRequired ? "Private routing required" : "Create your paper portfolio"}</h1>
         <p>
-          We disabled the old browser-only simulator because its balances
-          disappeared on refresh and no wallet transaction verified a trade.
-          The replacement starts one persistent 10,000 virtual-USDC portfolio
-          per wallet on a Private MagicBlock Ephemeral Rollup.
+          Each wallet has one persistent 10,000 virtual-USDC portfolio. There
+          are no real-token transfers; the only devnet SOL used is the disclosed
+          session-key fee allowance for Private ER transaction fees.
         </p>
         <div className="control-hint" style={{ marginTop: 16 }}>
           {!wallet
-            ? "Connect a devnet wallet to create your portfolio when the private runtime is live."
+            ? "Connect a devnet wallet to create or view your portfolio."
+            : !isDevnet
+              ? "Paper portfolios are deployed on devnet. Switch this app to devnet so your wallet previews and signs the same cluster that receives the transaction."
             : !programAddress
               ? "The result registry program has not been configured for devnet yet."
               : !magicBlock.enabled
                 ? "Private MagicBlock execution is not enabled for this deployment."
-                : "Waiting for the deployed private-ER portfolio runtime and validated oracle routing."}
+                : !magicBlock.privateErUrl
+                  ? "Add the MagicBlock-provisioned Private ER endpoint and validator public key before enabling wallet setup."
+                : !magicBlock.privateErValidator
+                  ? "Add the MagicBlock-provisioned Private ER validator public key before enabling wallet setup."
+                  : !magicBlock.privateErAuthEnabled
+                    ? "Configure the server-side Private ER challenge/login proxy before enabling wallet setup."
+                    : !wallet.signMessage
+                      ? "This wallet must support message signing to authenticate Private ER access."
+                  : runtimeError
+                    ? runtimeError
+                    : isReady
+                      ? "BTC/USD is awaiting its registry transaction. Trading remains locked until its Pyth oracle configuration is committed and verified."
+                      : isReadOnly
+                        ? "Your portfolio is private and persistent. Its memory-only signer is unavailable after reload, so trading is read-only until renewed."
+                        : privateAccessRequired
+                          ? "The portfolio is correctly routed to the Private ER, but its TEE rejected the configured credential for generic Solana RPC. Retrying can refresh an expired grant; otherwise MagicBlock must provision a generic Private-ER RPC credential or authenticated proxy for this application. Trading stays locked—there is no browser or public-ER fallback."
+                        : routingRequired
+                          ? portfolioState.reason
+                        : "Create your portfolio with one wallet approval. The wallet will initialize, fund the temporary fee signer, and delegate the portfolio."}
         </div>
+        {!isDevnet && (
+          <button className="btn primary" type="button" onClick={() => setCluster("devnet")} style={{ marginTop: 20 }}>
+            Switch to devnet
+          </button>
+        )}
+        {canConfigure && portfolioState?.kind === "missing" && (
+          <button className="btn primary" type="button" disabled={isWorking} onClick={() => void createPortfolio()} style={{ marginTop: 20 }}>
+            {isWorking ? "Creating portfolio…" : "Create portfolio"}
+          </button>
+        )}
+        {canConfigure && isReadOnly && (
+          <button className="btn primary" type="button" disabled={isWorking} onClick={() => void renewAuthorization()} style={{ marginTop: 20 }}>
+            {isWorking ? "Renewing authorization…" : "Renew authorization"}
+          </button>
+        )}
+        {canConfigure && privateAccessRequired && (
+          <button className="btn primary" type="button" disabled={isWorking} onClick={() => void authorizePrivateAccess()} style={{ marginTop: 20 }}>
+            {isWorking ? "Authorizing Private ER…" : "Authorize Private ER"}
+          </button>
+        )}
+        {canConfigure && routingRequired && portfolioState.erEndpoint && (
+          <button className="btn primary" type="button" disabled={isWorking} onClick={() => void recoverPrivateRouting()} style={{ marginTop: 20 }}>
+            {isWorking ? "Recovering private routing…" : "Recover private routing"}
+          </button>
+        )}
+        {canConfigure && runtimeError && !portfolioState && (
+          <button className="btn primary" type="button" disabled={isWorking} onClick={() => void loadPortfolio()} style={{ marginTop: 20 }}>
+            {isWorking ? "Loading portfolio…" : "Retry private ER read"}
+          </button>
+        )}
+        {isReady && (
+          <div className="metric-grid" style={{ marginTop: 20 }}>
+            <Metric label="Virtual USDC" value={money(Number(portfolioState.portfolio.availableUsdcCents))} />
+            <Metric label="Total equity" value={money(Number(portfolioState.portfolio.aggregateEquityCents))} />
+            <Metric label="Authorization" value="Active" />
+          </div>
+        )}
         <p className="control-hint" style={{ marginTop: 12 }}>
-          No funds will be moved. The wallet will approve portfolio creation
-          and periodic authorization renewal, never individual simulated trades.
+          Setup uses one wallet approval. Renewal may request a capped devnet-SOL fee top-up plus its authorization update; individual simulated trades never prompt the wallet. A browser reducer or local storage is never used for portfolio state.
         </p>
       </section>
     </section>

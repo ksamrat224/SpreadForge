@@ -15,7 +15,15 @@ pub struct DelegatePaperPortfolio<'info> {
     pub portfolio: UncheckedAccount<'info>,
 }
 
-pub fn handler(ctx: Context<DelegatePaperPortfolio>) -> Result<()> {
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct DelegatePaperPortfolioArgs {
+    /// MagicBlock-provisioned TEE validator identity. It is explicit so the
+    /// router never silently selects a public ER for private portfolio state.
+    pub validator: Pubkey,
+}
+
+pub fn handler(ctx: Context<DelegatePaperPortfolio>, args: DelegatePaperPortfolioArgs) -> Result<()> {
+    require!(args.validator != Pubkey::default(), ResultRegistryError::InvalidPrivateErValidator);
     let data = ctx.accounts.portfolio.try_borrow_data()?;
     let mut bytes: &[u8] = &data;
     let portfolio = PaperPortfolio::try_deserialize(&mut bytes)?;
@@ -26,7 +34,7 @@ pub fn handler(ctx: Context<DelegatePaperPortfolio>) -> Result<()> {
     ctx.accounts.delegate_portfolio(
         &ctx.accounts.authority,
         &[PAPER_PORTFOLIO_SEED, ctx.accounts.authority.key().as_ref()],
-        DelegateConfig::default(),
+        DelegateConfig { validator: Some(args.validator), ..DelegateConfig::default() },
     )?;
     Ok(())
 }

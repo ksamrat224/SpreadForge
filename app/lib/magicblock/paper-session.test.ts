@@ -4,6 +4,7 @@ import { parseDelegatePaperPortfolioInstruction, parseInitializePaperPortfolioIn
 import { buildPaperPortfolioStartPlan, findPaperPortfolioPda } from "./paper-session";
 
 const PROGRAM = address("8g3EVLPext6Ys4fg75ywroxsWNPBrUHTVC1svTRV2XfV");
+const VALIDATOR = address("11111111111111111111111111111111");
 const AUTHORITY = { address: "11111111111111111111111111111111" } as unknown as TransactionSigner;
 
 describe("private paper-portfolio planning", () => {
@@ -11,6 +12,7 @@ describe("private paper-portfolio planning", () => {
     const plan = await buildPaperPortfolioStartPlan({
       authority: AUTHORITY,
       programAddress: PROGRAM,
+      validator: VALIDATOR,
       expiresAt: Math.floor(Date.now() / 1000) + 60,
     });
     const [expected] = await findPaperPortfolioPda({ authority: AUTHORITY.address, programAddress: PROGRAM });

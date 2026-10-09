@@ -21,3 +21,6 @@ pub const PAPER_STARTING_USDC_CENTS: u64 = 1_000_000;
 pub const PAPER_AUTHORIZATION_SECONDS: i64 = 60 * 60 * 24;
 pub const PAPER_MAX_ORACLE_AGE_SECONDS: i64 = 5;
 pub const PAPER_CHECKPOINT_INTERVAL_SECONDS: i64 = 60;
+/// The wallet owner and its current in-memory session signer are the only
+/// members of a private portfolio permission.
+pub const PAPER_PERMISSION_MEMBER_COUNT: usize = 2;

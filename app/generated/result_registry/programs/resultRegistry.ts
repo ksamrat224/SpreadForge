@@ -25,12 +25,14 @@ import {
   parseFinalizeSessionInstruction,
   parseInitializePaperMarketRegistryInstruction,
   parseInitializePaperPortfolioInstruction,
+  parseInitializePaperPortfolioPermissionInstruction,
   parseInitializeSessionInstruction,
   parseMatchPaperMarketTickInstruction,
   parseOpenPaperPositionInstruction,
   parsePlacePaperLimitOrderInstruction,
   parsePlacePaperMarketOrderInstruction,
   parseProcessUndelegationInstruction,
+  parseRecoverPaperPortfolioInstruction,
   parseRenewPaperAuthorizationInstruction,
   parseSubmitResultInstruction,
   parseUpsertPaperMarketInstruction,
@@ -42,12 +44,14 @@ import {
   type ParsedFinalizeSessionInstruction,
   type ParsedInitializePaperMarketRegistryInstruction,
   type ParsedInitializePaperPortfolioInstruction,
+  type ParsedInitializePaperPortfolioPermissionInstruction,
   type ParsedInitializeSessionInstruction,
   type ParsedMatchPaperMarketTickInstruction,
   type ParsedOpenPaperPositionInstruction,
   type ParsedPlacePaperLimitOrderInstruction,
   type ParsedPlacePaperMarketOrderInstruction,
   type ParsedProcessUndelegationInstruction,
+  type ParsedRecoverPaperPortfolioInstruction,
   type ParsedRenewPaperAuthorizationInstruction,
   type ParsedSubmitResultInstruction,
   type ParsedUpsertPaperMarketInstruction,
@@ -197,12 +201,14 @@ export enum ResultRegistryInstruction {
   FinalizeSession,
   InitializePaperMarketRegistry,
   InitializePaperPortfolio,
+  InitializePaperPortfolioPermission,
   InitializeSession,
   MatchPaperMarketTick,
   OpenPaperPosition,
   PlacePaperLimitOrder,
   PlacePaperMarketOrder,
   ProcessUndelegation,
+  RecoverPaperPortfolio,
   RenewPaperAuthorization,
   SubmitResult,
   UpsertPaperMarket,
@@ -304,6 +310,17 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([232, 80, 249, 29, 105, 182, 42, 236]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.InitializePaperPortfolioPermission;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([69, 130, 92, 236, 107, 231, 159, 129]),
       ),
       0,
@@ -365,6 +382,17 @@ export function identifyResultRegistryInstruction(
     )
   ) {
     return ResultRegistryInstruction.ProcessUndelegation;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([196, 186, 139, 255, 193, 234, 67, 108]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.RecoverPaperPortfolio;
   }
   if (
     containsBytes(
@@ -432,6 +460,9 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.InitializePaperPortfolio;
     } & ParsedInitializePaperPortfolioInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.InitializePaperPortfolioPermission;
+    } & ParsedInitializePaperPortfolioPermissionInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.InitializeSession;
     } & ParsedInitializeSessionInstruction<TProgram>)
   | ({
@@ -449,6 +480,9 @@ export type ParsedResultRegistryInstruction<
   | ({
       instructionType: ResultRegistryInstruction.ProcessUndelegation;
     } & ParsedProcessUndelegationInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.RecoverPaperPortfolio;
+    } & ParsedRecoverPaperPortfolioInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.RenewPaperAuthorization;
     } & ParsedRenewPaperAuthorizationInstruction<TProgram>)
@@ -522,6 +556,14 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parseInitializePaperPortfolioInstruction(instruction),
       };
     }
+    case ResultRegistryInstruction.InitializePaperPortfolioPermission: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType:
+          ResultRegistryInstruction.InitializePaperPortfolioPermission,
+        ...parseInitializePaperPortfolioPermissionInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.InitializeSession: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -562,6 +604,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
       return {
         instructionType: ResultRegistryInstruction.ProcessUndelegation,
         ...parseProcessUndelegationInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.RecoverPaperPortfolio: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.RecoverPaperPortfolio,
+        ...parseRecoverPaperPortfolioInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.RenewPaperAuthorization: {

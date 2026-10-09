@@ -57,8 +57,16 @@ pub mod result_registry {
         instructions::paper_trading::initialize_portfolio(ctx, args)
     }
 
-    pub fn delegate_paper_portfolio(ctx: Context<DelegatePaperPortfolio>) -> Result<()> {
-        instructions::delegate_paper_portfolio::handler(ctx)
+    pub fn delegate_paper_portfolio(ctx: Context<DelegatePaperPortfolio>, args: DelegatePaperPortfolioArgs) -> Result<()> {
+        instructions::delegate_paper_portfolio::handler(ctx, args)
+    }
+
+    pub fn recover_paper_portfolio(ctx: Context<RecoverPaperPortfolio>) -> Result<()> {
+        instructions::recover_paper_portfolio::handler(ctx)
+    }
+
+    pub fn initialize_paper_portfolio_permission(ctx: Context<InitializePaperPortfolioPermission>) -> Result<()> {
+        instructions::paper_trading::initialize_portfolio_permission(ctx)
     }
 
     pub fn renew_paper_authorization(ctx: Context<RenewPaperAuthorization>, args: RenewPaperAuthorizationArgs) -> Result<()> {

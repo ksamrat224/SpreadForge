@@ -48,4 +48,6 @@ pub enum ResultRegistryError {
     PaperCheckpointNotDue,
     #[msg("Only aggregate performance can be written to this public account.")]
     InvalidPaperPerformance,
+    #[msg("A Private ER validator must be explicitly configured for paper portfolios.")]
+    InvalidPrivateErValidator,
 }

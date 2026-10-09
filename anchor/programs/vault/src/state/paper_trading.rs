@@ -49,7 +49,9 @@ impl PaperPortfolio {
     pub const ACTIVE: u8 = 1;
     pub const FINALIZED: u8 = 2;
     pub const EXPIRED: u8 = 3;
-    pub const SPACE: usize = 8 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1;
+    // Discriminator + 3 pubkeys + 8 integer fields + 3 one-byte fields.
+    // `expires_at` is included in the eight i64/u64 fields.
+    pub const SPACE: usize = 8 + 32 + 32 + 32 + (8 * 8) + 1 + 1 + 1;
 }
 
 #[account]

@@ -14,6 +14,7 @@ export * from "./delegationMetadataSession";
 export * from "./delegationRecordPortfolio";
 export * from "./delegationRecordSession";
 export * from "./performance";
+export * from "./permission";
 export * from "./portfolio";
 export * from "./position";
 export * from "./registry";
