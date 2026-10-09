@@ -45,8 +45,16 @@ import {
   createResultCommitment,
   type ResultCommitment,
 } from "../lib/results/commitment";
-import { buildSubmitResultInstruction, createRunNonce, getResultRegistryProgramAddress } from "../lib/results/registry";
-import { saveLocalRun, updateLocalRun, type LocalSimulationRun } from "../lib/leaderboard";
+import {
+  buildSubmitResultInstruction,
+  createRunNonce,
+  getResultRegistryProgramAddress,
+} from "../lib/results/registry";
+import {
+  saveLocalRun,
+  updateLocalRun,
+  type LocalSimulationRun,
+} from "../lib/leaderboard";
 import { useWallet } from "../lib/wallet/context";
 import { useCluster } from "./cluster-context";
 import { useSendTransaction } from "../lib/hooks/use-send-transaction";
@@ -58,33 +66,8 @@ import {
   money,
   signedMoney,
 } from "./terminal-ui";
+import { CHALLENGE_META } from "../lib/simulation/challenges";
 
-export const CHALLENGE_META = {
-  "stable-market": {
-    level: "Beginner",
-    volatility: "LOW",
-    tone: "profit",
-    tip: "Keep your quotes tight and your inventory balanced in a calm market.",
-    description:
-      "Find your rhythm. Provide steady liquidity in a calm, two-sided market.",
-  },
-  "whale-sell": {
-    level: "Intermediate",
-    volatility: "EVENT",
-    tone: "warning",
-    tip: "Build inventory headroom before the whale sell at tick 32.",
-    description:
-      "A large sell order hits at tick 32. Can your inventory limits absorb the shock?",
-  },
-  "flash-crash": {
-    level: "Advanced",
-    volatility: "EXTREME",
-    tone: "loss",
-    tip: "Protect your inventory through the crash at tick 20 and the recovery that follows.",
-    description:
-      "Survive a sudden 12% crash, then navigate two sharp recovery waves.",
-  },
-};
 const dimensions = [
   ["liquidity", "Liquidity uptime", 30, 90],
   ["spreadEfficiency", "Spread efficiency", 25, 80],
@@ -118,12 +101,37 @@ const CHART_OPTIONS: ChartViewOption<ChartView>[] = [
   { value: "area", label: "Area", group: "Price", Icon: IconChartAreaLine },
   { value: "candles", label: "Candles", group: "Price", Icon: IconChartCandle },
   { value: "ohlc", label: "OHLC bars", group: "Price", Icon: IconChartBar },
-  { value: "heikin", label: "Heikin-Ashi", group: "Price", Icon: IconChartHistogram },
-  { value: "depth", label: "Order book depth", group: "Analytics", Icon: IconChartDots },
-  { value: "spread", label: "Bid / ask spread", group: "Analytics", Icon: IconArrowsExchange },
+  {
+    value: "heikin",
+    label: "Heikin-Ashi",
+    group: "Price",
+    Icon: IconChartHistogram,
+  },
+  {
+    value: "depth",
+    label: "Order book depth",
+    group: "Analytics",
+    Icon: IconChartDots,
+  },
+  {
+    value: "spread",
+    label: "Bid / ask spread",
+    group: "Analytics",
+    Icon: IconArrowsExchange,
+  },
   { value: "inventory", label: "Inventory", group: "Analytics", Icon: IconBox },
-  { value: "pnl", label: "P&L / equity", group: "Analytics", Icon: IconCurrencyDollar },
-  { value: "drawdown", label: "Drawdown", group: "Analytics", Icon: IconTrendingDown },
+  {
+    value: "pnl",
+    label: "P&L / equity",
+    group: "Analytics",
+    Icon: IconCurrencyDollar,
+  },
+  {
+    value: "drawdown",
+    label: "Drawdown",
+    group: "Analytics",
+    Icon: IconTrendingDown,
+  },
 ];
 
 export function ChallengeDrawer({
@@ -227,7 +235,10 @@ export function SimulationLab({
   }, [running, finished, scenario, strategy, speed, active]);
   useEffect(() => {
     if (!finished || completedRunId) return;
-    const timer = window.setTimeout(() => setCompletedRunId(crypto.randomUUID()), 0);
+    const timer = window.setTimeout(
+      () => setCompletedRunId(crypto.randomUUID()),
+      0
+    );
     return () => window.clearTimeout(timer);
   }, [finished, completedRunId]);
   function reset(nextScenario = scenario, nextStrategy = strategy) {
@@ -306,13 +317,20 @@ export function SimulationLab({
                 value={scenarioId}
                 disabled={running && !finished}
                 onChange={(value) => select(value as ScenarioId)}
-                options={(["stable-market", "whale-sell", "flash-crash"] as ScenarioId[]).map((id) => {
-                  const ScenarioIcon = id === "stable-market"
-                    ? IconChartLine
-                    : id === "whale-sell"
-                      ? IconTrendingDown
-                      : IconBolt;
-                  return { value: id, label: SCENARIOS[id].name, icon: <ScenarioIcon size={14} /> };
+                options={(
+                  ["stable-market", "whale-sell", "flash-crash"] as ScenarioId[]
+                ).map((id) => {
+                  const ScenarioIcon =
+                    id === "stable-market"
+                      ? IconChartLine
+                      : id === "whale-sell"
+                        ? IconTrendingDown
+                        : IconBolt;
+                  return {
+                    value: id,
+                    label: SCENARIOS[id].name,
+                    icon: <ScenarioIcon size={14} />,
+                  };
                 })}
               />
             </div>
@@ -440,7 +458,9 @@ export function SimulationLab({
             <div className="market-header">
               <div>
                 <div className="market-pair">
-                  <span className="pair-icon"><SolanaLogo size={24} /></span>
+                  <span className="pair-icon">
+                    <SolanaLogo size={24} />
+                  </span>
                   <div>
                     <h2>SOL / USDC</h2>
                     <small>DETERMINISTIC MARKET · SIMULATED</small>
@@ -596,7 +616,10 @@ export function SimulationLab({
               {tier(breakdown.total).toUpperCase()} PACE
             </span>
             {finished && dismissed && (
-              <button className="btn primary score-results-button" onClick={() => setDismissed(false)}>
+              <button
+                className="btn primary score-results-button"
+                onClick={() => setDismissed(false)}
+              >
                 <IconCrown size={15} />
                 View results
               </button>
@@ -633,7 +656,11 @@ export function SimulationLab({
         </aside>
       </div>
       {active && finished && !dismissed && (
-        <Modal title="Session debrief" onClose={() => setDismissed(true)} scrollBody>
+        <Modal
+          title="Session debrief"
+          onClose={() => setDismissed(true)}
+          scrollBody
+        >
           <Results
             scenario={scenario}
             strategy={strategy}
@@ -1185,11 +1212,11 @@ export function Results({
     setError("");
     try {
       const nextCommitment = await createResultCommitment({
-          scenario,
-          strategy,
-          state,
-          score: breakdown,
-        });
+        scenario,
+        strategy,
+        state,
+        score: breakdown,
+      });
       const run: LocalSimulationRun = {
         id: runId,
         completedAt: new Date().toISOString(),
@@ -1230,21 +1257,34 @@ export function Results({
     setError("");
     updateLocalRun(localRun.id, { status: "submitting", error: undefined });
     try {
-      const { instruction, resultAddress } = await buildSubmitResultInstruction({
-        authority: signer,
-        commitment,
-        runNonce: createRunNonce(),
-        programAddress,
-      });
+      const { instruction, resultAddress } = await buildSubmitResultInstruction(
+        {
+          authority: signer,
+          commitment,
+          runNonce: createRunNonce(),
+          programAddress,
+        }
+      );
       // The wallet controls and explicitly approves the signature. The shared
       // sender keeps RPC preflight enabled before broadcasting.
       const signature = await send({ instructions: [instruction] });
-      updateLocalRun(localRun.id, { status: "committed", resultAddress, signature });
-      setLocalRun((current) => current ? { ...current, status: "committed", resultAddress, signature } : current);
+      updateLocalRun(localRun.id, {
+        status: "committed",
+        resultAddress,
+        signature,
+      });
+      setLocalRun((current) =>
+        current
+          ? { ...current, status: "committed", resultAddress, signature }
+          : current
+      );
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Could not commit result to devnet.";
+      const message =
+        e instanceof Error ? e.message : "Could not commit result to devnet.";
       updateLocalRun(localRun.id, { status: "failed", error: message });
-      setLocalRun((current) => current ? { ...current, status: "failed", error: message } : current);
+      setLocalRun((current) =>
+        current ? { ...current, status: "failed", error: message } : current
+      );
       setError(message);
     } finally {
       setBusy(false);
@@ -1318,17 +1358,36 @@ export function Results({
             <dd>{commitment.resultHash}</dd>
           </dl>
           {localRun?.status === "committed" ? (
-            <p className="profit">Committed to devnet. Your wallet-committed result can now appear on the global board.</p>
+            <p className="profit">
+              Committed to devnet. Your wallet-committed result can now appear
+              on the global board.
+            </p>
           ) : signer && programAddress && cluster === "devnet" ? (
             <>
-              <p className="control-hint">Review: {scenario.name}, {breakdown.total.toLocaleString()} score, {state.fills.length} fills. This creates a public immutable devnet record.</p>
-              <button className="btn primary" onClick={() => void commit()} disabled={busy || isSending || localRun?.status === "submitting"}>
+              <p className="control-hint">
+                Review: {scenario.name}, {breakdown.total.toLocaleString()}{" "}
+                score, {state.fills.length} fills. This creates a public
+                immutable devnet record.
+              </p>
+              <button
+                className="btn primary"
+                onClick={() => void commit()}
+                disabled={
+                  busy || isSending || localRun?.status === "submitting"
+                }
+              >
                 <IconShieldCheck size={15} />
                 {busy || isSending ? "Committing…" : "Commit result to devnet"}
               </button>
             </>
           ) : (
-            <p className="control-hint">{cluster !== "devnet" ? "Switch the cluster to devnet to commit this result." : !signer ? "Connect a wallet to commit this result to devnet." : "The result registry is not configured yet."}</p>
+            <p className="control-hint">
+              {cluster !== "devnet"
+                ? "Switch the cluster to devnet to commit this result."
+                : !signer
+                  ? "Connect a wallet to commit this result to devnet."
+                  : "The result registry is not configured yet."}
+            </p>
           )}
         </div>
       )}
