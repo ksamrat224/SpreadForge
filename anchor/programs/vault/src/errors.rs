@@ -24,4 +24,18 @@ pub enum ResultRegistryError {
     SessionNotComplete,
     #[msg("The session schema version is not supported.")]
     UnsupportedSessionSchemaVersion,
+    #[msg("Paper accounts are funded with fixed USDC or by mirroring wallet SOL.")]
+    InvalidPaperFunding,
+    #[msg("Only the wallet that owns this paper account may trade or settle it.")]
+    UnauthorizedPaperTrader,
+    #[msg("This paper market is not supported.")]
+    InvalidPaperAsset,
+    #[msg("Paper orders need a valid side, source, positive price, and positive size.")]
+    InvalidPaperOrder,
+    #[msg("The reference price is too old or too far in the future.")]
+    StalePaperPrice,
+    #[msg("Not enough simulated balance for this paper trade.")]
+    InsufficientPaperBalance,
+    #[msg("The paper trade overflows the account's balances.")]
+    PaperMathOverflow,
 }

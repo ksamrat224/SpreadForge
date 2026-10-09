@@ -18,16 +18,24 @@ import {
 } from "@solana/kit";
 import {
   parseAdvanceSessionInstruction,
+  parseDelegatePaperAccountInstruction,
   parseDelegateSessionInstruction,
   parseFinalizeSessionInstruction,
   parseInitializeSessionInstruction,
+  parseOpenPaperAccountInstruction,
+  parsePaperTradeInstruction,
   parseProcessUndelegationInstruction,
+  parseSettlePaperAccountInstruction,
   parseSubmitResultInstruction,
   type ParsedAdvanceSessionInstruction,
+  type ParsedDelegatePaperAccountInstruction,
   type ParsedDelegateSessionInstruction,
   type ParsedFinalizeSessionInstruction,
   type ParsedInitializeSessionInstruction,
+  type ParsedOpenPaperAccountInstruction,
+  type ParsedPaperTradeInstruction,
   type ParsedProcessUndelegationInstruction,
+  type ParsedSettlePaperAccountInstruction,
   type ParsedSubmitResultInstruction,
 } from "../instructions";
 
@@ -35,6 +43,7 @@ export const RESULT_REGISTRY_PROGRAM_ADDRESS =
   "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">;
 
 export enum ResultRegistryAccount {
+  PaperAccount,
   ResultRecord,
   SessionState,
 }
@@ -43,6 +52,17 @@ export function identifyResultRegistryAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ResultRegistryAccount {
   const data = "data" in account ? account.data : account;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([40, 136, 1, 210, 201, 113, 90, 15]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PaperAccount;
+  }
   if (
     containsBytes(
       data,
@@ -72,10 +92,14 @@ export function identifyResultRegistryAccount(
 
 export enum ResultRegistryInstruction {
   AdvanceSession,
+  DelegatePaperAccount,
   DelegateSession,
   FinalizeSession,
   InitializeSession,
+  OpenPaperAccount,
+  PaperTrade,
   ProcessUndelegation,
+  SettlePaperAccount,
   SubmitResult,
 }
 
@@ -93,6 +117,17 @@ export function identifyResultRegistryInstruction(
     )
   ) {
     return ResultRegistryInstruction.AdvanceSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([250, 92, 195, 112, 219, 92, 72, 154]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.DelegatePaperAccount;
   }
   if (
     containsBytes(
@@ -131,12 +166,45 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([208, 251, 147, 222, 36, 66, 114, 52]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.OpenPaperAccount;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([176, 113, 46, 231, 131, 171, 122, 191]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.PaperTrade;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([196, 28, 41, 206, 48, 37, 51, 167]),
       ),
       0,
     )
   ) {
     return ResultRegistryInstruction.ProcessUndelegation;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([105, 203, 52, 24, 105, 59, 252, 202]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.SettlePaperAccount;
   }
   if (
     containsBytes(
@@ -161,6 +229,9 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.AdvanceSession;
     } & ParsedAdvanceSessionInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.DelegatePaperAccount;
+    } & ParsedDelegatePaperAccountInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.DelegateSession;
     } & ParsedDelegateSessionInstruction<TProgram>)
   | ({
@@ -170,8 +241,17 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.InitializeSession;
     } & ParsedInitializeSessionInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.OpenPaperAccount;
+    } & ParsedOpenPaperAccountInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.PaperTrade;
+    } & ParsedPaperTradeInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.ProcessUndelegation;
     } & ParsedProcessUndelegationInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.SettlePaperAccount;
+    } & ParsedSettlePaperAccountInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.SubmitResult;
     } & ParsedSubmitResultInstruction<TProgram>);
@@ -186,6 +266,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
       return {
         instructionType: ResultRegistryInstruction.AdvanceSession,
         ...parseAdvanceSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.DelegatePaperAccount: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.DelegatePaperAccount,
+        ...parseDelegatePaperAccountInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.DelegateSession: {
@@ -209,11 +296,32 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parseInitializeSessionInstruction(instruction),
       };
     }
+    case ResultRegistryInstruction.OpenPaperAccount: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.OpenPaperAccount,
+        ...parseOpenPaperAccountInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.PaperTrade: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.PaperTrade,
+        ...parsePaperTradeInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.ProcessUndelegation: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: ResultRegistryInstruction.ProcessUndelegation,
         ...parseProcessUndelegationInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.SettlePaperAccount: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.SettlePaperAccount,
+        ...parseSettlePaperAccountInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.SubmitResult: {

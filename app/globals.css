@@ -557,6 +557,14 @@
 .workspace-top .mono {
   font-size: 9px;
 }
+.settlement-toggle {
+  flex: none;
+}
+.settlement-toggle button {
+  padding: 5px 9px;
+  font-size: 9px;
+  white-space: nowrap;
+}
 .eyebrow {
   font: 500 9px var(--font-mono);
   letter-spacing: 1.1px;
@@ -2971,6 +2979,7 @@ tr:last-child td {
     padding: 14px;
   }
   .workspace-top {
+    flex-wrap: wrap;
     font-size: 10px;
   }
   .workspace-top > .mono {

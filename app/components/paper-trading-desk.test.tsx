@@ -8,11 +8,57 @@ const mocks = vi.hoisted(() => ({
   balance: null as bigint | null,
   loading: false,
   error: undefined as unknown,
+  chainTrade: vi.fn<(order: unknown) => Promise<string | null>>(
+    async () => null
+  ),
+  chainEnabled: false,
 }));
 
 vi.mock("./cluster-context", () => ({
-  useCluster: () => ({ cluster: mocks.cluster }),
+  useCluster: () => ({
+    cluster: mocks.cluster,
+    getExplorerUrl: (path: string) => `https://explorer.test${path}`,
+  }),
 }));
+vi.mock("../lib/hooks/use-paper-chain", async () => {
+  const { PAPER_ASSETS } = await import("../lib/simulation/paper");
+  const positions = Object.fromEntries(
+    PAPER_ASSETS.map((asset) => [
+      asset,
+      { quantityMilliAsset: asset === "SOL" ? 2_000 : 0, inventoryCostCents: asset === "SOL" ? 30_000 : 0 },
+    ])
+  );
+  const snapshot = {
+    fundingSource: "fixed",
+    usdcCents: 970_000,
+    startEquityCents: 1_000_000,
+    realizedPnlCents: 0,
+    positions,
+    trades: [],
+  };
+  return {
+    usePaperChain: (enabled: boolean) => {
+      mocks.chainEnabled = enabled;
+      return {
+        status: enabled ? "delegated" : "unavailable",
+        address: enabled ? "PaperAccount1111111111111111111111111111111" : null,
+        nonce: enabled ? 0n : null,
+        erEndpoint: enabled ? "https://devnet-as.magicblock.app/" : null,
+        snapshot: enabled ? snapshot : null,
+        busy: null,
+        error: null,
+        lastSignature: null,
+        available: enabled,
+        unavailableReason: null,
+        open: vi.fn(),
+        resume: vi.fn(),
+        settle: vi.fn(),
+        refresh: vi.fn(),
+        trade: mocks.chainTrade,
+      };
+    },
+  };
+});
 vi.mock("../lib/wallet/context", () => ({
   useWallet: () => ({ wallet: mocks.wallet }),
 }));
@@ -94,6 +140,40 @@ describe("Devnet wallet practice", () => {
     expect(
       screen.queryByRole("region", { name: "Devnet wallet practice" })
     ).toBeNull();
+  });
+});
+
+describe("On-chain settlement", () => {
+  it("routes trades to a wallet-signed MagicBlock transaction and shows chain balances", async () => {
+    mocks.wallet = { account: { address: "wallet-address" } };
+    mocks.chainTrade.mockClear();
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => liveResponse(url)));
+    render(<PaperTradingDesk />);
+    expect(mocks.chainEnabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "ON-CHAIN · MAGICBLOCK" }));
+    expect(
+      screen.getByRole("region", { name: "On-chain paper account" })
+    ).toBeTruthy();
+    expect(mocks.chainEnabled).toBe(true);
+    // Balances come from the account, not the local 10,000 USDC practice.
+    expect(await screen.findByText("$9,700.00")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reset portfolio" })).toBeNull();
+
+    const buy = await screen.findByRole("button", { name: /Buy 0\.007 SOL/ });
+    await waitFor(() => expect((buy as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(buy);
+    expect(mocks.chainTrade).toHaveBeenCalledWith(
+      expect.objectContaining({
+        asset: "SOL",
+        side: "buy",
+        source: "MARKET",
+        priceCents: 15_000,
+        sizeMilliAsset: 7,
+      })
+    );
+    // Nothing fills locally; the fill appears only after the chain read.
+    expect(screen.getByText(/Your first trade starts the story/)).toBeTruthy();
   });
 });
 

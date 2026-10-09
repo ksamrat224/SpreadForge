@@ -6,6 +6,5 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./paperAccount";
-export * from "./resultRecord";
-export * from "./sessionState";
+export * from "./paperFill";
+export * from "./paperPosition";

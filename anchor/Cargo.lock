@@ -2557,6 +2557,7 @@ dependencies = [
  "ephemeral-rollups-sdk",
  "litesvm",
  "solana-sdk",
+ "solana-sha256-hasher 3.1.0",
 ]
 
 [[package]]

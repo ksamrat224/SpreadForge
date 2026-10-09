@@ -33,10 +33,10 @@ import {
   type WritableSignerAccount,
 } from "@solana/kit";
 import {
-  findBufferSessionPda,
-  findDelegationMetadataSessionPda,
-  findDelegationRecordSessionPda,
-  findSessionPda,
+  findBufferPaperPda,
+  findDelegationMetadataPaperPda,
+  findDelegationRecordPaperPda,
+  findPaperPda,
 } from "../pdas";
 import { RESULT_REGISTRY_PROGRAM_ADDRESS } from "../programs";
 import {
@@ -46,24 +46,23 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const DELEGATE_SESSION_DISCRIMINATOR = new Uint8Array([
-  82, 83, 119, 119, 196, 219, 5, 197,
+export const DELEGATE_PAPER_ACCOUNT_DISCRIMINATOR = new Uint8Array([
+  250, 92, 195, 112, 219, 92, 72, 154,
 ]);
 
-export function getDelegateSessionDiscriminatorBytes() {
+export function getDelegatePaperAccountDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    DELEGATE_SESSION_DISCRIMINATOR,
+    DELEGATE_PAPER_ACCOUNT_DISCRIMINATOR,
   );
 }
 
-export type DelegateSessionInstruction<
+export type DelegatePaperAccountInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountAuthority extends string | AccountMeta<string> = string,
-  TAccountBufferSession extends string | AccountMeta<string> = string,
-  TAccountDelegationRecordSession extends string | AccountMeta<string> = string,
-  TAccountDelegationMetadataSession extends string | AccountMeta<string> =
-    string,
-  TAccountSession extends string | AccountMeta<string> = string,
+  TAccountBufferPaper extends string | AccountMeta<string> = string,
+  TAccountDelegationRecordPaper extends string | AccountMeta<string> = string,
+  TAccountDelegationMetadataPaper extends string | AccountMeta<string> = string,
+  TAccountPaper extends string | AccountMeta<string> = string,
   TAccountOwnerProgram extends string | AccountMeta<string> =
     "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w",
   TAccountDelegationProgram extends string | AccountMeta<string> =
@@ -79,18 +78,18 @@ export type DelegateSessionInstruction<
         ? WritableSignerAccount<TAccountAuthority> &
             AccountSignerMeta<TAccountAuthority>
         : TAccountAuthority,
-      TAccountBufferSession extends string
-        ? WritableAccount<TAccountBufferSession>
-        : TAccountBufferSession,
-      TAccountDelegationRecordSession extends string
-        ? WritableAccount<TAccountDelegationRecordSession>
-        : TAccountDelegationRecordSession,
-      TAccountDelegationMetadataSession extends string
-        ? WritableAccount<TAccountDelegationMetadataSession>
-        : TAccountDelegationMetadataSession,
-      TAccountSession extends string
-        ? WritableAccount<TAccountSession>
-        : TAccountSession,
+      TAccountBufferPaper extends string
+        ? WritableAccount<TAccountBufferPaper>
+        : TAccountBufferPaper,
+      TAccountDelegationRecordPaper extends string
+        ? WritableAccount<TAccountDelegationRecordPaper>
+        : TAccountDelegationRecordPaper,
+      TAccountDelegationMetadataPaper extends string
+        ? WritableAccount<TAccountDelegationMetadataPaper>
+        : TAccountDelegationMetadataPaper,
+      TAccountPaper extends string
+        ? WritableAccount<TAccountPaper>
+        : TAccountPaper,
       TAccountOwnerProgram extends string
         ? ReadonlyAccount<TAccountOwnerProgram>
         : TAccountOwnerProgram,
@@ -104,92 +103,97 @@ export type DelegateSessionInstruction<
     ]
   >;
 
-export type DelegateSessionInstructionData = {
+export type DelegatePaperAccountInstructionData = {
   discriminator: ReadonlyUint8Array;
-  runNonce: bigint;
+  nonce: bigint;
 };
 
-export type DelegateSessionInstructionDataArgs = { runNonce: number | bigint };
+export type DelegatePaperAccountInstructionDataArgs = {
+  nonce: number | bigint;
+};
 
-export function getDelegateSessionInstructionDataEncoder(): FixedSizeEncoder<DelegateSessionInstructionDataArgs> {
+export function getDelegatePaperAccountInstructionDataEncoder(): FixedSizeEncoder<DelegatePaperAccountInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["runNonce", getU64Encoder()],
+      ["nonce", getU64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: DELEGATE_SESSION_DISCRIMINATOR }),
+    (value) => ({
+      ...value,
+      discriminator: DELEGATE_PAPER_ACCOUNT_DISCRIMINATOR,
+    }),
   );
 }
 
-export function getDelegateSessionInstructionDataDecoder(): FixedSizeDecoder<DelegateSessionInstructionData> {
+export function getDelegatePaperAccountInstructionDataDecoder(): FixedSizeDecoder<DelegatePaperAccountInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["runNonce", getU64Decoder()],
+    ["nonce", getU64Decoder()],
   ]);
 }
 
-export function getDelegateSessionInstructionDataCodec(): FixedSizeCodec<
-  DelegateSessionInstructionDataArgs,
-  DelegateSessionInstructionData
+export function getDelegatePaperAccountInstructionDataCodec(): FixedSizeCodec<
+  DelegatePaperAccountInstructionDataArgs,
+  DelegatePaperAccountInstructionData
 > {
   return combineCodec(
-    getDelegateSessionInstructionDataEncoder(),
-    getDelegateSessionInstructionDataDecoder(),
+    getDelegatePaperAccountInstructionDataEncoder(),
+    getDelegatePaperAccountInstructionDataDecoder(),
   );
 }
 
-export type DelegateSessionAsyncInput<
+export type DelegatePaperAccountAsyncInput<
   TAccountAuthority extends string = string,
-  TAccountBufferSession extends string = string,
-  TAccountDelegationRecordSession extends string = string,
-  TAccountDelegationMetadataSession extends string = string,
-  TAccountSession extends string = string,
+  TAccountBufferPaper extends string = string,
+  TAccountDelegationRecordPaper extends string = string,
+  TAccountDelegationMetadataPaper extends string = string,
+  TAccountPaper extends string = string,
   TAccountOwnerProgram extends string = string,
   TAccountDelegationProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** Pays the refundable delegation deposit, so it must be writable. */
   authority: TransactionSigner<TAccountAuthority>;
-  bufferSession?: Address<TAccountBufferSession>;
-  delegationRecordSession?: Address<TAccountDelegationRecordSession>;
-  delegationMetadataSession?: Address<TAccountDelegationMetadataSession>;
-  session?: Address<TAccountSession>;
+  bufferPaper?: Address<TAccountBufferPaper>;
+  delegationRecordPaper?: Address<TAccountDelegationRecordPaper>;
+  delegationMetadataPaper?: Address<TAccountDelegationMetadataPaper>;
+  paper?: Address<TAccountPaper>;
   ownerProgram?: Address<TAccountOwnerProgram>;
   delegationProgram?: Address<TAccountDelegationProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  runNonce: DelegateSessionInstructionDataArgs["runNonce"];
+  nonce: DelegatePaperAccountInstructionDataArgs["nonce"];
 };
 
-export async function getDelegateSessionInstructionAsync<
+export async function getDelegatePaperAccountInstructionAsync<
   TAccountAuthority extends string,
-  TAccountBufferSession extends string,
-  TAccountDelegationRecordSession extends string,
-  TAccountDelegationMetadataSession extends string,
-  TAccountSession extends string,
+  TAccountBufferPaper extends string,
+  TAccountDelegationRecordPaper extends string,
+  TAccountDelegationMetadataPaper extends string,
+  TAccountPaper extends string,
   TAccountOwnerProgram extends string,
   TAccountDelegationProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
-  input: DelegateSessionAsyncInput<
+  input: DelegatePaperAccountAsyncInput<
     TAccountAuthority,
-    TAccountBufferSession,
-    TAccountDelegationRecordSession,
-    TAccountDelegationMetadataSession,
-    TAccountSession,
+    TAccountBufferPaper,
+    TAccountDelegationRecordPaper,
+    TAccountDelegationMetadataPaper,
+    TAccountPaper,
     TAccountOwnerProgram,
     TAccountDelegationProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  DelegateSessionInstruction<
+  DelegatePaperAccountInstruction<
     TProgramAddress,
     TAccountAuthority,
-    TAccountBufferSession,
-    TAccountDelegationRecordSession,
-    TAccountDelegationMetadataSession,
-    TAccountSession,
+    TAccountBufferPaper,
+    TAccountDelegationRecordPaper,
+    TAccountDelegationMetadataPaper,
+    TAccountPaper,
     TAccountOwnerProgram,
     TAccountDelegationProgram,
     TAccountSystemProgram
@@ -202,16 +206,16 @@ export async function getDelegateSessionInstructionAsync<
   // Original accounts.
   const originalAccounts = {
     authority: { value: input.authority ?? null, isWritable: true },
-    bufferSession: { value: input.bufferSession ?? null, isWritable: true },
-    delegationRecordSession: {
-      value: input.delegationRecordSession ?? null,
+    bufferPaper: { value: input.bufferPaper ?? null, isWritable: true },
+    delegationRecordPaper: {
+      value: input.delegationRecordPaper ?? null,
       isWritable: true,
     },
-    delegationMetadataSession: {
-      value: input.delegationMetadataSession ?? null,
+    delegationMetadataPaper: {
+      value: input.delegationMetadataPaper ?? null,
       isWritable: true,
     },
-    session: { value: input.session ?? null, isWritable: true },
+    paper: { value: input.paper ?? null, isWritable: true },
     ownerProgram: { value: input.ownerProgram ?? null, isWritable: false },
     delegationProgram: {
       value: input.delegationProgram ?? null,
@@ -228,32 +232,31 @@ export async function getDelegateSessionInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.session.value) {
-    accounts.session.value = await findSessionPda({
+  if (!accounts.paper.value) {
+    accounts.paper.value = await findPaperPda({
       authority: expectAddress(accounts.authority.value),
-      runNonce: expectSome(args.runNonce),
+      nonce: expectSome(args.nonce),
     });
   }
-  if (!accounts.bufferSession.value) {
-    accounts.bufferSession.value = await findBufferSessionPda({
-      session: expectAddress(accounts.session.value),
+  if (!accounts.bufferPaper.value) {
+    accounts.bufferPaper.value = await findBufferPaperPda({
+      paper: expectAddress(accounts.paper.value),
     });
   }
   if (!accounts.delegationProgram.value) {
     accounts.delegationProgram.value =
       "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh" as Address<"DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh">;
   }
-  if (!accounts.delegationRecordSession.value) {
-    accounts.delegationRecordSession.value =
-      await findDelegationRecordSessionPda(
-        { session: expectAddress(accounts.session.value) },
-        { programAddress: expectAddress(accounts.delegationProgram.value) },
-      );
+  if (!accounts.delegationRecordPaper.value) {
+    accounts.delegationRecordPaper.value = await findDelegationRecordPaperPda(
+      { paper: expectAddress(accounts.paper.value) },
+      { programAddress: expectAddress(accounts.delegationProgram.value) },
+    );
   }
-  if (!accounts.delegationMetadataSession.value) {
-    accounts.delegationMetadataSession.value =
-      await findDelegationMetadataSessionPda(
-        { session: expectAddress(accounts.session.value) },
+  if (!accounts.delegationMetadataPaper.value) {
+    accounts.delegationMetadataPaper.value =
+      await findDelegationMetadataPaperPda(
+        { paper: expectAddress(accounts.paper.value) },
         { programAddress: expectAddress(accounts.delegationProgram.value) },
       );
   }
@@ -270,82 +273,82 @@ export async function getDelegateSessionInstructionAsync<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.authority),
-      getAccountMeta(accounts.bufferSession),
-      getAccountMeta(accounts.delegationRecordSession),
-      getAccountMeta(accounts.delegationMetadataSession),
-      getAccountMeta(accounts.session),
+      getAccountMeta(accounts.bufferPaper),
+      getAccountMeta(accounts.delegationRecordPaper),
+      getAccountMeta(accounts.delegationMetadataPaper),
+      getAccountMeta(accounts.paper),
       getAccountMeta(accounts.ownerProgram),
       getAccountMeta(accounts.delegationProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getDelegateSessionInstructionDataEncoder().encode(
-      args as DelegateSessionInstructionDataArgs,
+    data: getDelegatePaperAccountInstructionDataEncoder().encode(
+      args as DelegatePaperAccountInstructionDataArgs,
     ),
     programAddress,
-  } as DelegateSessionInstruction<
+  } as DelegatePaperAccountInstruction<
     TProgramAddress,
     TAccountAuthority,
-    TAccountBufferSession,
-    TAccountDelegationRecordSession,
-    TAccountDelegationMetadataSession,
-    TAccountSession,
+    TAccountBufferPaper,
+    TAccountDelegationRecordPaper,
+    TAccountDelegationMetadataPaper,
+    TAccountPaper,
     TAccountOwnerProgram,
     TAccountDelegationProgram,
     TAccountSystemProgram
   >);
 }
 
-export type DelegateSessionInput<
+export type DelegatePaperAccountInput<
   TAccountAuthority extends string = string,
-  TAccountBufferSession extends string = string,
-  TAccountDelegationRecordSession extends string = string,
-  TAccountDelegationMetadataSession extends string = string,
-  TAccountSession extends string = string,
+  TAccountBufferPaper extends string = string,
+  TAccountDelegationRecordPaper extends string = string,
+  TAccountDelegationMetadataPaper extends string = string,
+  TAccountPaper extends string = string,
   TAccountOwnerProgram extends string = string,
   TAccountDelegationProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   /** Pays the refundable delegation deposit, so it must be writable. */
   authority: TransactionSigner<TAccountAuthority>;
-  bufferSession: Address<TAccountBufferSession>;
-  delegationRecordSession: Address<TAccountDelegationRecordSession>;
-  delegationMetadataSession: Address<TAccountDelegationMetadataSession>;
-  session: Address<TAccountSession>;
+  bufferPaper: Address<TAccountBufferPaper>;
+  delegationRecordPaper: Address<TAccountDelegationRecordPaper>;
+  delegationMetadataPaper: Address<TAccountDelegationMetadataPaper>;
+  paper: Address<TAccountPaper>;
   ownerProgram?: Address<TAccountOwnerProgram>;
   delegationProgram?: Address<TAccountDelegationProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  runNonce: DelegateSessionInstructionDataArgs["runNonce"];
+  nonce: DelegatePaperAccountInstructionDataArgs["nonce"];
 };
 
-export function getDelegateSessionInstruction<
+export function getDelegatePaperAccountInstruction<
   TAccountAuthority extends string,
-  TAccountBufferSession extends string,
-  TAccountDelegationRecordSession extends string,
-  TAccountDelegationMetadataSession extends string,
-  TAccountSession extends string,
+  TAccountBufferPaper extends string,
+  TAccountDelegationRecordPaper extends string,
+  TAccountDelegationMetadataPaper extends string,
+  TAccountPaper extends string,
   TAccountOwnerProgram extends string,
   TAccountDelegationProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
 >(
-  input: DelegateSessionInput<
+  input: DelegatePaperAccountInput<
     TAccountAuthority,
-    TAccountBufferSession,
-    TAccountDelegationRecordSession,
-    TAccountDelegationMetadataSession,
-    TAccountSession,
+    TAccountBufferPaper,
+    TAccountDelegationRecordPaper,
+    TAccountDelegationMetadataPaper,
+    TAccountPaper,
     TAccountOwnerProgram,
     TAccountDelegationProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): DelegateSessionInstruction<
+): DelegatePaperAccountInstruction<
   TProgramAddress,
   TAccountAuthority,
-  TAccountBufferSession,
-  TAccountDelegationRecordSession,
-  TAccountDelegationMetadataSession,
-  TAccountSession,
+  TAccountBufferPaper,
+  TAccountDelegationRecordPaper,
+  TAccountDelegationMetadataPaper,
+  TAccountPaper,
   TAccountOwnerProgram,
   TAccountDelegationProgram,
   TAccountSystemProgram
@@ -357,16 +360,16 @@ export function getDelegateSessionInstruction<
   // Original accounts.
   const originalAccounts = {
     authority: { value: input.authority ?? null, isWritable: true },
-    bufferSession: { value: input.bufferSession ?? null, isWritable: true },
-    delegationRecordSession: {
-      value: input.delegationRecordSession ?? null,
+    bufferPaper: { value: input.bufferPaper ?? null, isWritable: true },
+    delegationRecordPaper: {
+      value: input.delegationRecordPaper ?? null,
       isWritable: true,
     },
-    delegationMetadataSession: {
-      value: input.delegationMetadataSession ?? null,
+    delegationMetadataPaper: {
+      value: input.delegationMetadataPaper ?? null,
       isWritable: true,
     },
-    session: { value: input.session ?? null, isWritable: true },
+    paper: { value: input.paper ?? null, isWritable: true },
     ownerProgram: { value: input.ownerProgram ?? null, isWritable: false },
     delegationProgram: {
       value: input.delegationProgram ?? null,
@@ -400,32 +403,32 @@ export function getDelegateSessionInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.authority),
-      getAccountMeta(accounts.bufferSession),
-      getAccountMeta(accounts.delegationRecordSession),
-      getAccountMeta(accounts.delegationMetadataSession),
-      getAccountMeta(accounts.session),
+      getAccountMeta(accounts.bufferPaper),
+      getAccountMeta(accounts.delegationRecordPaper),
+      getAccountMeta(accounts.delegationMetadataPaper),
+      getAccountMeta(accounts.paper),
       getAccountMeta(accounts.ownerProgram),
       getAccountMeta(accounts.delegationProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getDelegateSessionInstructionDataEncoder().encode(
-      args as DelegateSessionInstructionDataArgs,
+    data: getDelegatePaperAccountInstructionDataEncoder().encode(
+      args as DelegatePaperAccountInstructionDataArgs,
     ),
     programAddress,
-  } as DelegateSessionInstruction<
+  } as DelegatePaperAccountInstruction<
     TProgramAddress,
     TAccountAuthority,
-    TAccountBufferSession,
-    TAccountDelegationRecordSession,
-    TAccountDelegationMetadataSession,
-    TAccountSession,
+    TAccountBufferPaper,
+    TAccountDelegationRecordPaper,
+    TAccountDelegationMetadataPaper,
+    TAccountPaper,
     TAccountOwnerProgram,
     TAccountDelegationProgram,
     TAccountSystemProgram
   >);
 }
 
-export type ParsedDelegateSessionInstruction<
+export type ParsedDelegatePaperAccountInstruction<
   TProgram extends string = typeof RESULT_REGISTRY_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -433,25 +436,25 @@ export type ParsedDelegateSessionInstruction<
   accounts: {
     /** Pays the refundable delegation deposit, so it must be writable. */
     authority: TAccountMetas[0];
-    bufferSession: TAccountMetas[1];
-    delegationRecordSession: TAccountMetas[2];
-    delegationMetadataSession: TAccountMetas[3];
-    session: TAccountMetas[4];
+    bufferPaper: TAccountMetas[1];
+    delegationRecordPaper: TAccountMetas[2];
+    delegationMetadataPaper: TAccountMetas[3];
+    paper: TAccountMetas[4];
     ownerProgram: TAccountMetas[5];
     delegationProgram: TAccountMetas[6];
     systemProgram: TAccountMetas[7];
   };
-  data: DelegateSessionInstructionData;
+  data: DelegatePaperAccountInstructionData;
 };
 
-export function parseDelegateSessionInstruction<
+export function parseDelegatePaperAccountInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedDelegateSessionInstruction<TProgram, TAccountMetas> {
+): ParsedDelegatePaperAccountInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
@@ -466,14 +469,16 @@ export function parseDelegateSessionInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       authority: getNextAccount(),
-      bufferSession: getNextAccount(),
-      delegationRecordSession: getNextAccount(),
-      delegationMetadataSession: getNextAccount(),
-      session: getNextAccount(),
+      bufferPaper: getNextAccount(),
+      delegationRecordPaper: getNextAccount(),
+      delegationMetadataPaper: getNextAccount(),
+      paper: getNextAccount(),
       ownerProgram: getNextAccount(),
       delegationProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
-    data: getDelegateSessionInstructionDataDecoder().decode(instruction.data),
+    data: getDelegatePaperAccountInstructionDataDecoder().decode(
+      instruction.data,
+    ),
   };
 }

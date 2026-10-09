@@ -1,16 +1,28 @@
 pub mod advance_session;
+pub mod delegate_paper_account;
 pub mod delegate_session;
 pub mod finalize_session;
 pub mod initialize_session;
+pub mod open_paper_account;
+pub mod paper_trade;
+pub mod settle_paper_account;
 pub mod submit_result;
 
 pub(crate) use advance_session::__client_accounts_advance_session;
 pub use advance_session::{AdvanceSession, AdvanceSessionArgs};
+pub(crate) use delegate_paper_account::__client_accounts_delegate_paper_account;
+pub use delegate_paper_account::DelegatePaperAccount;
 pub(crate) use delegate_session::__client_accounts_delegate_session;
 pub use delegate_session::DelegateSession;
 pub(crate) use finalize_session::__client_accounts_finalize_session;
 pub use finalize_session::FinalizeSession;
 pub(crate) use initialize_session::__client_accounts_initialize_session;
 pub use initialize_session::{InitializeSession, InitializeSessionArgs};
+pub(crate) use open_paper_account::__client_accounts_open_paper_account;
+pub use open_paper_account::{OpenPaperAccount, OpenPaperAccountArgs};
+pub(crate) use paper_trade::__client_accounts_paper_trade;
+pub use paper_trade::{PaperTrade, PaperTradeArgs};
+pub(crate) use settle_paper_account::__client_accounts_settle_paper_account;
+pub use settle_paper_account::SettlePaperAccount;
 pub(crate) use submit_result::__client_accounts_submit_result;
 pub use submit_result::{SubmitResult, SubmitResultArgs};

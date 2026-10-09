@@ -36,16 +36,37 @@ export const RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE = 0x1778; // 6008
 export const RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE = 0x1779; // 6009
 /** UnsupportedSessionSchemaVersion: The session schema version is not supported. */
 export const RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION = 0x177a; // 6010
+/** InvalidPaperFunding: Paper accounts are funded with fixed USDC or by mirroring wallet SOL. */
+export const RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING = 0x177b; // 6011
+/** UnauthorizedPaperTrader: Only the wallet that owns this paper account may trade or settle it. */
+export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER = 0x177c; // 6012
+/** InvalidPaperAsset: This paper market is not supported. */
+export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ASSET = 0x177d; // 6013
+/** InvalidPaperOrder: Paper orders need a valid side, source, positive price, and positive size. */
+export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER = 0x177e; // 6014
+/** StalePaperPrice: The reference price is too old or too far in the future. */
+export const RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE = 0x177f; // 6015
+/** InsufficientPaperBalance: Not enough simulated balance for this paper trade. */
+export const RESULT_REGISTRY_ERROR__INSUFFICIENT_PAPER_BALANCE = 0x1780; // 6016
+/** PaperMathOverflow: The paper trade overflows the account's balances. */
+export const RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW = 0x1781; // 6017
 
 export type ResultRegistryError =
+  | typeof RESULT_REGISTRY_ERROR__INSUFFICIENT_PAPER_BALANCE
   | typeof RESULT_REGISTRY_ERROR__INVALID_HASH
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ASSET
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER
   | typeof RESULT_REGISTRY_ERROR__INVALID_SCORE
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK
+  | typeof RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW
   | typeof RESULT_REGISTRY_ERROR__SESSION_EXPIRED
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE
+  | typeof RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE
+  | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION;
@@ -54,14 +75,21 @@ let resultRegistryErrorMessages:
   Record<ResultRegistryError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   resultRegistryErrorMessages = {
+    [RESULT_REGISTRY_ERROR__INSUFFICIENT_PAPER_BALANCE]: `Not enough simulated balance for this paper trade.`,
     [RESULT_REGISTRY_ERROR__INVALID_HASH]: `Scenario, strategy, and result hashes must not be all zeroes.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PAPER_ASSET]: `This paper market is not supported.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING]: `Paper accounts are funded with fixed USDC or by mirroring wallet SOL.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER]: `Paper orders need a valid side, source, positive price, and positive size.`,
     [RESULT_REGISTRY_ERROR__INVALID_SCORE]: `The result score must be between 0 and 10,000.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION]: `The session signer or expiry is invalid.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION]: `A session must contain between 1 and 60 ticks.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK]: `The submitted tick does not advance the active session by exactly one.`,
+    [RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW]: `The paper trade overflows the account's balances.`,
     [RESULT_REGISTRY_ERROR__SESSION_EXPIRED]: `The session has expired.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE]: `The session is not active.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE]: `The session can be finalized only after all ticks are complete.`,
+    [RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE]: `The reference price is too old or too far in the future.`,
+    [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER]: `Only the wallet that owns this paper account may trade or settle it.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR]: `Only the wallet authority or the scoped session signer may advance this session.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION]: `This result schema version is not supported.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION]: `The session schema version is not supported.`,

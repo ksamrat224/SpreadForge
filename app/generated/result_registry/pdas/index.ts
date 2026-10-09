@@ -6,7 +6,11 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./bufferPaper";
 export * from "./bufferSession";
+export * from "./delegationMetadataPaper";
 export * from "./delegationMetadataSession";
+export * from "./delegationRecordPaper";
 export * from "./delegationRecordSession";
+export * from "./paper";
 export * from "./session";
