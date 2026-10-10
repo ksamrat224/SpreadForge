@@ -18,23 +18,34 @@ import {
 } from "@solana/kit";
 import {
   parseAdvanceSessionInstruction,
+  parseConfigurePaperMarketInstruction,
   parseDelegateSessionInstruction,
   parseFinalizeSessionInstruction,
+  parseInitializePaperExchangeInstruction,
   parseInitializeSessionInstruction,
+  parseOpenPortfolioInstruction,
   parseProcessUndelegationInstruction,
   parseSubmitResultInstruction,
+  parseTradePortfolioInstruction,
   type ParsedAdvanceSessionInstruction,
+  type ParsedConfigurePaperMarketInstruction,
   type ParsedDelegateSessionInstruction,
   type ParsedFinalizeSessionInstruction,
+  type ParsedInitializePaperExchangeInstruction,
   type ParsedInitializeSessionInstruction,
+  type ParsedOpenPortfolioInstruction,
   type ParsedProcessUndelegationInstruction,
   type ParsedSubmitResultInstruction,
+  type ParsedTradePortfolioInstruction,
 } from "../instructions";
 
 export const RESULT_REGISTRY_PROGRAM_ADDRESS =
   "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w" as Address<"2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w">;
 
 export enum ResultRegistryAccount {
+  PaperAccount,
+  PaperExchange,
+  PaperMarket,
   ResultRecord,
   SessionState,
 }
@@ -43,6 +54,39 @@ export function identifyResultRegistryAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ResultRegistryAccount {
   const data = "data" in account ? account.data : account;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([40, 136, 1, 210, 201, 113, 90, 15]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PaperAccount;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([153, 163, 150, 149, 54, 100, 207, 113]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PaperExchange;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([28, 189, 175, 157, 196, 134, 216, 46]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.PaperMarket;
+  }
   if (
     containsBytes(
       data,
@@ -72,11 +116,15 @@ export function identifyResultRegistryAccount(
 
 export enum ResultRegistryInstruction {
   AdvanceSession,
+  ConfigurePaperMarket,
   DelegateSession,
   FinalizeSession,
+  InitializePaperExchange,
   InitializeSession,
+  OpenPortfolio,
   ProcessUndelegation,
   SubmitResult,
+  TradePortfolio,
 }
 
 export function identifyResultRegistryInstruction(
@@ -93,6 +141,17 @@ export function identifyResultRegistryInstruction(
     )
   ) {
     return ResultRegistryInstruction.AdvanceSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([36, 253, 196, 225, 75, 123, 187, 237]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.ConfigurePaperMarket;
   }
   if (
     containsBytes(
@@ -120,12 +179,34 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([162, 105, 114, 213, 187, 124, 163, 3]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.InitializePaperExchange;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([69, 130, 92, 236, 107, 231, 159, 129]),
       ),
       0,
     )
   ) {
     return ResultRegistryInstruction.InitializeSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([46, 176, 168, 121, 6, 6, 222, 78]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.OpenPortfolio;
   }
   if (
     containsBytes(
@@ -149,6 +230,17 @@ export function identifyResultRegistryInstruction(
   ) {
     return ResultRegistryInstruction.SubmitResult;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([135, 40, 58, 122, 122, 114, 18, 72]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.TradePortfolio;
+  }
   throw new Error(
     "The provided instruction could not be identified as a resultRegistry instruction.",
   );
@@ -161,20 +253,32 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.AdvanceSession;
     } & ParsedAdvanceSessionInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.ConfigurePaperMarket;
+    } & ParsedConfigurePaperMarketInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.DelegateSession;
     } & ParsedDelegateSessionInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.FinalizeSession;
     } & ParsedFinalizeSessionInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.InitializePaperExchange;
+    } & ParsedInitializePaperExchangeInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.InitializeSession;
     } & ParsedInitializeSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.OpenPortfolio;
+    } & ParsedOpenPortfolioInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.ProcessUndelegation;
     } & ParsedProcessUndelegationInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.SubmitResult;
-    } & ParsedSubmitResultInstruction<TProgram>);
+    } & ParsedSubmitResultInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.TradePortfolio;
+    } & ParsedTradePortfolioInstruction<TProgram>);
 
 export function parseResultRegistryInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -186,6 +290,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
       return {
         instructionType: ResultRegistryInstruction.AdvanceSession,
         ...parseAdvanceSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.ConfigurePaperMarket: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.ConfigurePaperMarket,
+        ...parseConfigurePaperMarketInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.DelegateSession: {
@@ -202,11 +313,25 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parseFinalizeSessionInstruction(instruction),
       };
     }
+    case ResultRegistryInstruction.InitializePaperExchange: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.InitializePaperExchange,
+        ...parseInitializePaperExchangeInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.InitializeSession: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: ResultRegistryInstruction.InitializeSession,
         ...parseInitializeSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.OpenPortfolio: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.OpenPortfolio,
+        ...parseOpenPortfolioInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.ProcessUndelegation: {
@@ -221,6 +346,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
       return {
         instructionType: ResultRegistryInstruction.SubmitResult,
         ...parseSubmitResultInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.TradePortfolio: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.TradePortfolio,
+        ...parseTradePortfolioInstruction(instruction),
       };
     }
     default:

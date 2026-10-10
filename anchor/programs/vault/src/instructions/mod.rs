@@ -1,16 +1,28 @@
 pub mod advance_session;
+pub mod configure_paper_market;
 pub mod delegate_session;
 pub mod finalize_session;
 pub mod initialize_session;
+pub mod initialize_paper_exchange;
+pub mod open_portfolio;
+pub mod trade_portfolio;
 pub mod submit_result;
 
 pub(crate) use advance_session::__client_accounts_advance_session;
 pub use advance_session::{AdvanceSession, AdvanceSessionArgs};
+pub(crate) use configure_paper_market::__client_accounts_configure_paper_market;
+pub use configure_paper_market::{ConfigurePaperMarket, ConfigurePaperMarketArgs};
 pub(crate) use delegate_session::__client_accounts_delegate_session;
 pub use delegate_session::DelegateSession;
 pub(crate) use finalize_session::__client_accounts_finalize_session;
 pub use finalize_session::FinalizeSession;
 pub(crate) use initialize_session::__client_accounts_initialize_session;
 pub use initialize_session::{InitializeSession, InitializeSessionArgs};
+pub(crate) use initialize_paper_exchange::__client_accounts_initialize_paper_exchange;
+pub use initialize_paper_exchange::InitializePaperExchange;
+pub(crate) use open_portfolio::__client_accounts_open_portfolio;
+pub use open_portfolio::OpenPortfolio;
+pub(crate) use trade_portfolio::__client_accounts_trade_portfolio;
+pub use trade_portfolio::{TradePortfolio, TradePortfolioArgs};
 pub(crate) use submit_result::__client_accounts_submit_result;
 pub use submit_result::{SubmitResult, SubmitResultArgs};

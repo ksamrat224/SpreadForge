@@ -44,4 +44,28 @@ pub mod result_registry {
     pub fn finalize_session(ctx: Context<FinalizeSession>) -> Result<()> {
         instructions::finalize_session::handler(ctx)
     }
+
+    pub fn initialize_paper_exchange(ctx: Context<InitializePaperExchange>) -> Result<()> {
+        instructions::initialize_paper_exchange::handler(ctx)
+    }
+
+    pub fn configure_paper_market(
+        ctx: Context<ConfigurePaperMarket>,
+        args: ConfigurePaperMarketArgs,
+    ) -> Result<()> {
+        instructions::configure_paper_market::handler(ctx, args)
+    }
+
+    /// Opens the caller's one durable devnet paper portfolio with 10,000 USDC.
+    pub fn open_portfolio(ctx: Context<OpenPortfolio>) -> Result<()> {
+        instructions::open_portfolio::handler(ctx)
+    }
+
+    /// Executes a wallet-approved market order at a verified Pyth price.
+    pub fn trade_portfolio(
+        ctx: Context<TradePortfolio>,
+        args: TradePortfolioArgs,
+    ) -> Result<()> {
+        instructions::trade_portfolio::handler(ctx, args)
+    }
 }

@@ -63,6 +63,18 @@ Use a public MagicBlock Ephemeral Rollup for repeated simulation-session writes;
 
 The instruction builders are intentionally inert until the public program ID and transaction-status UX are enabled. Every transaction must be simulated before a user is asked to sign. A local `MagicBlockRuntime` transport failure switches to deterministic local execution rather than presenting an unconfirmed result as on-chain proof.
 
+## On-chain paper account
+
+The Paper Trading tab's **On-chain · MagicBlock** mode replaces browser-held balances with a wallet-owned `PaperAccount` PDA (`['paper', owner, nonce_le_u64]`, 1,007 bytes). Balances remain simulated; the connected wallet signs every change. No browser session key is used.
+
+| Flow   | Signer | Destination                                                          | Effect                                                                                                                                                                           |
+| ------ | ------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open   | wallet | devnet (one tx)                                                      | `open_paper_account` (10,000 USDC, or mirrors up to 10 SOL read from the wallet's lamports on chain) + `delegate_paper_account` to the fastest public validator from `getRoutes` |
+| Trade  | wallet | ER from `getDelegationStatus` (`signTransaction`, not sign-and-send) | `paper_trade`: buys round up, sells round down, prices older than 120 s are rejected, last 16 fills kept, SHA-256 chain over every fill                                          |
+| Settle | wallet | ER                                                                   | `settle_paper_account`: commit-and-undelegate; trading resumes by delegating again                                                                                               |
+
+Trade prices are wallet-supplied Pyth references stored as **wallet-committed** values, the same trust model as result records. Resting limit quotes stay in the browser and ask the wallet to sign a fill when the market crosses them. Wallets that only implement sign-and-send cannot trade on the ER. Each delegation session costs about 0.003 SOL from the refundable deposit; ER trades themselves are free.
+
 ## Validation plan
 
 | Claim                                     | Environment | Pass signal                                                    | Not covered          |

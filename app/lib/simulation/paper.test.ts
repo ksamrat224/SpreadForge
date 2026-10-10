@@ -194,3 +194,75 @@ describe("shared multi-asset paper portfolio", () => {
     expect(state.trades).toHaveLength(0);
   });
 });
+
+describe("on-chain settlement", () => {
+  it("leaves crossed quotes resting when fills must be signed on chain", () => {
+    let state = paperReducer(createPaperState(), {
+      type: "tick",
+      asset: "SOL",
+      priceCents: 15_000,
+      at: 1,
+    });
+    state = paperReducer(state, {
+      type: "quote",
+      asset: "SOL",
+      side: "buy",
+      priceCents: 14_000,
+      sizeMilliAsset: 1_000,
+      at: 2,
+    });
+    state = paperReducer(state, {
+      type: "tick",
+      asset: "SOL",
+      priceCents: 13_900,
+      at: 3,
+      fillQuotes: false,
+    });
+    expect(state.quotes).toHaveLength(1);
+    expect(state.trades).toHaveLength(0);
+    expect(state.markets.SOL.priceCents).toBe(13_900);
+  });
+
+  it("replaces balances and fills with the on-chain account but keeps quotes", () => {
+    let state = paperReducer(createPaperState(), {
+      type: "quote",
+      asset: "SOL",
+      side: "buy",
+      priceCents: 100,
+      sizeMilliAsset: 1_000,
+      at: 1,
+    });
+    const positions = {
+      ...state.positions,
+      SOL: { quantityMilliAsset: 5_000, inventoryCostCents: 75_000 },
+    };
+    state = paperReducer(state, {
+      type: "sync-chain",
+      snapshot: {
+        fundingSource: "wallet",
+        usdcCents: 12_345,
+        startEquityCents: 75_000,
+        realizedPnlCents: -5,
+        positions,
+        trades: [
+          {
+            id: 7,
+            asset: "SOL",
+            side: "buy",
+            priceCents: 15_000,
+            sizeMilliAsset: 5_000,
+            at: 9,
+            source: "MARKET",
+          },
+        ],
+      },
+    });
+    expect(state.usdcCents).toBe(12_345);
+    expect(state.fundingSource).toBe("wallet");
+    expect(state.positions.SOL.quantityMilliAsset).toBe(5_000);
+    expect(state.trades[0].id).toBe(7);
+    expect(state.quotes).toHaveLength(1);
+    // Local quote ids never collide with on-chain fill ids.
+    expect(state.nextId).toBeGreaterThan(7);
+  });
+});
