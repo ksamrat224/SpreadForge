@@ -9,6 +9,7 @@ import React, {
   type ReactNode,
   type RefObject,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
 } from "react";
@@ -22,9 +23,16 @@ export interface CardSwapProps {
   delay?: number;
   pauseOnHover?: boolean;
   onCardClick?: (idx: number) => void;
+  /** Called with the child index of whichever card moves to the front. */
+  onFrontChange?: (idx: number) => void;
   skewAmount?: number;
   easing?: "linear" | "elastic";
   children: ReactNode;
+}
+
+export interface CardSwapHandle {
+  /** Moves the card at this child index to the front and restarts the timer. */
+  bringToFront: (idx: number) => void;
 }
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -75,18 +83,22 @@ const placeNow = (el: HTMLElement, slot: Slot, skew: number) =>
     force3D: true,
   });
 
-const CardSwap: React.FC<CardSwapProps> = ({
-  width = 500,
-  height = 400,
-  cardDistance = 60,
-  verticalDistance = 70,
-  delay = 5000,
-  pauseOnHover = false,
-  onCardClick,
-  skewAmount = 6,
-  easing = "elastic",
-  children,
-}) => {
+const CardSwap = forwardRef<CardSwapHandle, CardSwapProps>(function CardSwap(
+  {
+    width = 500,
+    height = 400,
+    cardDistance = 60,
+    verticalDistance = 70,
+    delay = 5000,
+    pauseOnHover = false,
+    onCardClick,
+    onFrontChange,
+    skewAmount = 6,
+    easing = "elastic",
+    children,
+  },
+  ref
+) {
   const config =
     easing === "elastic"
       ? {
@@ -122,6 +134,17 @@ const CardSwap: React.FC<CardSwapProps> = ({
   const tlRef = useRef<gsap.core.Timeline | null>(null);
   const intervalRef = useRef<number>(0);
   const container = useRef<HTMLDivElement>(null);
+  // Kept in refs so the animation effect never restarts when they change.
+  const frontChange = useRef(onFrontChange);
+  const promote = useRef<(idx: number) => void>(() => {});
+  useEffect(() => {
+    frontChange.current = onFrontChange;
+  }, [onFrontChange]);
+  useImperativeHandle(
+    ref,
+    () => ({ bringToFront: (idx) => promote.current(idx) }),
+    []
+  );
 
   useEffect(() => {
     const total = refs.length;
@@ -148,6 +171,7 @@ const CardSwap: React.FC<CardSwapProps> = ({
       });
 
       tl.addLabel("promote", `-=${config.durDrop * config.promoteOverlap}`);
+      tl.call(() => frontChange.current?.(rest[0]), undefined, "promote");
       rest.forEach((idx, i) => {
         const el = refs[idx].current!;
         const slot = makeSlot(i, cardDistance, verticalDistance, refs.length);
@@ -194,6 +218,50 @@ const CardSwap: React.FC<CardSwapProps> = ({
       tl.call(() => {
         order.current = [...rest, front];
       });
+    };
+
+    promote.current = (target) => {
+      // Finish any swap in flight so `order` matches what is on screen.
+      tlRef.current?.progress(1);
+      if (order.current[0] === target || !order.current.includes(target))
+        return;
+      const next = [target, ...order.current.filter((idx) => idx !== target)];
+      order.current = next;
+      const still = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      const tl = gsap.timeline();
+      tlRef.current = tl;
+      next.forEach((idx, i) => {
+        const slot = makeSlot(i, cardDistance, verticalDistance, total);
+        // The chosen card passes over the deck; the rest settle behind it.
+        tl.set(
+          refs[idx].current!,
+          { zIndex: idx === target ? total + 1 : slot.zIndex },
+          0
+        );
+        tl.to(
+          refs[idx].current!,
+          {
+            x: slot.x,
+            y: slot.y,
+            z: slot.z,
+            duration: still ? 0 : 0.7,
+            ease: "power3.out",
+          },
+          still ? 0 : i * 0.06
+        );
+      });
+      tl.set(refs[target].current!, { zIndex: total });
+      frontChange.current?.(target);
+      // A chosen card holds for longer than a normal turn so it can be read,
+      // then the deck resumes rotating. (Timer ids are shared, so the same
+      // clearInterval calls cancel this timeout too.)
+      clearInterval(intervalRef.current);
+      intervalRef.current = window.setTimeout(() => {
+        swap();
+        intervalRef.current = window.setInterval(swap, delay);
+      }, delay * 2.5);
     };
 
     swap();
@@ -243,6 +311,6 @@ const CardSwap: React.FC<CardSwapProps> = ({
       {rendered}
     </div>
   );
-};
+});
 
 export default CardSwap;

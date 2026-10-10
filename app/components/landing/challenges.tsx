@@ -1,5 +1,7 @@
 "use client";
-import CardSwap, { Card } from "../reactbits/CardSwap";
+import { useRef, useState } from "react";
+import { IconArrowUpRight } from "@tabler/icons-react";
+import CardSwap, { Card, type CardSwapHandle } from "../reactbits/CardSwap";
 import AnimatedContent from "../reactbits/AnimatedContent";
 import { SectionHeading } from "./section-heading";
 import { SCENARIO_RUNS, pricePath, usd } from "./scenario-runs";
@@ -20,6 +22,19 @@ export function Challenges() {
   const compact = useMediaQuery("(max-width: 767px)");
   // The wider container leaves the deck a bigger column to fill.
   const wide = useMediaQuery("(min-width: 1280px)");
+  const deck = useRef<CardSwapHandle>(null);
+  // The row matching the card at the front of the deck stays highlighted.
+  const [active, setActive] = useState<ScenarioId | null>(null);
+  function choose(id: ScenarioId) {
+    setActive(id);
+    if (compact)
+      // No deck on small screens: go to the matching card in the stack.
+      document.getElementById(`challenge-${id}`)?.scrollIntoView({
+        behavior: reduced ? "auto" : "smooth",
+        block: "center",
+      });
+    else deck.current?.bringToFront(ORDER.indexOf(id));
+  }
   return (
     <section id="challenges" className="landing-section overflow-hidden">
       <div className="landing-container grid items-center gap-16 lg:grid-cols-2">
@@ -40,21 +55,29 @@ export function Challenges() {
                   delay={i * 0.1}
                   threshold={0.15}
                 >
-                  <div
+                  <button
+                    type="button"
                     className="landing-challenge-row"
                     style={{ "--tone": TONE[meta.tone] } as React.CSSProperties}
+                    aria-pressed={active === id}
+                    onClick={() => choose(id)}
                   >
                     <span className="mono">
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <div>
-                      <h3>
+                    <span className="landing-challenge-text">
+                      <b>
                         {scenario.name}
                         <em>{meta.level}</em>
-                      </h3>
-                      <p>{meta.tip}</p>
-                    </div>
-                  </div>
+                      </b>
+                      <small>{meta.tip}</small>
+                    </span>
+                    <IconArrowUpRight
+                      size={18}
+                      className="landing-challenge-arrow"
+                      aria-hidden="true"
+                    />
+                  </button>
                 </AnimatedContent>
               );
             })}
@@ -70,7 +93,15 @@ export function Challenges() {
                 delay={i * 0.08}
                 threshold={0.1}
               >
-                <div className="landing-scenario-card h-[330px]">
+                <div
+                  id={`challenge-${id}`}
+                  className={`landing-scenario-card h-[330px] ${active === id ? "is-active" : ""}`}
+                  style={
+                    {
+                      "--tone": TONE[CHALLENGE_META[id].tone],
+                    } as React.CSSProperties
+                  }
+                >
                   <ScenarioCard id={id} />
                 </div>
               </AnimatedContent>
@@ -79,6 +110,8 @@ export function Challenges() {
         ) : (
           <div className="relative h-[520px] xl:h-[600px]">
             <CardSwap
+              ref={deck}
+              onFrontChange={(index) => setActive(ORDER[index])}
               width={wide ? 540 : 420}
               height={wide ? 410 : 330}
               cardDistance={48}

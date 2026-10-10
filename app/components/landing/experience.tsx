@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconActivity,
   IconArrowUpRight,
@@ -13,12 +13,35 @@ import { SCORE_MAX } from "../../lib/simulation/score";
 import { CHALLENGE_META } from "../../lib/simulation/challenges";
 import { createResultCommitment } from "../../lib/results/commitment";
 import type { ScenarioId, SimulationResult } from "../../lib/simulation/types";
+import AnimatedContent from "../reactbits/AnimatedContent";
 import { SectionHeading } from "./section-heading";
 import { usd } from "./scenario-runs";
+import { useReducedMotion } from "./use-reduced-motion";
 
 const ORDER: ScenarioId[] = ["stable-market", "whale-sell", "flash-crash"];
 // The same range as the Strategy Lab's spread control.
 const SPREAD = { min: 10, max: 100 };
+
+/** True once the element has scrolled into view; it then stays true. */
+function useRevealed<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setRevealed(true);
+        observer.disconnect();
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, revealed] as const;
+}
 
 /**
  * Learn, simulate, compete in miniature. Choosing a regime or moving the
@@ -26,6 +49,15 @@ const SPREAD = { min: 10, max: 100 };
  * shown here are exactly what the lab would produce for those inputs.
  */
 export function Experience() {
+  const reduced = useReducedMotion();
+  // Scroll reveals: content rises into place once, as it enters the screen.
+  const reveal = (delay = 0) =>
+    reduced
+      ? { distance: 0, duration: 0, animateOpacity: false, threshold: 0.15 }
+      : { distance: 56, duration: 0.9, delay, threshold: 0.15 };
+  // Inner details follow their own card, so a card never shows half filled.
+  const [learnCard, learnRevealed] = useRevealed<HTMLElement>();
+  const [competeCard, competeRevealed] = useRevealed<HTMLElement>();
   const [scenarioId, setScenarioId] = useState<ScenarioId>("whale-sell");
   const [spreadBps, setSpreadBps] = useState(DEFAULT_STRATEGY.spreadBps);
   const run = useMemo(
@@ -65,125 +97,144 @@ export function Experience() {
         />
 
         <div className="landing-bento">
-          <article className="landing-panel landing-bento-card">
-            <p className="landing-bento-label">01 / LEARN</p>
-            <div className="landing-bento-stage">
-              <p className="landing-bento-label">SELECT A MARKET REGIME</p>
-              <div className="landing-regimes">
-                {ORDER.map((id, i) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className="landing-regime"
-                    aria-pressed={id === scenarioId}
-                    onClick={() => setScenarioId(id)}
-                  >
-                    {SCENARIOS[id].name.toUpperCase()}
-                    <span>
-                      {String(i + 1).padStart(2, "0")}
-                      {id === scenarioId && <IconArrowUpRight size={12} />}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <p className="landing-regime-note">
-                {CHALLENGE_META[scenarioId].description}
-              </p>
-            </div>
-            <div className="landing-bento-foot">
-              <IconBolt size={20} />
-              <h3>Understand the market.</h3>
-              <p>
-                Start with seeded scenarios that make volatility, inventory, and
-                spread feel tangible.
-              </p>
-            </div>
-          </article>
-
-          <article className="landing-panel landing-bento-card">
-            <p className="landing-bento-label">02 / SIMULATE</p>
-            <div className="landing-bento-stage">
-              <label className="landing-bento-label" htmlFor="landing-spread">
-                SPREAD / BPS
-              </label>
-              <p className="landing-spread-value">
-                {spreadBps}
-                <IconArrowUpRight size={22} stroke={2.5} />
-              </p>
-              <input
-                id="landing-spread"
-                className="landing-range"
-                type="range"
-                min={SPREAD.min}
-                max={SPREAD.max}
-                step={1}
-                value={spreadBps}
-                onChange={(event) => setSpreadBps(Number(event.target.value))}
-                style={{ "--pct": `${percent}%` } as React.CSSProperties}
-              />
-              <div className="landing-range-scale">
-                <span>{SPREAD.min}</span>
-                <span>{SPREAD.max}</span>
-              </div>
-              <div className="landing-quotes">
-                <div>
-                  <small>YOUR BID</small>
-                  <b>{usd(Math.round(reference * (1 - half)))}</b>
+          <AnimatedContent {...reveal()}>
+            <article
+              ref={learnCard}
+              className="landing-panel landing-bento-card"
+            >
+              <p className="landing-bento-label">01 / LEARN</p>
+              <div className="landing-bento-stage">
+                <p className="landing-bento-label">SELECT A MARKET REGIME</p>
+                <div
+                  className={`landing-regimes landing-stagger ${learnRevealed ? "is-in" : ""}`}
+                >
+                  {ORDER.map((id, i) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="landing-regime"
+                      style={{ "--i": i } as React.CSSProperties}
+                      aria-pressed={id === scenarioId}
+                      onClick={() => setScenarioId(id)}
+                    >
+                      {SCENARIOS[id].name.toUpperCase()}
+                      <span>
+                        {String(i + 1).padStart(2, "0")}
+                        {id === scenarioId && <IconArrowUpRight size={12} />}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <small>YOUR ASK</small>
-                  <b>{usd(Math.round(reference * (1 + half)))}</b>
-                </div>
-              </div>
-            </div>
-            <div className="landing-bento-foot">
-              <IconActivity size={20} />
-              <h3>Find your edge.</h3>
-              <p>
-                Tune your quotes, absorb price shocks, and watch every decision
-                play out across {run.scenario.durationTicks} ticks.
-              </p>
-            </div>
-          </article>
-
-          <article className="landing-panel landing-bento-card landing-bento-wide">
-            <p className="landing-bento-label">03 / COMPETE</p>
-            <div className="landing-compete mt-8">
-              <div className="landing-bento-foot">
-                <IconTrophy size={20} />
-                <h3>Make it count.</h3>
-                <p>
-                  Commit your result hash to the devnet Result Registry with
-                  your wallet, then take your score to the leaderboard.
+                <p className="landing-regime-note">
+                  {CHALLENGE_META[scenarioId].description}
                 </p>
               </div>
-              <div className="landing-result" aria-live="polite">
-                <span className="landing-result-badge">
-                  <IconShieldCheck size={56} stroke={1.4} />
-                </span>
-                <div>
-                  <small className="is-accent">
-                    ENGINE SCORE / {run.scenario.name.toUpperCase()}
-                  </small>
-                  <p className="landing-result-score">
-                    <b>{run.score.total.toLocaleString("en-US")}</b>
-                    <span>/ {SCORE_MAX.toLocaleString("en-US")}</span>
-                  </p>
-                  <p className="landing-result-proof">
-                    <i className="landing-dot" aria-hidden="true" />
-                    SHA-256 COMMITMENT ·{" "}
-                    {hash
-                      ? `${hash.slice(0, 6)}…${hash.slice(-4)}`
-                      : "HASHING…"}
-                  </p>
-                  <small className="mt-3">
-                    SEED {run.scenario.seed} · {run.state.fills.length} FILLS ·
-                    SIMULATED BALANCES
-                  </small>
+              <div className="landing-bento-foot">
+                <IconBolt size={20} />
+                <h3>Understand the market.</h3>
+                <p>
+                  Start with seeded scenarios that make volatility, inventory,
+                  and spread feel tangible.
+                </p>
+              </div>
+            </article>
+          </AnimatedContent>
+
+          <AnimatedContent {...reveal(0.14)}>
+            <article className="landing-panel landing-bento-card">
+              <p className="landing-bento-label">02 / SIMULATE</p>
+              <div className="landing-bento-stage">
+                <label className="landing-bento-label" htmlFor="landing-spread">
+                  SPREAD / BPS
+                </label>
+                <p className="landing-spread-value">
+                  {spreadBps}
+                  <IconArrowUpRight size={22} stroke={2.5} />
+                </p>
+                <input
+                  id="landing-spread"
+                  className="landing-range"
+                  type="range"
+                  min={SPREAD.min}
+                  max={SPREAD.max}
+                  step={1}
+                  value={spreadBps}
+                  onChange={(event) => setSpreadBps(Number(event.target.value))}
+                  style={{ "--pct": `${percent}%` } as React.CSSProperties}
+                />
+                <div className="landing-range-scale">
+                  <span>{SPREAD.min}</span>
+                  <span>{SPREAD.max}</span>
+                </div>
+                <div className="landing-quotes">
+                  <div>
+                    <small>YOUR BID</small>
+                    <b>{usd(Math.round(reference * (1 - half)))}</b>
+                  </div>
+                  <div>
+                    <small>YOUR ASK</small>
+                    <b>{usd(Math.round(reference * (1 + half)))}</b>
+                  </div>
                 </div>
               </div>
-            </div>
-          </article>
+              <div className="landing-bento-foot">
+                <IconActivity size={20} />
+                <h3>Find your edge.</h3>
+                <p>
+                  Tune your quotes, absorb price shocks, and watch every
+                  decision play out across {run.scenario.durationTicks} ticks.
+                </p>
+              </div>
+            </article>
+          </AnimatedContent>
+
+          <AnimatedContent {...reveal()} className="landing-bento-wide">
+            <article
+              ref={competeCard}
+              className="landing-panel landing-bento-card"
+            >
+              <p className="landing-bento-label">03 / COMPETE</p>
+              <div className="landing-compete mt-8">
+                <div className="landing-bento-foot">
+                  <IconTrophy size={20} />
+                  <h3>Make it count.</h3>
+                  <p>
+                    Commit your result hash to the devnet Result Registry with
+                    your wallet, then take your score to the leaderboard.
+                  </p>
+                </div>
+                <div
+                  className={`landing-stagger from-right ${competeRevealed ? "is-in" : ""}`}
+                >
+                  <div className="landing-result" aria-live="polite">
+                    <span className="landing-result-badge">
+                      <IconShieldCheck size={56} stroke={1.4} />
+                    </span>
+                    <div>
+                      <small className="is-accent">
+                        ENGINE SCORE / {run.scenario.name.toUpperCase()}
+                      </small>
+                      <p className="landing-result-score">
+                        <b>{run.score.total.toLocaleString("en-US")}</b>
+                        <span>/ {SCORE_MAX.toLocaleString("en-US")}</span>
+                      </p>
+                      <p className="landing-result-proof">
+                        <i className="landing-dot" aria-hidden="true" />
+                        SHA-256 COMMITMENT ·{" "}
+                        {hash
+                          ? `${hash.slice(0, 6)}…${hash.slice(-4)}`
+                          : "HASHING…"}
+                      </p>
+                      <small className="mt-3">
+                        SEED {run.scenario.seed} · {run.state.fills.length}{" "}
+                        FILLS · SIMULATED BALANCES
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </AnimatedContent>
         </div>
       </div>
     </section>
