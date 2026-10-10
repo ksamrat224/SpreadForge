@@ -6,22 +6,17 @@ export function SectionHeading({
   eyebrow,
   title,
   description,
-  align = "left",
+  size = "md",
 }: {
   eyebrow: string;
   title: string;
   description?: string;
-  align?: "left" | "center";
+  /** "lg" is for full-width section openers; "md" fits a half-width column. */
+  size?: "md" | "lg";
 }) {
-  const centered = align === "center";
   return (
-    <div className={centered ? "mx-auto max-w-3xl text-center" : "max-w-3xl"}>
-      <p
-        className={`landing-eyebrow ${centered ? "justify-center" : ""}`.trim()}
-      >
-        <span aria-hidden="true" />
-        {eyebrow}
-      </p>
+    <div className="max-w-4xl">
+      <p className="landing-eyebrow">{eyebrow}</p>
       <SplitText
         tag="h2"
         text={title}
@@ -30,8 +25,12 @@ export function SectionHeading({
         duration={0.9}
         from={{ opacity: 0, y: 36 }}
         to={{ opacity: 1, y: 0 }}
-        textAlign={centered ? "center" : "left"}
-        className="mt-4 text-[clamp(2rem,4.4vw,3.4rem)] leading-[1.05] font-bold tracking-[-0.035em] text-foreground"
+        textAlign="left"
+        className={`landing-h2 mt-5 ${
+          size === "lg"
+            ? "text-[clamp(2.3rem,5.2vw,4.9rem)]"
+            : "text-[clamp(1.9rem,3.3vw,3rem)]"
+        }`}
       />
       {description && (
         <BlurText
@@ -39,7 +38,7 @@ export function SectionHeading({
           delay={28}
           stepDuration={0.28}
           direction="bottom"
-          className={`mt-5 text-[16px] leading-relaxed text-muted-foreground ${centered ? "justify-center" : ""}`}
+          className="mt-6 max-w-xl text-[16px] leading-relaxed text-muted-foreground"
         />
       )}
     </div>

@@ -88,9 +88,9 @@ export function MarketTicker() {
     };
   });
   return (
-    <section aria-label="Live reference prices" className="landing-ticker">
+    <aside aria-label="Live reference prices" className="landing-ticker">
       <span className="landing-ticker-label mono">
-        <span className="status-dot" /> LIVE REFERENCE
+        <i className="landing-dot" aria-hidden="true" /> LIVE REFERENCE
       </span>
       <LogoLoop
         logos={items}
@@ -102,6 +102,6 @@ export function MarketTicker() {
         fadeOutColor="var(--background)"
         ariaLabel="Live market reference prices"
       />
-    </section>
+    </aside>
   );
 }

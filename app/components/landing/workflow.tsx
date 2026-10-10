@@ -83,7 +83,7 @@ export function Workflow() {
       <div className="landing-container grid gap-14 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="lg:sticky lg:top-28 lg:self-start">
           <SectionHeading
-            eyebrow="THE WORKFLOW"
+            eyebrow="THE WORKFLOW / 05 STEPS"
             title="From first quote to public proof in five steps."
             description="SpreadForge teaches by showing cause and effect. Every step tells you what changed, what the market did and why your score moved."
           />

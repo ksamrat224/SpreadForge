@@ -1,67 +1,58 @@
-"use client";
 import Image from "next/image";
 import Link from "next/link";
 import { IconShieldCheck } from "@tabler/icons-react";
 import { LandingNav } from "./landing-nav";
 import { Hero } from "./hero";
 import { MarketTicker } from "./market-ticker";
-import { StatsBand } from "./stats-band";
-import { Features } from "./features";
+import { Experience } from "./experience";
 import { Workflow } from "./workflow";
 import { Challenges } from "./challenges";
 import { Scoring } from "./scoring";
-import { Verification } from "./verification";
+import { UnderTheHood } from "./under-the-hood";
 import { FinalCta } from "./final-cta";
 
 export function LandingPage() {
   return (
-    <div className="landing dark">
+    // No theme class here: the landing follows the site-wide theme toggle.
+    <div className="landing">
       <LandingNav />
       <main>
         <Hero />
-        <MarketTicker />
-        <StatsBand />
-        <Features />
+        <Experience />
         <Workflow />
         <Challenges />
         <Scoring />
-        <Verification />
+        <UnderTheHood />
         <FinalCta />
       </main>
       <footer className="landing-footer">
-        <div className="landing-container flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="landing-container flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2.5 text-foreground">
             <Image
               src="/SpreadForge.png"
               alt=""
-              width={26}
-              height={26}
+              width={24}
+              height={24}
               className="brand-logo"
             />
-            <span className="brand-word text-[14px]">
+            <span className="brand-word text-[13px]">
               <b>SPREAD</b>FORGE
             </span>
           </div>
-          <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <IconShieldCheck size={13} />
-            Educational simulation. No real funds at risk. Built on Solana.
+          <p>
+            Learn. Simulate. Compete. · Solana DeFi Market-Making Laboratory
           </p>
-          <nav
-            aria-label="Footer"
-            className="flex gap-5 text-[12px] text-muted-foreground"
-          >
-            <a href="#features" className="hover:text-foreground">
-              Features
-            </a>
-            <a href="#workflow" className="hover:text-foreground">
-              Workflow
-            </a>
-            <Link href="/app" className="text-primary hover:underline">
+          <p className="flex items-center gap-1.5">
+            <IconShieldCheck size={13} />
+            Educational simulation. No real funds at risk.
+            <Link href="/app" className="ml-3 text-primary hover:underline">
               Launch app
             </Link>
-          </nav>
+          </p>
         </div>
       </footer>
+      {/* Outside <main> so it stays pinned above every section and the footer. */}
+      <MarketTicker />
     </div>
   );
 }

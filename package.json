@@ -30,6 +30,7 @@
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/syne": "^5.3.0",
     "@gsap/react": "^2.1.2",
     "@solana/kit": "^6.3.0",
     "@solana/kit-client-rpc": "^0.7.0",

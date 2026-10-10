@@ -18,12 +18,14 @@ export function Challenges() {
   const reduced = useReducedMotion();
   // CardSwap needs room for its 3D fan; small screens get a plain stack.
   const compact = useMediaQuery("(max-width: 767px)");
+  // The wider container leaves the deck a bigger column to fill.
+  const wide = useMediaQuery("(min-width: 1280px)");
   return (
     <section id="challenges" className="landing-section overflow-hidden">
       <div className="landing-container grid items-center gap-16 lg:grid-cols-2">
         <div>
           <SectionHeading
-            eyebrow="CHALLENGES"
+            eyebrow="CHALLENGES / 03 MARKETS"
             title="Three markets. Escalating pressure."
             description="Every scenario is versioned and seeded, so your run can be reproduced and compared fairly with everyone else's."
           />
@@ -75,10 +77,10 @@ export function Challenges() {
             ))}
           </div>
         ) : (
-          <div className="relative h-[520px]">
+          <div className="relative h-[520px] xl:h-[600px]">
             <CardSwap
-              width={420}
-              height={330}
+              width={wide ? 540 : 420}
+              height={wide ? 410 : 330}
               cardDistance={48}
               verticalDistance={56}
               delay={reduced ? 600_000 : 4200}

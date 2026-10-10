@@ -1,28 +1,20 @@
-"use client";
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { IconArrowUpRight } from "@tabler/icons-react";
+import { ThemeToggle } from "../theme-toggle";
 
 const links = [
-  { href: "#features", label: "Features" },
+  { href: "#experience", label: "Experience" },
   { href: "#workflow", label: "Workflow" },
   { href: "#challenges", label: "Challenges" },
   { href: "#scoring", label: "Scoring" },
-  { href: "#verify", label: "Verification" },
+  { href: "#magicblock", label: "MagicBlock" },
 ];
 
 export function LandingNav() {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
   return (
-    <header className={`landing-nav ${scrolled ? "is-scrolled" : ""}`}>
-      <div className="landing-container flex h-16 items-center gap-6">
+    <header className="landing-nav">
+      <div className="landing-container flex h-16 items-center gap-3">
         <a
           href="#top"
           className="flex items-center gap-2.5"
@@ -39,6 +31,7 @@ export function LandingNav() {
           <span className="brand-word text-[15px]">
             <b>SPREAD</b>FORGE
           </span>
+          <span className="landing-lab-chip">LAB</span>
         </a>
         <nav
           aria-label="Landing sections"
@@ -50,7 +43,10 @@ export function LandingNav() {
             </a>
           ))}
         </nav>
-        <Link href="/app" className="landing-nav-cta ml-auto md:ml-2">
+        <span className="ml-auto md:ml-2">
+          <ThemeToggle />
+        </span>
+        <Link href="/app" className="landing-nav-cta">
           Launch app
           <IconArrowUpRight size={15} />
         </Link>

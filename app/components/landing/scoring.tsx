@@ -67,7 +67,7 @@ export function Scoring() {
       <div className="landing-container grid items-start gap-14 lg:grid-cols-2">
         <div>
           <SectionHeading
-            eyebrow="TRANSPARENT SCORING"
+            eyebrow="TRANSPARENT SCORING / 0—10,000"
             title="Rewarding healthy liquidity, not lucky P&L."
             description="Each component is clamped to 0–100, then weighted into a single deterministic score. Same inputs, same score, every time."
           />
