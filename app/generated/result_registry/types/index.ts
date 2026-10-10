@@ -8,3 +8,6 @@
 
 export * from "./paperFill";
 export * from "./paperPosition";
+export * from "./priceFeedMessage";
+export * from "./priceUpdateV2";
+export * from "./verificationLevel";

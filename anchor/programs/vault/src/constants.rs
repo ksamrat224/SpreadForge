@@ -7,6 +7,8 @@ pub const MAX_SESSION_TICKS: u16 = 60;
 pub const SESSION_SCHEMA_VERSION: u8 = 1;
 
 pub const PAPER_SEED: &[u8] = b"paper";
+pub const PAPER_CONFIG_SEED: &[u8] = b"paper-config";
+pub const PAPER_MARKET_SEED: &[u8] = b"paper-market";
 pub const PAPER_SCHEMA_VERSION: u8 = 1;
 /// Markets in frontend `PAPER_ASSETS` order; an asset's index is its id.
 pub const PAPER_ASSET_COUNT: usize = 20;
@@ -17,3 +19,7 @@ pub const WALLET_PAPER_SOL_CAP_MILLI: u64 = 10_000;
 /// Allows a few seconds of feed latency plus the time to approve in a wallet.
 pub const MAX_PAPER_PRICE_AGE_MS: i64 = 120_000;
 pub const MAX_PAPER_PRICE_LEAD_MS: i64 = 30_000;
+/// Price updates older than this are never eligible to fill an order.
+pub const PAPER_ORACLE_MAX_AGE_SECONDS: u64 = 30;
+pub const PAPER_FEE_BPS: u16 = 10;
+pub const BPS_DENOMINATOR: u128 = 10_000;

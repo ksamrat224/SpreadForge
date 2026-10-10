@@ -10,18 +10,16 @@ import {
   getAddressEncoder,
   getBytesEncoder,
   getProgramDerivedAddress,
-  getU64Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
-export type PaperSeeds = {
+export type PortfolioSeeds = {
   authority: Address;
-  nonce: number | bigint;
 };
 
-export async function findPaperPda(
-  seeds: PaperSeeds,
+export async function findPortfolioPda(
+  seeds: PortfolioSeeds,
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
@@ -32,7 +30,6 @@ export async function findPaperPda(
     seeds: [
       getBytesEncoder().encode(new Uint8Array([112, 97, 112, 101, 114])),
       getAddressEncoder().encode(seeds.authority),
-      getU64Encoder().encode(seeds.nonce),
     ],
   });
 }

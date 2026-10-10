@@ -7,19 +7,13 @@
  */
 
 import {
-  getAddressEncoder,
   getBytesEncoder,
   getProgramDerivedAddress,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
-export type BufferPaperSeeds = {
-  paper: Address;
-};
-
-export async function findBufferPaperPda(
-  seeds: BufferPaperSeeds,
+export async function findExchangePda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
@@ -28,8 +22,11 @@ export async function findBufferPaperPda(
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getBytesEncoder().encode(new Uint8Array([98, 117, 102, 102, 101, 114])),
-      getAddressEncoder().encode(seeds.paper),
+      getBytesEncoder().encode(
+        new Uint8Array([
+          112, 97, 112, 101, 114, 45, 99, 111, 110, 102, 105, 103,
+        ]),
+      ),
     ],
   });
 }

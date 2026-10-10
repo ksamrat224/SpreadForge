@@ -12,18 +12,18 @@ pub struct PaperPosition {
 pub struct PaperFill {
     pub asset: u8,
     pub side: u8,
-    pub source: u8,
+    /// Fee charged to make the simulator's fills economically meaningful.
+    pub fee_cents: u64,
     pub price_cents: u64,
     pub size_milli: u64,
-    /// Publish time of the wallet-supplied reference price, in milliseconds.
-    pub price_at_ms: i64,
+    /// Pyth publish time used for this fill, in seconds.
+    pub price_at: i64,
     /// Cluster clock when the trade executed, in seconds.
     pub executed_at: i64,
 }
 
-/// A wallet-owned paper portfolio. Balances are simulated, but every change
-/// is authorized by the wallet and executed by this program, typically on a
-/// MagicBlock Ephemeral Rollup between delegation and settlement.
+/// A wallet-owned devnet paper portfolio. Balances are simulated, but every
+/// balance-changing operation is a durable, wallet-authorized Solana action.
 ///
 /// Array lengths must match `PAPER_ASSET_COUNT` and `PAPER_RECENT_FILLS`; they
 /// are literals so the IDL records concrete sizes.
@@ -31,8 +31,6 @@ pub struct PaperFill {
 #[derive(InitSpace)]
 pub struct PaperAccount {
     pub authority: Pubkey,
-    pub nonce: u64,
-    pub funding_source: u8,
     pub schema_version: u8,
     pub bump: u8,
     pub created_at: i64,
@@ -48,11 +46,7 @@ pub struct PaperAccount {
 }
 
 impl PaperAccount {
-    pub const FIXED_FUNDING: u8 = 0;
-    pub const WALLET_FUNDING: u8 = 1;
     pub const BUY: u8 = 0;
     pub const SELL: u8 = 1;
-    pub const MARKET: u8 = 0;
-    pub const LIMIT: u8 = 1;
     pub const SPACE: usize = 8 + Self::INIT_SPACE;
 }

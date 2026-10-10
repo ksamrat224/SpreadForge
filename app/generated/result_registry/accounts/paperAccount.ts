@@ -68,8 +68,6 @@ export function getPaperAccountDiscriminatorBytes() {
 export type PaperAccount = {
   discriminator: ReadonlyUint8Array;
   authority: Address;
-  nonce: bigint;
-  fundingSource: number;
   schemaVersion: number;
   bump: number;
   createdAt: bigint;
@@ -86,8 +84,6 @@ export type PaperAccount = {
 
 export type PaperAccountArgs = {
   authority: Address;
-  nonce: number | bigint;
-  fundingSource: number;
   schemaVersion: number;
   bump: number;
   createdAt: number | bigint;
@@ -108,8 +104,6 @@ export function getPaperAccountEncoder(): FixedSizeEncoder<PaperAccountArgs> {
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["authority", getAddressEncoder()],
-      ["nonce", getU64Encoder()],
-      ["fundingSource", getU8Encoder()],
       ["schemaVersion", getU8Encoder()],
       ["bump", getU8Encoder()],
       ["createdAt", getI64Encoder()],
@@ -131,8 +125,6 @@ export function getPaperAccountDecoder(): FixedSizeDecoder<PaperAccount> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["authority", getAddressDecoder()],
-    ["nonce", getU64Decoder()],
-    ["fundingSource", getU8Decoder()],
     ["schemaVersion", getU8Decoder()],
     ["bump", getU8Decoder()],
     ["createdAt", getI64Decoder()],
@@ -209,5 +201,5 @@ export async function fetchAllMaybePaperAccount(
 }
 
 export function getPaperAccountSize(): number {
-  return 1007;
+  return 1110;
 }

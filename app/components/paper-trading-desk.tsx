@@ -204,9 +204,10 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     solPriceCents: number;
   } | null>(null);
   // "chain" executes every trade as a wallet-signed MagicBlock transaction.
-  const [settlement, setSettlement] = useState<"local" | "chain">("local");
-  const onChain = settlement === "chain";
-  const chain = usePaperChain(onChain);
+  // Portfolio balances and fills always come from the devnet program. Charts
+  // remain client-side presentation data only.
+  const onChain = true;
+  const chain = usePaperChain(true);
   const replay = useRef<PricePoint[]>([]);
   const lastToast = useRef<string | null>(null);
   const pendingFill = useRef<number | null>(null);
@@ -275,7 +276,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const tradingPaused =
     (source === "pyth" && !hasLiveFeed) ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY") ||
-    (onChain && (chain.status !== "delegated" || !!chain.busy));
+    chain.status !== "ready" || !!chain.busy;
 
   // A virtual snapshot is meaningful only for the devnet wallet it came from.
   // Switching clusters returns the desk to its normal fixed practice balance.
@@ -577,7 +578,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const crossedAt = crossedQuote
     ? desk.markets[crossedQuote.asset].points.at(-1)!.at
     : 0;
-  const chainReady = chain.status === "delegated" && !chain.busy;
+  const chainReady = chain.status === "ready" && !chain.busy;
   const chainTrade = chain.trade;
   useEffect(() => {
     if (!crossedQuote || !chainReady || pendingFill.current !== null) return;
@@ -694,35 +695,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         priceAtMs: last.at,
       })
       .then((error) => error && toast.error(error));
-  }
-  function switchSettlement(next: "local" | "chain") {
-    if (next === settlement) return;
-    setSettlement(next);
-    // A local practice portfolio and an on-chain account never share balances.
-    setWalletSnapshot(null);
-    setConfirmReset(false);
-    chainLoaded.current = null;
-    dispatch({ type: "reset", seed: createPaperSessionSeed() });
-    // On-chain trades need a live price; the program rejects replayed history.
-    const nextSource = next === "chain" ? "pyth" : source;
-    setSource(nextSource);
-    setTimeframe(nextSource === "replay" ? 240 : 15);
-    restartFeed(nextSource);
-  }
-  function openChainAccount(funding: "fixed" | "wallet") {
-    void chain
-      .open(
-        funding,
-        funding === "wallet" ? solMarket.priceCents : 0,
-        solMarket.points.at(-1)?.at ?? 0
-      )
-      .then((error) =>
-        error
-          ? toast.error(error)
-          : toast.success(
-              "Paper account opened on devnet and delegated to MagicBlock."
-            )
-      );
   }
   const place = (event: React.FormEvent) => {
     event.preventDefault();
@@ -845,39 +817,11 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           <strong>Your edge starts with practice.</strong> · Every trade here is
           simulated.
         </span>
-        <div
-          className="segmented settlement-toggle"
-          aria-label="Trade settlement"
-        >
-          <button
-            type="button"
-            className={onChain ? "" : "active"}
-            aria-pressed={!onChain}
-            onClick={() => switchSettlement("local")}
-          >
-            LOCAL PRACTICE
-          </button>
-          <button
-            type="button"
-            className={onChain ? "active" : ""}
-            aria-pressed={onChain}
-            onClick={() => switchSettlement("chain")}
-          >
-            ON-CHAIN · MAGICBLOCK
-          </button>
-        </div>
+        <span className="tag">ON-CHAIN · DEVNET</span>
       </div>
 
-      {onChain ? (
-        <PaperChainPanel
-          chain={chain}
-          canMirrorWallet={canStartWalletPractice}
-          walletSolLabel={`${formatSize(walletSolMilliAsset)} SOL`}
-          solPriceCents={hasLiveFeed ? solMarket.priceCents : null}
-          onOpen={openChainAccount}
-        />
-      ) : (
-        isDevnet && (
+      <PaperChainPanel chain={chain} />
+      {false && isDevnet && (
           <section
             className="wallet-practice panel"
             aria-label="Devnet wallet practice"
@@ -936,7 +880,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                       : "No SOL is transferred, wrapped, swapped, or used as collateral."}
             </small>
           </section>
-        )
       )}
       <div className="paper-portfolio panel">
         <Metric

@@ -25,11 +25,12 @@ import {
 export type PaperFill = {
   asset: number;
   side: number;
-  source: number;
+  /** Fee charged to make the simulator's fills economically meaningful. */
+  feeCents: bigint;
   priceCents: bigint;
   sizeMilli: bigint;
-  /** Publish time of the wallet-supplied reference price, in milliseconds. */
-  priceAtMs: bigint;
+  /** Pyth publish time used for this fill, in seconds. */
+  priceAt: bigint;
   /** Cluster clock when the trade executed, in seconds. */
   executedAt: bigint;
 };
@@ -37,11 +38,12 @@ export type PaperFill = {
 export type PaperFillArgs = {
   asset: number;
   side: number;
-  source: number;
+  /** Fee charged to make the simulator's fills economically meaningful. */
+  feeCents: number | bigint;
   priceCents: number | bigint;
   sizeMilli: number | bigint;
-  /** Publish time of the wallet-supplied reference price, in milliseconds. */
-  priceAtMs: number | bigint;
+  /** Pyth publish time used for this fill, in seconds. */
+  priceAt: number | bigint;
   /** Cluster clock when the trade executed, in seconds. */
   executedAt: number | bigint;
 };
@@ -50,10 +52,10 @@ export function getPaperFillEncoder(): FixedSizeEncoder<PaperFillArgs> {
   return getStructEncoder([
     ["asset", getU8Encoder()],
     ["side", getU8Encoder()],
-    ["source", getU8Encoder()],
+    ["feeCents", getU64Encoder()],
     ["priceCents", getU64Encoder()],
     ["sizeMilli", getU64Encoder()],
-    ["priceAtMs", getI64Encoder()],
+    ["priceAt", getI64Encoder()],
     ["executedAt", getI64Encoder()],
   ]);
 }
@@ -62,10 +64,10 @@ export function getPaperFillDecoder(): FixedSizeDecoder<PaperFill> {
   return getStructDecoder([
     ["asset", getU8Decoder()],
     ["side", getU8Decoder()],
-    ["source", getU8Decoder()],
+    ["feeCents", getU64Decoder()],
     ["priceCents", getU64Decoder()],
     ["sizeMilli", getU64Decoder()],
-    ["priceAtMs", getI64Decoder()],
+    ["priceAt", getI64Decoder()],
     ["executedAt", getI64Decoder()],
   ]);
 }

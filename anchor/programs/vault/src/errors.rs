@@ -38,4 +38,12 @@ pub enum ResultRegistryError {
     InsufficientPaperBalance,
     #[msg("The paper trade overflows the account's balances.")]
     PaperMathOverflow,
+    #[msg("Only the configured paper exchange administrator may change market feeds.")]
+    UnauthorizedPaperAdmin,
+    #[msg("The oracle update is invalid, stale, or does not match this market.")]
+    InvalidPaperOracle,
+    #[msg("The verified execution price exceeded the order's slippage tolerance.")]
+    PaperSlippageExceeded,
+    #[msg("This wallet already has its one paper portfolio.")]
+    PaperPortfolioAlreadyExists,
 }

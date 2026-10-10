@@ -50,22 +50,34 @@ export const RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE = 0x177f; // 6015
 export const RESULT_REGISTRY_ERROR__INSUFFICIENT_PAPER_BALANCE = 0x1780; // 6016
 /** PaperMathOverflow: The paper trade overflows the account's balances. */
 export const RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW = 0x1781; // 6017
+/** UnauthorizedPaperAdmin: Only the configured paper exchange administrator may change market feeds. */
+export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_ADMIN = 0x1782; // 6018
+/** InvalidPaperOracle: The oracle update is invalid, stale, or does not match this market. */
+export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE = 0x1783; // 6019
+/** PaperSlippageExceeded: The verified execution price exceeded the order's slippage tolerance. */
+export const RESULT_REGISTRY_ERROR__PAPER_SLIPPAGE_EXCEEDED = 0x1784; // 6020
+/** PaperPortfolioAlreadyExists: This wallet already has its one paper portfolio. */
+export const RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS = 0x1785; // 6021
 
 export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INSUFFICIENT_PAPER_BALANCE
   | typeof RESULT_REGISTRY_ERROR__INVALID_HASH
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ASSET
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING
+  | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER
   | typeof RESULT_REGISTRY_ERROR__INVALID_SCORE
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK
   | typeof RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW
+  | typeof RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS
+  | typeof RESULT_REGISTRY_ERROR__PAPER_SLIPPAGE_EXCEEDED
   | typeof RESULT_REGISTRY_ERROR__SESSION_EXPIRED
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE
   | typeof RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE
+  | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_ADMIN
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION
@@ -79,16 +91,20 @@ if (process.env.NODE_ENV !== "production") {
     [RESULT_REGISTRY_ERROR__INVALID_HASH]: `Scenario, strategy, and result hashes must not be all zeroes.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ASSET]: `This paper market is not supported.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING]: `Paper accounts are funded with fixed USDC or by mirroring wallet SOL.`,
+    [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE]: `The oracle update is invalid, stale, or does not match this market.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER]: `Paper orders need a valid side, source, positive price, and positive size.`,
     [RESULT_REGISTRY_ERROR__INVALID_SCORE]: `The result score must be between 0 and 10,000.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION]: `The session signer or expiry is invalid.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION]: `A session must contain between 1 and 60 ticks.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_TICK]: `The submitted tick does not advance the active session by exactly one.`,
     [RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW]: `The paper trade overflows the account's balances.`,
+    [RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS]: `This wallet already has its one paper portfolio.`,
+    [RESULT_REGISTRY_ERROR__PAPER_SLIPPAGE_EXCEEDED]: `The verified execution price exceeded the order's slippage tolerance.`,
     [RESULT_REGISTRY_ERROR__SESSION_EXPIRED]: `The session has expired.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE]: `The session is not active.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE]: `The session can be finalized only after all ticks are complete.`,
     [RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE]: `The reference price is too old or too far in the future.`,
+    [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_ADMIN]: `Only the configured paper exchange administrator may change market feeds.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER]: `Only the wallet that owns this paper account may trade or settle it.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR]: `Only the wallet authority or the scoped session signer may advance this session.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION]: `This result schema version is not supported.`,

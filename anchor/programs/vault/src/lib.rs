@@ -9,8 +9,6 @@ pub mod state;
 use instructions::*;
 
 #[cfg(test)]
-mod paper_tests;
-#[cfg(test)]
 mod tests;
 
 // This is the deterministic keypair-derived address reserved for the dedicated
@@ -47,24 +45,27 @@ pub mod result_registry {
         instructions::finalize_session::handler(ctx)
     }
 
-    /// Creates a wallet-owned paper portfolio on Solana.
-    pub fn open_paper_account(
-        ctx: Context<OpenPaperAccount>,
-        args: OpenPaperAccountArgs,
+    pub fn initialize_paper_exchange(ctx: Context<InitializePaperExchange>) -> Result<()> {
+        instructions::initialize_paper_exchange::handler(ctx)
+    }
+
+    pub fn configure_paper_market(
+        ctx: Context<ConfigurePaperMarket>,
+        args: ConfigurePaperMarketArgs,
     ) -> Result<()> {
-        instructions::open_paper_account::handler(ctx, args)
+        instructions::configure_paper_market::handler(ctx, args)
     }
 
-    pub fn delegate_paper_account(ctx: Context<DelegatePaperAccount>, nonce: u64) -> Result<()> {
-        instructions::delegate_paper_account::handler(ctx, nonce)
+    /// Opens the caller's one durable devnet paper portfolio with 10,000 USDC.
+    pub fn open_portfolio(ctx: Context<OpenPortfolio>) -> Result<()> {
+        instructions::open_portfolio::handler(ctx)
     }
 
-    /// Executes one wallet-signed paper trade, usually on the Ephemeral Rollup.
-    pub fn paper_trade(ctx: Context<PaperTrade>, args: PaperTradeArgs) -> Result<()> {
-        instructions::paper_trade::handler(ctx, args)
-    }
-
-    pub fn settle_paper_account(ctx: Context<SettlePaperAccount>) -> Result<()> {
-        instructions::settle_paper_account::handler(ctx)
+    /// Executes a wallet-approved market order at a verified Pyth price.
+    pub fn trade_portfolio(
+        ctx: Context<TradePortfolio>,
+        args: TradePortfolioArgs,
+    ) -> Result<()> {
+        instructions::trade_portfolio::handler(ctx, args)
     }
 }

@@ -7,5 +7,7 @@
  */
 
 export * from "./paperAccount";
+export * from "./paperExchange";
+export * from "./paperMarket";
 export * from "./resultRecord";
 export * from "./sessionState";
