@@ -50,7 +50,10 @@ export const PAPER_MARKETS: Record<
   HBAR: { label: "HBAR / USDC", initialPriceCents: 20 },
   SHIB: { label: "1K SHIB / USDC", initialPriceCents: 2 },
 };
-type Position = { quantityMilliAsset: number; inventoryCostCents: number };
+export type Position = {
+  quantityMilliAsset: number;
+  inventoryCostCents: number;
+};
 type Market = {
   priceCents: number;
   startPriceCents: number;
@@ -65,6 +68,15 @@ type Quote = {
   at: number;
 };
 export type Trade = Quote & { source: "MARKET" | "LIMIT" };
+/** Balances and recent fills read back from a wallet-owned on-chain paper account. */
+export type PaperChainSnapshot = {
+  fundingSource: PaperState["fundingSource"];
+  usdcCents: number;
+  startEquityCents: number;
+  realizedPnlCents: number;
+  positions: Record<PaperAsset, Position>;
+  trades: Trade[];
+};
 export type PaperState = {
   marketSeed: number;
   fundingSource: "fixed" | "wallet";
@@ -97,7 +109,11 @@ export type PaperAction =
       delta?: number;
       priceCents?: number;
       at: number;
+      /** False when quote fills must be signed on chain instead of applied locally. */
+      fillQuotes?: boolean;
     }
+  /** Replaces balances and fills with the on-chain account; quotes stay local. */
+  | { type: "sync-chain"; snapshot: PaperChainSnapshot }
   | {
       type: "market";
       asset: PaperAsset;
@@ -302,6 +318,16 @@ export function paperReducer(
     );
   if (action.type === "select-asset")
     return { ...state, activeAsset: action.asset, error: "" };
+  if (action.type === "sync-chain")
+    return {
+      ...state,
+      ...action.snapshot,
+      nextId: Math.max(
+        state.nextId,
+        ...action.snapshot.trades.map((trade) => trade.id + 1)
+      ),
+      error: "",
+    };
   if (action.type === "cancel")
     return {
       ...state,
@@ -371,6 +397,7 @@ export function paperReducer(
         },
       },
     };
+    if (action.fillQuotes === false) return next;
     for (const quote of next.quotes.filter(
       (item) => item.asset === action.asset
     ))

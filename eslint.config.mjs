@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated Codama files:
     "app/generated/**",
+    // Vendored React Bits components (reactbits.dev), kept as upstream ships them:
+    "app/components/reactbits/**",
   ]),
 ]);
 

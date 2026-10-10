@@ -7,6 +7,8 @@ use crate::{constants::SESSION_SEED, errors::ResultRegistryError, state::Session
 #[derive(Accounts)]
 #[instruction(run_nonce: u64)]
 pub struct DelegateSession<'info> {
+    /// Pays the refundable delegation deposit, so it must be writable.
+    #[account(mut)]
     pub authority: Signer<'info>,
     /// CHECK: This PDA is deserialized and authorized before delegation.
     #[account(

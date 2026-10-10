@@ -27,10 +27,10 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
+  type WritableSignerAccount,
 } from "@solana/kit";
 import {
   findBufferSessionPda,
@@ -76,7 +76,7 @@ export type DelegateSessionInstruction<
   InstructionWithAccounts<
     [
       TAccountAuthority extends string
-        ? ReadonlySignerAccount<TAccountAuthority> &
+        ? WritableSignerAccount<TAccountAuthority> &
             AccountSignerMeta<TAccountAuthority>
         : TAccountAuthority,
       TAccountBufferSession extends string
@@ -148,6 +148,7 @@ export type DelegateSessionAsyncInput<
   TAccountDelegationProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
+  /** Pays the refundable delegation deposit, so it must be writable. */
   authority: TransactionSigner<TAccountAuthority>;
   bufferSession?: Address<TAccountBufferSession>;
   delegationRecordSession?: Address<TAccountDelegationRecordSession>;
@@ -200,7 +201,7 @@ export async function getDelegateSessionInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
+    authority: { value: input.authority ?? null, isWritable: true },
     bufferSession: { value: input.bufferSession ?? null, isWritable: true },
     delegationRecordSession: {
       value: input.delegationRecordSession ?? null,
@@ -304,6 +305,7 @@ export type DelegateSessionInput<
   TAccountDelegationProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
+  /** Pays the refundable delegation deposit, so it must be writable. */
   authority: TransactionSigner<TAccountAuthority>;
   bufferSession: Address<TAccountBufferSession>;
   delegationRecordSession: Address<TAccountDelegationRecordSession>;
@@ -354,7 +356,7 @@ export function getDelegateSessionInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
+    authority: { value: input.authority ?? null, isWritable: true },
     bufferSession: { value: input.bufferSession ?? null, isWritable: true },
     delegationRecordSession: {
       value: input.delegationRecordSession ?? null,
@@ -429,6 +431,7 @@ export type ParsedDelegateSessionInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
+    /** Pays the refundable delegation deposit, so it must be writable. */
     authority: TAccountMetas[0];
     bufferSession: TAccountMetas[1];
     delegationRecordSession: TAccountMetas[2];

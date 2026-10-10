@@ -7,8 +7,12 @@
  */
 
 export * from "./advanceSession";
+export * from "./configurePaperMarket";
 export * from "./delegateSession";
 export * from "./finalizeSession";
+export * from "./initializePaperExchange";
 export * from "./initializeSession";
+export * from "./openPortfolio";
 export * from "./processUndelegation";
 export * from "./submitResult";
+export * from "./tradePortfolio";

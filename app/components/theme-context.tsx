@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,10 +27,14 @@ export function SpreadForgeThemeProvider({
   // Keep the first client render identical to the server render. The saved
   // preference is applied after hydration to avoid a mismatch.
   const [theme, setTheme] = useState<Theme>("dark");
+  // The default must not be written over the saved preference before it has
+  // been read back, which React's double-invoked effects would do in dev.
+  const restored = useRef(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem(STORAGE_KEY);
     const timer = window.setTimeout(() => {
+      restored.current = true;
       if (savedTheme === "light" || savedTheme === "dark") {
         setTheme(savedTheme);
       }
@@ -39,7 +44,7 @@ export function SpreadForgeThemeProvider({
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem(STORAGE_KEY, theme);
+    if (restored.current) localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
   return (
