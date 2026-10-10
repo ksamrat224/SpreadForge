@@ -5,7 +5,7 @@ test("desktop workspace, challenge completion, and local verification", async ({
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
+  await page.goto("/app");
   await expect(
     page.getByRole("heading", { name: "Quote & Risk" })
   ).toBeVisible();
@@ -43,7 +43,7 @@ test("desktop workspace, challenge completion, and local verification", async ({
 test("paper trades, quote cancellation, rankings and architecture preview", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/app");
   const nav = page.getByRole("navigation", { name: "Primary navigation" });
   await nav.getByRole("button", { name: "Paper Trading" }).click();
   await page.getByRole("button", { name: /Buy 1 SOL/ }).click();
@@ -89,7 +89,7 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/app");
   await expect(
     page.getByRole("navigation", { name: "Mobile navigation" })
   ).toBeVisible();
@@ -124,7 +124,7 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
 });
 
 test("tablet and small mobile layouts fit the viewport", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/app");
   for (const width of [320, 768, 820, 1024, 1200, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     const overflowing = await page.locator("body *").evaluateAll((elements) =>

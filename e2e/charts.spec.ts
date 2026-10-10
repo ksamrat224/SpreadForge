@@ -5,7 +5,7 @@ test("paper chart supports crosshair, wheel zoom, drag, intervals and mobile lay
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
+  await page.goto("/app");
   await page
     .getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Paper Trading" })
@@ -62,7 +62,7 @@ test("lab chart renders during simulation and survives resets and theme changes"
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
+  await page.goto("/app");
   await page
     .getByRole("combobox", { name: "Chart view", exact: true })
     .selectOption("candles");
