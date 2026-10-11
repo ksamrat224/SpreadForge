@@ -45,6 +45,28 @@ pub mod result_registry {
         instructions::finalize_session::handler(ctx)
     }
 
+    /// Starts a wallet-approved, deterministic strategy run. The mutable run
+    /// account is delegated to MagicBlock separately and becomes leaderboard
+    /// eligible only after `finalize_ranked_run` commits it back to devnet.
+    pub fn start_ranked_run(
+        ctx: Context<StartRankedRun>,
+        args: StartRankedRunArgs,
+    ) -> Result<()> {
+        instructions::start_ranked_run::handler(ctx, args)
+    }
+
+    pub fn delegate_ranked_run(ctx: Context<DelegateRankedRun>, run_nonce: u64) -> Result<()> {
+        instructions::delegate_ranked_run::handler(ctx, run_nonce)
+    }
+
+    pub fn advance_ranked_run(ctx: Context<AdvanceRankedRun>) -> Result<()> {
+        instructions::advance_ranked_run::handler(ctx)
+    }
+
+    pub fn finalize_ranked_run(ctx: Context<FinalizeRankedRun>) -> Result<()> {
+        instructions::finalize_ranked_run::handler(ctx)
+    }
+
     pub fn initialize_paper_exchange(ctx: Context<InitializePaperExchange>) -> Result<()> {
         instructions::initialize_paper_exchange::handler(ctx)
     }

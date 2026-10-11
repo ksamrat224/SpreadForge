@@ -1494,6 +1494,82 @@
 .terminal-line .terminal-fill {
   color: var(--profit);
 }
+.ranked-chart-empty {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted-foreground);
+  font: 12px/1.6 var(--font-mono);
+  text-align: center;
+}
+.ranked-chart-note {
+  margin: 0;
+  padding: 8px 16px 12px;
+  color: var(--muted-foreground);
+  font: 11px/1.5 var(--font-mono);
+}
+.ranked-quotes {
+  padding-bottom: 14px;
+}
+.ranked-quote-row,
+.ranked-risk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font: 11px var(--font-mono);
+}
+.ranked-quote-row strong,
+.ranked-risk-row strong {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ranked-quotes .control-hint {
+  padding: 0 16px;
+}
+.ranked-risk-row {
+  padding-inline: 0;
+}
+.ranked-run-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--primary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.ranked-debrief .hud-grid {
+  margin: 18px 0;
+}
+.ranked-debrief h3 {
+  margin: 8px 0;
+}
+.ranked-workspace .control-hint,
+.ranked-workspace .terminal-line,
+.ranked-workspace .ranked-quote-row,
+.ranked-workspace .ranked-risk-row {
+  font-size: 11px;
+}
+.ranked-workspace .action-row .btn,
+.ranked-workspace .action-row .icon-button,
+.ranked-workspace .themed-select > button,
+.ranked-workspace .chart-view-picker > button {
+  min-height: 40px;
+}
+.ranked-workspace :is(button, a, input):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ranked-workspace .bar-track i,
+  .ranked-workspace .headroom i {
+    transition: none;
+  }
+}
 .score-column {
   display: flex;
   flex-direction: column;
@@ -3212,6 +3288,11 @@ tr:last-child td {
   }
   .drawer {
     padding: 22px;
+  }
+}
+@media (max-width: 400px) {
+  .topbar .brand-logo {
+    display: none;
   }
 }
 @media (min-width: 820px) and (max-width: 950px) {

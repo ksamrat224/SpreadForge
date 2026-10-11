@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconArrowRight,
   IconBolt,
@@ -16,20 +16,15 @@ import {
   IconWallet,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { AlertModal, PanelHeading } from "./terminal-ui";
+import { PanelHeading } from "./terminal-ui";
 import { useCluster } from "./cluster-context";
 import { ellipsify } from "../lib/explorer";
 import {
-  clearLocalRuns,
   createRpcPaperLeaderboardRepository,
-  createRpcLeaderboardRepository,
-  getSupportedScenarioHashes,
-  LOCAL_RUNS_UPDATED_EVENT,
-  listLocalRuns,
-  rankRecords,
+  createRpcRankedRunRepository,
+  rankSettledRuns,
   type LeaderboardEntry,
   type LeaderboardPeriod,
-  type LocalSimulationRun,
   type PaperLeaderboardSnapshot,
 } from "../lib/leaderboard";
 import { getResultRegistryProgramAddress } from "../lib/results/registry";
@@ -253,7 +248,6 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
     "global"
   );
   const [period, setPeriod] = useState<LeaderboardPeriod>("weekly");
-  const [localRuns, setLocalRuns] = useState<LocalSimulationRun[]>([]);
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -262,34 +256,21 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
   );
   const [paperLoading, setPaperLoading] = useState(false);
   const [paperError, setPaperError] = useState("");
-  const [confirmingClear, setConfirmingClear] = useState(false);
   const { cluster } = useCluster();
   const programAddress = getResultRegistryProgramAddress();
-  const localBest = useMemo(
-    () =>
-      [...localRuns]
-        .sort((a, b) => b.commitment.totalScore - a.commitment.totalScore)
-        .slice(0, 5),
-    [localRuns]
-  );
   const refreshStrategy = async () => {
-    setLocalRuns(listLocalRuns());
     if (!programAddress || cluster !== "devnet") return;
     setLoading(true);
     setError("");
     try {
-      const [records, hashes] = await Promise.all([
-        createRpcLeaderboardRepository({
-          programAddress,
-          cluster: "devnet",
-        }).listRecords(),
-        getSupportedScenarioHashes(),
-      ]);
+      const records = await createRpcRankedRunRepository({
+        programAddress,
+        cluster: "devnet",
+      }).listSettledRuns();
       setRows(
-        rankRecords({
+        rankSettledRuns({
           records,
           period,
-          scenarioHashes: hashes,
           cluster: "devnet",
         })
       );
@@ -338,12 +319,6 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       window.clearInterval(timer);
     };
   }, [active, section, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const syncLocalRuns = () => setLocalRuns(listLocalRuns());
-    window.addEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
-    return () =>
-      window.removeEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
-  }, []);
   return (
     <section className="page-shell" aria-label="Leaderboard">
       <div className="workspace-top">
@@ -363,7 +338,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             <IconTrophy className="tournament-icon" size={18} stroke={2.2} />
             <p className="eyebrow">
               {section === "strategy"
-                ? "Wallet-committed simulation results"
+                ? "Program-calculated settled strategy runs"
                 : "Oracle-priced on-chain paper portfolios"}
             </p>
           </div>
@@ -374,7 +349,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
           </h1>
           <p className="tip">
             {section === "strategy"
-              ? "Best result per wallet across Stable Market, Whale Sell, and Flash Crash."
+              ? "Best settled on-chain run per wallet across all three challenges."
               : "Ranked by live total return from fresh, verified Pyth prices."}
           </p>
         </div>
@@ -399,58 +374,8 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       </div>
       {section === "strategy" ? (
         <>
-          <section className="panel rankings" style={{ marginBottom: 16 }}>
-            <PanelHeading title="Your local runs">
-              <button
-                className="btn ghost"
-                onClick={() => setConfirmingClear(true)}
-                disabled={!localRuns.length}
-              >
-                Clear history
-              </button>
-            </PanelHeading>
-            {localBest.length ? (
-              <div className="table-scroll">
-                <table className="rank-table">
-                  <thead>
-                    <tr>
-                      <th>Scenario</th>
-                      <th>Score</th>
-                      <th>P&amp;L</th>
-                      <th>Status</th>
-                      <th>Completed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {localBest.map((run) => (
-                      <tr key={run.id}>
-                        <td>{run.scenarioId.replaceAll("-", " ")}</td>
-                        <td className="mono profit">
-                          {run.commitment.totalScore.toLocaleString()}
-                        </td>
-                        <td className="mono">
-                          {(run.commitment.pnlBps / 100).toFixed(2)}%
-                        </td>
-                        <td>
-                          <span className="tag">{run.status}</span>
-                        </td>
-                        <td className="mono muted">
-                          {new Date(run.completedAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="empty-state">
-                Complete a Strategy Lab session to save your first private local
-                result.
-              </div>
-            )}
-          </section>
           <section className="panel rankings">
-            <PanelHeading eyebrow="THE BEST OF THE LAB" title="Global rankings">
+            <PanelHeading eyebrow="SETTLED RANKED RUNS" title="Global rankings">
               <div className="rank-tabs">
                 <button
                   className={
@@ -510,12 +435,11 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
               </div>
             ) : !programAddress ? (
               <div className="empty-state" style={{ padding: 50 }}>
-                The Result Registry is not configured. Your local browser
-                history is still available above.
+                The Result Registry is not configured.
               </div>
             ) : cluster !== "devnet" ? (
               <div className="empty-state" style={{ padding: 50 }}>
-                Switch to Solana devnet to view global wallet-committed results.
+                Switch to Solana devnet to view settled strategy runs.
               </div>
             ) : loading ? (
               <LeaderboardSkeleton />
@@ -525,7 +449,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
               </div>
             ) : !rows.length ? (
               <div className="empty-state" style={{ padding: 50 }}>
-                No matching devnet commitments exist for this period yet.
+                No settled devnet ranked runs exist for this period yet.
               </div>
             ) : (
               <div className="table-scroll">
@@ -598,7 +522,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                             target="_blank"
                             rel="noreferrer"
                           >
-                            View commitment
+                            View run
                           </a>
                         </td>
                       </tr>
@@ -714,22 +638,6 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             </p>
           )}
         </section>
-      )}
-      {confirmingClear && (
-        <AlertModal
-          title="Clear local history?"
-          confirmLabel="Clear history"
-          onClose={() => setConfirmingClear(false)}
-          onConfirm={() => {
-            clearLocalRuns();
-            setLocalRuns([]);
-          }}
-        >
-          <p>
-            This permanently removes all saved Strategy Lab runs from this
-            browser. It does not remove any results already committed to devnet.
-          </p>
-        </AlertModal>
       )}
     </section>
   );

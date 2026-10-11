@@ -9,7 +9,8 @@ import {
   IconBolt,
   IconShieldCheck,
 } from "@tabler/icons-react";
-import { SimulationLab, ChallengeDrawer } from "../components/simulation-lab";
+import { RankedChallengeDrawer } from "../components/ranked-challenge-drawer";
+import { RankedStrategyLab } from "../components/ranked-strategy-lab";
 import { PaperTradingDesk } from "../components/paper-trading-desk";
 import { Architecture, Leaderboard } from "../components/community-pages";
 import { WalletButton } from "../components/wallet-button";
@@ -28,6 +29,9 @@ export default function Home() {
   const [drawer, setDrawer] = useState(false);
   const [scenario, setScenario] = useState<ScenarioId>("whale-sell");
   const [session, setSession] = useState(0);
+  const [rankedRunBusy, setRankedRunBusy] = useState(false);
+  const rankedRunsEnabled =
+    process.env.NEXT_PUBLIC_RANKED_RUNS_ENABLED === "true";
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -67,6 +71,7 @@ export default function Home() {
             className="btn ghost"
             aria-label="Choose challenge"
             onClick={() => setDrawer(true)}
+            disabled={rankedRunBusy}
           >
             <IconBolt size={15} />
             <span className="challenge-label">Challenges</span>
@@ -78,10 +83,11 @@ export default function Home() {
       </header>
       <main>
         <div hidden={tab !== "strategy"}>
-          <SimulationLab
+          <RankedStrategyLab
             key={session}
             initialScenario={scenario}
             onScenarioChange={setScenario}
+            onBusyChange={setRankedRunBusy}
             active={tab === "strategy"}
           />
         </div>
@@ -102,7 +108,8 @@ export default function Home() {
         </span>
         <span>
           <span className="status-dot" />
-          LOCAL ENGINE ONLINE <span>·</span> BUILT ON SOLANA
+          {rankedRunsEnabled ? "DEVNET RANKED ENGINE" : "RANKED RUNS OFF"}{" "}
+          <span>·</span> BUILT ON SOLANA
         </span>
       </footer>
       <nav className="mobile-nav" aria-label="Mobile navigation">
@@ -119,10 +126,11 @@ export default function Home() {
         ))}
       </nav>
       {drawer && (
-        <ChallengeDrawer
+        <RankedChallengeDrawer
           selected={scenario}
           onClose={() => setDrawer(false)}
           onSelect={(id) => {
+            if (rankedRunBusy) return;
             setScenario(id);
             setSession((value) => value + 1);
             setTab("strategy");

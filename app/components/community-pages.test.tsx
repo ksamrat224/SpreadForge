@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Leaderboard } from "./community-pages";
 
 const mocks = vi.hoisted(() => ({
-  listRecords: vi.fn(async () => []),
+  listSettledRuns: vi.fn(async () => []),
   listPaper: vi.fn(async () => ({
     entries: [
       {
@@ -33,18 +33,16 @@ vi.mock("../lib/results/registry", () => ({
     "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w",
 }));
 vi.mock("../lib/leaderboard", () => ({
-  LOCAL_RUNS_UPDATED_EVENT: "local-runs-updated",
-  clearLocalRuns: vi.fn(),
-  listLocalRuns: () => [],
-  createRpcLeaderboardRepository: () => ({ listRecords: mocks.listRecords }),
+  createRpcRankedRunRepository: () => ({
+    listSettledRuns: mocks.listSettledRuns,
+  }),
   createRpcPaperLeaderboardRepository: () => ({ list: mocks.listPaper }),
-  getSupportedScenarioHashes: async () => ({}),
-  rankRecords: () => [],
+  rankSettledRuns: () => [],
 }));
 
 afterEach(() => {
   cleanup();
-  mocks.listRecords.mockClear();
+  mocks.listSettledRuns.mockClear();
   mocks.listPaper.mockClear();
 });
 
@@ -54,7 +52,7 @@ describe("Leaderboard", () => {
     expect(
       screen.getByRole("heading", { name: "Strategy leaderboard" })
     ).toBeTruthy();
-    expect(screen.getByText("Your local runs")).toBeTruthy();
+    expect(screen.getByText("Global rankings")).toBeTruthy();
     expect(mocks.listPaper).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Paper trading" }));
