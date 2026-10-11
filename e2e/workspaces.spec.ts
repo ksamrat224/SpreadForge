@@ -41,6 +41,12 @@ test("paper desk and rankings", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Paper Trading" })
   ).toBeVisible();
+  await expect(page.getByLabel("Price feed")).toHaveCount(0);
+  await expect(
+    page
+      .getByText(/Pyth live|Feed loading|Feed unavailable|Exchange fallback/)
+      .first()
+  ).toBeVisible();
   await page.screenshot({
     path: "test-results/spreadforge-paper.png",
     animations: "disabled",
@@ -63,6 +69,14 @@ test("paper desk and rankings", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("portfolio is available in desktop navigation", async ({ page }) => {
+  await page.goto("/app");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "Portfolio" }).click();
+  await expect(page.getByRole("region", { name: "Portfolio" })).toBeVisible();
+  await expect(page.getByText("Your paper portfolio.")).toBeVisible();
+});
+
 test("mobile navigation, drawer, wallet and horizontal layout", async ({
   page,
 }) => {
@@ -71,11 +85,20 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
   await expect(
     page.getByRole("navigation", { name: "Mobile navigation" })
   ).toBeVisible();
-  const strategyOverflow = await page.locator("body *").evaluateAll((elements) =>
-    elements.filter((element) => element.getBoundingClientRect().right > innerWidth + 1).map((element) => `${element.tagName}.${element.className}`).slice(0, 12)
-  );
+  const strategyOverflow = await page
+    .locator("body *")
+    .evaluateAll((elements) =>
+      elements
+        .filter(
+          (element) => element.getBoundingClientRect().right > innerWidth + 1
+        )
+        .map((element) => `${element.tagName}.${element.className}`)
+        .slice(0, 12)
+    );
   expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    ),
     `Strategy Lab horizontal overflow: ${strategyOverflow.join(", ")}`
   ).toBe(true);
   await page.screenshot({
@@ -101,6 +124,11 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
       () => document.documentElement.scrollWidth <= innerWidth
     )
   ).toBe(true);
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("button", { name: "Portfolio" })
+    .click();
+  await expect(page.getByRole("region", { name: "Portfolio" })).toBeVisible();
 });
 
 test("tablet and small mobile layouts fit the viewport", async ({ page }) => {
