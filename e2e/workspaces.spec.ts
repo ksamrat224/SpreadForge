@@ -34,7 +34,7 @@ test("desktop ranked workspace and challenge selection", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("paper desk, rankings and architecture preview", async ({ page }) => {
+test("paper desk and rankings", async ({ page }) => {
   await page.goto("/app");
   const nav = page.getByRole("navigation", { name: "Primary navigation" });
   await nav.getByRole("button", { name: "Paper Trading" }).click();
@@ -61,18 +61,6 @@ test("paper desk, rankings and architecture preview", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Paper trading leaderboard" })
   ).toBeVisible();
-  await nav.getByRole("button", { name: "MagicBlock" }).click();
-  await page.getByRole("button", { name: "Simulate session" }).click();
-  await expect(
-    page.getByText(
-      "Demo complete. No account was created and no transaction was sent."
-    )
-  ).toBeVisible({ timeout: 10000 });
-  await page.screenshot({
-    path: "test-results/spreadforge-architecture.png",
-    animations: "disabled",
-    fullPage: true,
-  });
 });
 
 test("mobile navigation, drawer, wallet and horizontal layout", async ({

@@ -5,14 +5,13 @@ import {
   IconFlame,
   IconActivity,
   IconTrophy,
-  IconCode,
   IconBolt,
   IconShieldCheck,
 } from "@tabler/icons-react";
 import { RankedChallengeDrawer } from "../components/ranked-challenge-drawer";
 import { RankedStrategyLab } from "../components/ranked-strategy-lab";
 import { PaperTradingDesk } from "../components/paper-trading-desk";
-import { Architecture, Leaderboard } from "../components/community-pages";
+import { Leaderboard } from "../components/community-pages";
 import { WalletButton } from "../components/wallet-button";
 import { ThemeToggle } from "../components/theme-toggle";
 import { ClusterSelect } from "../components/cluster-select";
@@ -21,7 +20,6 @@ const tabs = [
   { id: "strategy", label: "Strategy Lab", Icon: IconFlame },
   { id: "paper", label: "Paper Trading", Icon: IconActivity },
   { id: "leaderboard", label: "Leaderboard", Icon: IconTrophy },
-  { id: "magicblock", label: "MagicBlock", Icon: IconCode },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
 export default function Home() {
@@ -96,9 +94,6 @@ export default function Home() {
         </div>
         <div hidden={tab !== "leaderboard"}>
           <Leaderboard active={tab === "leaderboard"} />
-        </div>
-        <div hidden={tab !== "magicblock"}>
-          <Architecture />
         </div>
       </main>
       <footer className="app-footer">
