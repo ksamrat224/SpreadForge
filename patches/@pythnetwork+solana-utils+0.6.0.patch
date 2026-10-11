@@ -9,3 +9,4 @@ index 76eebc1..43df929 100644
 +import { Bundle } from "jito-ts/dist/sdk/block-engine/types.js";
  import { dummyLogger } from "ts-log";
  export const TIP_ACCOUNTS = [
+     "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
