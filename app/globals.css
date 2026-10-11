@@ -3761,6 +3761,196 @@ html:has(.landing) {
   color: var(--foreground);
 }
 
+/* Lab preview: a laptop that opens on scroll, then scrolls the app inside.
+   The track is the scroll distance; the stage stays pinned between the nav
+   and the ticker while the animation plays. */
+.landing-laptop-track {
+  --laptop-stage-height: calc(
+    100svh - 64px - var(--landing-ticker-height) -
+      env(safe-area-inset-bottom, 0px)
+  );
+  --laptop-shell: color-mix(in oklab, var(--foreground) 30%, var(--card));
+  --laptop-shell-low: color-mix(in oklab, var(--foreground) 44%, var(--card));
+  --laptop-bezel: oklch(0.19 0.012 240);
+  height: 240svh;
+}
+@media (min-width: 900px) {
+  .landing-laptop-track {
+    height: 280svh;
+  }
+}
+.landing-laptop-stage {
+  position: sticky;
+  top: 64px;
+  display: flex;
+  align-items: center;
+  height: var(--laptop-stage-height);
+}
+.landing-laptop-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(22px, 4.5svh, 48px);
+  text-align: center;
+}
+/* As wide as the column allows, but never so tall that the caption is pushed
+   off the pinned stage. The deck flares about a fifth wider than the lid. */
+.landing-laptop {
+  width: min(82%, 1040px, (var(--laptop-stage-height) - 240px) * 1.36);
+  container-type: inline-size;
+}
+.landing-laptop-scene {
+  position: relative;
+  /* Room for the deck, which is out of flow and seen from above. */
+  margin-bottom: 9.5cqw;
+  perspective: 400cqw;
+  perspective-origin: 50% calc(100% - 40cqw);
+}
+.landing-laptop-lid {
+  position: relative;
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.landing-laptop-screen,
+.landing-laptop-shell {
+  border-radius: 1.7cqw 1.7cqw 0 0;
+  backface-visibility: hidden;
+}
+.landing-laptop-screen {
+  position: relative;
+  padding: 1.5cqw 1.3cqw 1.7cqw;
+  background: var(--laptop-bezel);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--laptop-shell) 70%, transparent);
+}
+/* Camera */
+.landing-laptop-screen::before {
+  content: "";
+  position: absolute;
+  top: 0.55cqw;
+  left: 50%;
+  width: 0.5cqw;
+  height: 0.5cqw;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--laptop-shell) 45%, black);
+  transform: translateX(-50%);
+}
+/* The outside of the lid, seen from above while the laptop is closed. */
+.landing-laptop-shell {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(var(--laptop-shell-low), var(--laptop-shell));
+  transform: rotateY(180deg);
+}
+.landing-laptop-viewport {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 0.3cqw;
+  background: oklch(0.1 0.01 240);
+}
+.landing-laptop-page {
+  will-change: transform, opacity;
+}
+.landing-laptop-page img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.landing-laptop-page .is-dark,
+.dark .landing-laptop-page .is-light {
+  display: none;
+}
+.dark .landing-laptop-page .is-dark {
+  display: block;
+}
+/* The keyboard deck lies flat, hinged to the bottom edge of the lid. */
+.landing-laptop-deck {
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 100%;
+  border-radius: 0 0 2.4cqw 2.4cqw;
+  background:
+    /* Trackpad */
+    linear-gradient(
+        color-mix(in oklab, var(--laptop-shell-low) 55%, transparent) 0 0
+      )
+      50% 92% / 34% 34% no-repeat,
+    /* Keys */
+    repeating-linear-gradient(
+        90deg,
+        transparent 0 0.5cqw,
+        var(--laptop-bezel) 0.5cqw 5.9cqw
+      )
+      50% 14% / 89.9% 46% no-repeat,
+    linear-gradient(var(--laptop-shell-low), var(--laptop-shell));
+  transform: rotateX(90deg);
+  transform-origin: 50% 0;
+  transform-style: preserve-3d;
+}
+/* Rows across the keys */
+.landing-laptop-deck::before {
+  content: "";
+  position: absolute;
+  inset: 6.5% 5% auto;
+  height: 40%;
+  background: repeating-linear-gradient(
+    transparent 0 17%,
+    var(--laptop-shell) 17% 20%
+  );
+}
+/* Front edge */
+.landing-laptop-deck::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 1.3cqw;
+  border-radius: 0 0 1.2cqw 1.2cqw;
+  background: var(--laptop-shell-low);
+  transform: rotateX(-90deg);
+  transform-origin: 50% 0;
+}
+.landing-laptop-caption .landing-eyebrow {
+  justify-content: center;
+}
+.landing-laptop-caption h2 {
+  margin: 14px 0 0;
+  font-size: clamp(1.9rem, 4.2vw, 3.4rem);
+}
+.landing-laptop-stats {
+  display: flex;
+  justify-content: center;
+  gap: clamp(22px, 6vw, 88px);
+  margin: clamp(16px, 2.6svh, 26px) 0 0;
+}
+.landing-laptop-stats dt {
+  font: 600 clamp(1.15rem, 2vw, 1.6rem) var(--font-mono);
+}
+.landing-laptop-stats dd {
+  margin: 8px 0 0;
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
+}
+@media (min-width: 640px) {
+  .landing-laptop-stats dd {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+}
+/* No pin: the open laptop sits in the page like any other section. */
+.landing-laptop-track.is-static {
+  height: auto;
+  padding: 88px 0;
+}
+.landing-laptop-track.is-static .landing-laptop-stage {
+  position: static;
+  height: auto;
+}
+.landing-laptop-track.is-static .landing-laptop {
+  width: min(82%, 1040px);
+}
+
 /* Ticker: pinned to the bottom of the viewport at every scroll position. */
 .landing-ticker {
   /* !important beats `.landing > *`, like the fixed nav. */
