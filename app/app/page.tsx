@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import { MotionConfig, motion } from "motion/react";
 import {
   IconFlame,
   IconActivity,
@@ -8,6 +9,7 @@ import {
   IconCode,
   IconBolt,
   IconShieldCheck,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { SimulationLab, ChallengeDrawer } from "../components/simulation-lab";
 import { PaperTradingDesk } from "../components/paper-trading-desk";
@@ -17,118 +19,187 @@ import { ThemeToggle } from "../components/theme-toggle";
 import { ClusterSelect } from "../components/cluster-select";
 import { type ScenarioId } from "../lib/simulation";
 const tabs = [
-  { id: "strategy", label: "Strategy Lab", Icon: IconFlame },
-  { id: "paper", label: "Paper Trading", Icon: IconActivity },
-  { id: "leaderboard", label: "Leaderboard", Icon: IconTrophy },
-  { id: "magicblock", label: "MagicBlock", Icon: IconCode },
+  {
+    id: "strategy",
+    label: "Strategy Lab",
+    Icon: IconFlame,
+  },
+  {
+    id: "paper",
+    label: "Paper Trading",
+    Icon: IconActivity,
+  },
+  {
+    id: "leaderboard",
+    label: "Leaderboard",
+    Icon: IconTrophy,
+  },
+  {
+    id: "magicblock",
+    label: "MagicBlock",
+    Icon: IconCode,
+  },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
+const indicatorSpring = {
+  type: "spring",
+  stiffness: 520,
+  damping: 38,
+} as const;
 export default function Home() {
   const [tab, setTab] = useState<Tab>("strategy");
   const [drawer, setDrawer] = useState(false);
   const [scenario, setScenario] = useState<ScenarioId>("whale-sell");
   const [session, setSession] = useState(0);
+  const current = tabs.find((item) => item.id === tab)!;
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <button
-          className="brand"
-          onClick={() => setTab("strategy")}
-          aria-label="SpreadForge home"
-        >
-          <Image
-            src="/SpreadForge.png"
-            alt=""
-            width={34}
-            height={34}
-            priority
-            className="brand-logo"
-          />
-          <span className="brand-word">
-            <b>SPREAD</b>FORGE
-          </span>
-          <em>LAB</em>
-        </button>
-        <nav className="desktop-nav" aria-label="Primary navigation">
+    <MotionConfig reducedMotion="user">
+      <div className="app-shell">
+        <aside className="app-sidebar">
+          <button
+            className="brand"
+            onClick={() => setTab("strategy")}
+            aria-label="SpreadForge home"
+          >
+            <Image
+              src="/SpreadForge.png"
+              alt=""
+              width={34}
+              height={34}
+              priority
+              className="brand-logo"
+            />
+            <span className="brand-word">
+              <b>Spread</b>Forge
+            </span>
+            <em>LAB</em>
+          </button>
+          <nav className="side-nav" aria-label="Primary navigation">
+            {tabs.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                className={`nav-item ${tab === id ? "active" : ""}`}
+                aria-current={tab === id ? "page" : undefined}
+                title={label}
+                onClick={() => setTab(id)}
+              >
+                {tab === id && (
+                  <motion.span
+                    layoutId="side-nav-indicator"
+                    className="nav-indicator"
+                    transition={indicatorSpring}
+                  />
+                )}
+                <Icon size={18} stroke={1.7} />
+                <span className="nav-text">{label}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="app-main">
+          <header className="topbar">
+            <button
+              className="brand topbar-brand"
+              onClick={() => setTab("strategy")}
+              aria-label="SpreadForge home"
+            >
+              <Image
+                src="/SpreadForge.png"
+                alt=""
+                width={30}
+                height={30}
+                className="brand-logo"
+              />
+            </button>
+            <div className="topbar-title">
+              <span className="topbar-crumb">SpreadForge</span>
+              <IconChevronRight size={14} className="topbar-sep" />
+              <motion.strong
+                key={current.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                {current.label}
+              </motion.strong>
+            </div>
+            <div className="header-actions">
+              <button
+                className="btn ghost header-challenges"
+                aria-label="Open challenges"
+                onClick={() => setDrawer(true)}
+              >
+                <IconBolt size={15} />
+                <span className="challenge-label">Challenges</span>
+              </button>
+              <ClusterSelect />
+              <ThemeToggle />
+              <WalletButton />
+            </div>
+          </header>
+          <main className="app-content">
+            <div className="app-view" hidden={tab !== "strategy"}>
+              <SimulationLab
+                key={session}
+                initialScenario={scenario}
+                onScenarioChange={setScenario}
+                active={tab === "strategy"}
+              />
+            </div>
+            <div className="app-view" hidden={tab !== "paper"}>
+              <PaperTradingDesk active={tab === "paper"} />
+            </div>
+            <div className="app-view" hidden={tab !== "leaderboard"}>
+              <Leaderboard active={tab === "leaderboard"} />
+            </div>
+            <div className="app-view" hidden={tab !== "magicblock"}>
+              <Architecture />
+            </div>
+          </main>
+          <footer className="app-footer">
+            <span>
+              <IconShieldCheck size={13} />
+              Educational simulation · No real funds at risk
+            </span>
+            <span>
+              <span className="status-dot" />
+              Local engine online · Built on Solana
+            </span>
+          </footer>
+        </div>
+        <nav className="mobile-nav" aria-label="Mobile navigation">
           {tabs.map(({ id, label, Icon }) => (
             <button
               key={id}
-              className={`nav-item ${tab === id ? "active" : ""}`}
+              aria-label={label}
               aria-current={tab === id ? "page" : undefined}
+              className={tab === id ? "active" : ""}
               onClick={() => setTab(id)}
             >
-              <Icon size={15} />
-              {label}
+              {tab === id && (
+                <motion.span
+                  layoutId="mobile-nav-indicator"
+                  className="mobile-nav-indicator"
+                  transition={indicatorSpring}
+                />
+              )}
+              <Icon size={20} stroke={1.8} />
+              <span>{label.split(" ")[0]}</span>
             </button>
           ))}
         </nav>
-        <div className="header-actions">
-          <button
-            className="btn ghost"
-            aria-label="Choose challenge"
-            onClick={() => setDrawer(true)}
-          >
-            <IconBolt size={15} />
-            <span className="challenge-label">Challenges</span>
-          </button>
-          <ClusterSelect />
-          <ThemeToggle />
-          <WalletButton />
-        </div>
-      </header>
-      <main>
-        <div hidden={tab !== "strategy"}>
-          <SimulationLab
-            key={session}
-            initialScenario={scenario}
-            onScenarioChange={setScenario}
-            active={tab === "strategy"}
+        {drawer && (
+          <ChallengeDrawer
+            selected={scenario}
+            onClose={() => setDrawer(false)}
+            onSelect={(id) => {
+              setScenario(id);
+              setSession((value) => value + 1);
+              setTab("strategy");
+            }}
           />
-        </div>
-        <div hidden={tab !== "paper"}>
-          <PaperTradingDesk active={tab === "paper"} />
-        </div>
-        <div hidden={tab !== "leaderboard"}>
-          <Leaderboard active={tab === "leaderboard"} />
-        </div>
-        <div hidden={tab !== "magicblock"}>
-          <Architecture />
-        </div>
-      </main>
-      <footer className="app-footer">
-        <span>
-          <IconShieldCheck size={12} />
-          EDUCATIONAL SIMULATION · NO REAL FUNDS AT RISK
-        </span>
-        <span>
-          <span className="status-dot" />
-          LOCAL ENGINE ONLINE <span>·</span> BUILT ON SOLANA
-        </span>
-      </footer>
-      <nav className="mobile-nav" aria-label="Mobile navigation">
-        {tabs.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            aria-label={label}
-            aria-current={tab === id ? "page" : undefined}
-            className={tab === id ? "active" : ""}
-            onClick={() => setTab(id)}
-          >
-            <Icon size={21} />
-          </button>
-        ))}
-      </nav>
-      {drawer && (
-        <ChallengeDrawer
-          selected={scenario}
-          onClose={() => setDrawer(false)}
-          onSelect={(id) => {
-            setScenario(id);
-            setSession((value) => value + 1);
-            setTab("strategy");
-          }}
-        />
-      )}
-    </div>
+        )}
+      </div>
+    </MotionConfig>
   );
 }

@@ -1,6 +1,11 @@
 "use client";
 import { useEffect, useRef, useId, useState, type ReactNode } from "react";
-import { IconAlertTriangle, IconFlame, IconHexagon, IconX } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconFlame,
+  IconHexagon,
+  IconX,
+} from "@tabler/icons-react";
 export const money = (cents: number, decimals = 2) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 export const signedMoney = (cents: number) =>
@@ -110,8 +115,18 @@ export function AlertModal({
             <div className="alert-modal-message">{children}</div>
           </div>
           <div className="action-row">
-            <button className="btn" onClick={requestClose}>{cancelLabel}</button>
-            <button className="btn danger" onClick={() => { onConfirm(); requestClose(); }}>{confirmLabel}</button>
+            <button className="btn" onClick={requestClose}>
+              {cancelLabel}
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => {
+                onConfirm();
+                requestClose();
+              }}
+            >
+              {confirmLabel}
+            </button>
           </div>
         </div>
       )}
@@ -142,15 +157,24 @@ export function Metric({
   value,
   detail,
   tone = "",
+  icon,
 }: {
   label: string;
   value: ReactNode;
   detail?: ReactNode;
   tone?: string;
+  icon?: ReactNode;
 }) {
   return (
     <div className={`metric ${tone}`}>
-      <span className="eyebrow">{label}</span>
+      {icon ? (
+        <span className="metric-top">
+          <span className="eyebrow">{label}</span>
+          <span className="kpi-icon">{icon}</span>
+        </span>
+      ) : (
+        <span className="eyebrow">{label}</span>
+      )}
       <strong className="mono">{value}</strong>
       {detail && <small>{detail}</small>}
     </div>

@@ -276,7 +276,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const tradingPaused =
     (source === "pyth" && !hasLiveFeed) ||
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY") ||
-    chain.status !== "ready" || !!chain.busy;
+    chain.status !== "ready" ||
+    !!chain.busy;
 
   // A virtual snapshot is meaningful only for the devnet wallet it came from.
   // Switching clusters returns the desk to its normal fixed practice balance.
@@ -811,102 +812,111 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   );
 
   return (
-    <section className="page-shell" aria-label="Paper Trading">
-      <div className="workspace-top">
-        <span>
-          <strong>Your edge starts with practice.</strong> · Every trade here is
-          simulated.
-        </span>
-        <span className="tag">ON-CHAIN · DEVNET</span>
-      </div>
+    <section className="page-shell paper" aria-label="Paper Trading">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">PAPER TRADING DESK</p>
+          <h1>Your edge starts with practice.</h1>
+          <p className="page-lede">
+            Every trade here is simulated. Prices are live, funds are virtual.
+          </p>
+        </div>
+        <span className="tag profit">ON-CHAIN · DEVNET</span>
+      </header>
 
       <PaperChainPanel chain={chain} />
       {false && isDevnet && (
-          <section
-            className="wallet-practice panel"
-            aria-label="Devnet wallet practice"
-          >
-            <div>
-              <p className="eyebrow">OPTIONAL DEVNET WALLET PRACTICE</p>
-              <h2>Mirror SOL, then practice the conversion</h2>
-              <p>
-                Read-only snapshot only. Your devnet SOL stays in your wallet;
-                this desk creates virtual SOL and simulated USDC only.
-              </p>
-            </div>
-            <div className="wallet-practice-stats">
-              <span>
-                <small>DEVNET SOL</small>
-                <b>
-                  {isWalletBalanceLoading
-                    ? "Loading…"
-                    : wallet
-                      ? `${formatSize(walletSolMilliAsset)} SOL`
-                      : "Connect wallet"}
-                </b>
-              </span>
-              <span>
-                <small>LIVE REFERENCE</small>
-                <b>{hasLiveFeed ? money(solMarket.priceCents) : "Waiting…"}</b>
-              </span>
-              <span>
-                <small>VIRTUAL VALUE</small>
-                <b>
-                  {canStartWalletPractice
-                    ? money(walletPracticeValueCents)
-                    : "—"}
-                </b>
-              </span>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={!canStartWalletPractice}
-                onClick={startWalletPractice}
-              >
-                {desk.fundingSource === "wallet"
-                  ? "Start new wallet session"
-                  : "Start wallet-backed practice"}
-              </button>
-            </div>
-            <small className="control-hint">
-              {walletSolCapped
-                ? "Practice mirrors the first 10 SOL only; the rest remains untouched."
-                : !wallet
-                  ? "Connect a devnet wallet with faucet SOL to mirror a virtual starting position."
-                  : walletBalanceError
-                    ? "Could not read the wallet balance. Fixed 10,000-USDC practice remains available."
-                    : walletSolMilliAsset === 0
-                      ? "No devnet SOL found. Fixed 10,000-USDC practice remains available."
-                      : "No SOL is transferred, wrapped, swapped, or used as collateral."}
-            </small>
-          </section>
+        <section
+          className="wallet-practice panel"
+          aria-label="Devnet wallet practice"
+        >
+          <div>
+            <p className="eyebrow">OPTIONAL DEVNET WALLET PRACTICE</p>
+            <h2>Mirror SOL, then practice the conversion</h2>
+            <p>
+              Read-only snapshot only. Your devnet SOL stays in your wallet;
+              this desk creates virtual SOL and simulated USDC only.
+            </p>
+          </div>
+          <div className="wallet-practice-stats">
+            <span>
+              <small>DEVNET SOL</small>
+              <b>
+                {isWalletBalanceLoading
+                  ? "Loading…"
+                  : wallet
+                    ? `${formatSize(walletSolMilliAsset)} SOL`
+                    : "Connect wallet"}
+              </b>
+            </span>
+            <span>
+              <small>LIVE REFERENCE</small>
+              <b>{hasLiveFeed ? money(solMarket.priceCents) : "Waiting…"}</b>
+            </span>
+            <span>
+              <small>VIRTUAL VALUE</small>
+              <b>
+                {canStartWalletPractice ? money(walletPracticeValueCents) : "—"}
+              </b>
+            </span>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!canStartWalletPractice}
+              onClick={startWalletPractice}
+            >
+              {desk.fundingSource === "wallet"
+                ? "Start new wallet session"
+                : "Start wallet-backed practice"}
+            </button>
+          </div>
+          <small className="control-hint">
+            {walletSolCapped
+              ? "Practice mirrors the first 10 SOL only; the rest remains untouched."
+              : !wallet
+                ? "Connect a devnet wallet with faucet SOL to mirror a virtual starting position."
+                : walletBalanceError
+                  ? "Could not read the wallet balance. Fixed 10,000-USDC practice remains available."
+                  : walletSolMilliAsset === 0
+                    ? "No devnet SOL found. Fixed 10,000-USDC practice remains available."
+                    : "No SOL is transferred, wrapped, swapped, or used as collateral."}
+          </small>
+        </section>
       )}
-      <div className="paper-portfolio panel">
-        <Metric
-          label={`${asset} BALANCE`}
-          value={`${(position.quantityMilliAsset / 1000).toFixed(3)} ${asset}`}
-          detail={`${money(getPositionValueCents(desk, asset))} notional`}
-        />
-        <Metric
-          label="USDC BALANCE"
-          value={money(desk.usdcCents)}
-          detail={
-            onChain
-              ? "On-chain simulated buying power"
-              : "Simulated buying power"
-          }
-        />
-        <Metric
-          label="PORTFOLIO VALUE"
-          value={money(equity)}
-          detail="Cash + BTC + ETH + SOL"
-        />
-        <Metric
-          label="TOTAL P&L"
-          value={signedMoney(pnl)}
-          detail={`Realized ${signedMoney(desk.realizedPnlCents)} · Unrealized ${signedMoney(pnl - desk.realizedPnlCents)}`}
-          tone={pnl >= 0 ? "profit" : "loss"}
-        />
+      <div className="stat-row paper-portfolio">
+        <div className="stat">
+          <Metric
+            label={`${asset} BALANCE`}
+            value={`${(position.quantityMilliAsset / 1000).toFixed(3)} ${asset}`}
+            detail={`${money(getPositionValueCents(desk, asset))} notional`}
+          />
+        </div>
+        <div className="stat">
+          <Metric
+            label="USDC BALANCE"
+            value={money(desk.usdcCents)}
+            detail={
+              onChain
+                ? "On-chain simulated buying power"
+                : "Simulated buying power"
+            }
+          />
+        </div>
+        <div className="stat">
+          <Metric
+            label="PORTFOLIO VALUE"
+            value={money(equity)}
+            detail="Cash + BTC + ETH + SOL"
+          />
+        </div>
+        <div className="stat">
+          <Metric
+            label="TOTAL P&L"
+            value={signedMoney(pnl)}
+            detail={`Realized ${signedMoney(desk.realizedPnlCents)} · Unrealized ${signedMoney(pnl - desk.realizedPnlCents)}`}
+            tone={pnl >= 0 ? "profit" : "loss"}
+          />
+        </div>
       </div>
       {convertMilli > 0 && (
         <div className="wallet-convert panel">
@@ -967,7 +977,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
         </div>
       )}
       <div className="paper-grid">
-        <section className="panel">
+        <section className="panel market-panel">
           <div className="market-header">
             <div>
               <div className="market-pair">
@@ -1132,10 +1142,8 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             </button>
           </div>
         </section>
-        <section className="panel">
-          <PanelHeading eyebrow="ORDER ENTRY" title="Limit Quote">
-            <IconActivity size={17} />
-          </PanelHeading>
+        <section className="panel order-ticket">
+          <PanelHeading eyebrow="ORDER ENTRY" title="Limit Quote" />
           <form className="quote-form" onSubmit={place}>
             <div className="segmented">
               <button
@@ -1315,15 +1323,13 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           </div>
           {!desk.quotes.length && (
             <div className="empty-state">
-              <IconActivity size={24} />
+              <IconActivity size={20} />
               No open quotes. Set your price and let the market come to you.
             </div>
           )}
         </section>
         <section className="panel">
-          <PanelHeading title="Recent fills">
-            <IconHistory size={16} />
-          </PanelHeading>
+          <PanelHeading title="Recent fills" />
           <div className="table-scroll">
             <table>
               <thead>
@@ -1361,7 +1367,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
           </div>
           {!desk.trades.length && (
             <div className="empty-state">
-              <IconHistory size={24} />
+              <IconHistory size={20} />
               Your first trade starts the story. Buy or sell to begin.
             </div>
           )}

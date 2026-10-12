@@ -11,9 +11,10 @@ import {
   IconPlayerPlay,
   IconRefresh,
   IconShieldCheck,
-  IconTrophy,
   IconUsers,
   IconWallet,
+  IconFlask,
+  IconTrash,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { AlertModal, PanelHeading } from "./terminal-ui";
@@ -60,24 +61,14 @@ export function Architecture() {
   const activeNode = step === 0 ? 0 : step < 2 ? 1 : step < 5 ? 2 : 3;
   return (
     <section className="page-shell" aria-label="MagicBlock architecture">
-      <div className="page-title">
+      <header className="page-header">
         <div>
-          <p className="eyebrow profit">THE ENGINE BENEATH THE EDGE</p>
+          <p className="eyebrow">MAGICBLOCK · EPHEMERAL ROLLUPS · DEMO</p>
           <h1>Fast by design. Verifiable by default.</h1>
-          <p>
+          <p className="page-lede">
             Explore the journey from an ephemeral session to a permanent Solana
-            record.
-          </p>
-        </div>
-        <span className="tag warning">INTERACTIVE DEMO</span>
-      </div>
-      <div className="context-banner">
-        <div>
-          <p className="eyebrow">MAGICBLOCK · EPHEMERAL ROLLUPS</p>
-          <h1>Speed meets settlement.</h1>
-          <p className="tip">
-            <IconBolt size={14} />
-            High-frequency state transitions. One compact result commitment.
+            record. High-frequency state transitions, one compact result
+            commitment.
           </p>
         </div>
         <button
@@ -89,9 +80,9 @@ export function Architecture() {
           }}
         >
           {step === 5 ? (
-            <IconRefresh size={15} />
+            <IconRefresh size={16} />
           ) : (
-            <IconPlayerPlay size={15} />
+            <IconPlayerPlay size={16} />
           )}
           {running && step < 5
             ? "Simulating…"
@@ -99,7 +90,7 @@ export function Architecture() {
               ? "Replay session"
               : "Simulate session"}
         </button>
-      </div>
+      </header>
       <div className="architecture-flow">
         {[
           {
@@ -127,7 +118,7 @@ export function Architecture() {
             title={title}
             description={description}
             code={code}
-            icon={<Icon size={27} />}
+            icon={<Icon size={20} stroke={1.6} />}
             active={activeNode >= i + 1}
           />
         ))}
@@ -255,7 +246,13 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
   const [confirmingClear, setConfirmingClear] = useState(false);
   const { cluster } = useCluster();
   const programAddress = getResultRegistryProgramAddress();
-  const localBest = useMemo(() => [...localRuns].sort((a, b) => b.commitment.totalScore - a.commitment.totalScore).slice(0, 5), [localRuns]);
+  const localBest = useMemo(
+    () =>
+      [...localRuns]
+        .sort((a, b) => b.commitment.totalScore - a.commitment.totalScore)
+        .slice(0, 5),
+    [localRuns]
+  );
   const refresh = async () => {
     setLocalRuns(listLocalRuns());
     if (!programAddress || cluster !== "devnet") return;
@@ -263,12 +260,26 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
     setError("");
     try {
       const [records, hashes] = await Promise.all([
-        createRpcLeaderboardRepository({ programAddress, cluster: "devnet" }).listRecords(),
+        createRpcLeaderboardRepository({
+          programAddress,
+          cluster: "devnet",
+        }).listRecords(),
         getSupportedScenarioHashes(),
       ]);
-      setRows(rankRecords({ records, period, scenarioHashes: hashes, cluster: "devnet" }));
+      setRows(
+        rankRecords({
+          records,
+          period,
+          scenarioHashes: hashes,
+          cluster: "devnet",
+        })
+      );
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load devnet rankings.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not load devnet rankings."
+      );
     } finally {
       setLoading(false);
     }
@@ -281,63 +292,142 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
   useEffect(() => {
     const syncLocalRuns = () => setLocalRuns(listLocalRuns());
     window.addEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
-    return () => window.removeEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
+    return () =>
+      window.removeEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
   }, []);
   return (
     <section className="page-shell" aria-label="Leaderboard">
-      <div className="workspace-top">
-        <span>
-          <strong>Compare your strategy runs.</strong> · Global entries are public wallet commitments on Solana devnet.
-        </span>
-        <span className="tag warning">DEVNET</span>
-      </div>
-      <div className="context-banner">
+      <header className="page-header">
         <div>
-          <div className="leaderboard-kicker">
-            <IconTrophy className="tournament-icon" size={18} stroke={2.2} />
-            <p className="eyebrow">Wallet-committed simulation results</p>
-          </div>
+          <p className="eyebrow">WALLET-COMMITTED RESULTS · DEVNET</p>
           <h1>Strategy leaderboard</h1>
-          <p className="tip">
-            Best result per wallet across Stable Market, Whale Sell, and Flash Crash.
+          <p className="page-lede">
+            Compare your strategy runs. Best result per wallet across Stable
+            Market, Whale Sell, and Flash Crash. Global entries are public
+            wallet commitments on Solana devnet.
           </p>
         </div>
-      </div>
-      <section className="panel rankings" style={{ marginBottom: 16 }}>
+      </header>
+      <section className="panel rankings">
         <PanelHeading title="Your local runs">
-          <button className="btn ghost" onClick={() => setConfirmingClear(true)} disabled={!localRuns.length}>Clear history</button>
+          <button
+            className="btn ghost small"
+            onClick={() => setConfirmingClear(true)}
+            disabled={!localRuns.length}
+          >
+            <IconTrash size={14} />
+            Clear history
+          </button>
         </PanelHeading>
-        {localBest.length ? <div className="table-scroll"><table className="rank-table"><thead><tr><th>Scenario</th><th>Score</th><th>P&L</th><th>Status</th><th>Completed</th></tr></thead><tbody>{localBest.map((run) => <tr key={run.id}><td>{run.scenarioId.replaceAll("-", " ")}</td><td className="mono profit">{run.commitment.totalScore.toLocaleString()}</td><td className="mono">{(run.commitment.pnlBps / 100).toFixed(2)}%</td><td><span className="tag">{run.status}</span></td><td className="mono muted">{new Date(run.completedAt).toLocaleString()}</td></tr>)}</tbody></table></div> : <div className="empty-state">Complete a Strategy Lab session to save your first private local result.</div>}
+        {localBest.length ? (
+          <div className="table-scroll">
+            <table className="rank-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Score</th>
+                  <th>P&L</th>
+                  <th>Status</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {localBest.map((run) => (
+                  <tr key={run.id}>
+                    <td>{run.scenarioId.replaceAll("-", " ")}</td>
+                    <td className="mono profit">
+                      {run.commitment.totalScore.toLocaleString()}
+                    </td>
+                    <td className="mono">
+                      {(run.commitment.pnlBps / 100).toFixed(2)}%
+                    </td>
+                    <td>
+                      <span className="tag">{run.status}</span>
+                    </td>
+                    <td className="mono muted">
+                      {new Date(run.completedAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <IconFlask size={20} />
+            Complete a Strategy Lab session to save your first private local
+            result.
+          </div>
+        )}
       </section>
       <section className="panel rankings">
         <PanelHeading eyebrow="THE BEST OF THE LAB" title="Global rankings">
           <div className="rank-tabs">
-            <button className={tab === "global" && period === "weekly" ? "active" : ""} onClick={() => { setTab("global"); setPeriod("weekly"); }}>Weekly</button>
-            <button className={tab === "global" && period === "all-time" ? "active" : ""} onClick={() => { setTab("global"); setPeriod("all-time"); }}>All time</button>
-            <button className={tab === "friends" ? "active" : ""} onClick={() => setTab("friends")}>Friends · soon</button>
-            <button className="icon-button leaderboard-refresh" aria-label="Refresh rankings" onClick={() => void refresh()}><IconRefresh size={19} stroke={2.25} /></button>
+            <button
+              className={
+                tab === "global" && period === "weekly" ? "active" : ""
+              }
+              onClick={() => {
+                setTab("global");
+                setPeriod("weekly");
+              }}
+            >
+              Weekly
+            </button>
+            <button
+              className={
+                tab === "global" && period === "all-time" ? "active" : ""
+              }
+              onClick={() => {
+                setTab("global");
+                setPeriod("all-time");
+              }}
+            >
+              All time
+            </button>
+            <button
+              className={tab === "friends" ? "active" : ""}
+              onClick={() => setTab("friends")}
+            >
+              Friends · soon
+            </button>
+            <button
+              className="icon-button leaderboard-refresh"
+              aria-label="Refresh rankings"
+              title="Refresh rankings"
+              onClick={() => void refresh()}
+            >
+              <IconRefresh size={17} />
+            </button>
           </div>
         </PanelHeading>
         {tab === "friends" ? (
-          <div className="empty-state" style={{ padding: 70 }}>
-            <IconUsers size={32} />
-            <h3
-              style={{
-                fontSize: 16,
-                color: "var(--foreground)",
-                marginBottom: 8,
-              }}
-            >
-              Build your trading circle
-            </h3>
-            Friend rankings are coming later. SpreadForge does not yet store profiles or friend lists.
+          <div className="empty-state roomy">
+            <IconUsers size={20} />
+            <h3>Build your trading circle</h3>
+            Friend rankings are coming later. SpreadForge does not yet store
+            profiles or friend lists.
           </div>
-        ) : !programAddress ? <div className="empty-state" style={{ padding: 50 }}>The Result Registry is not configured. Your local browser history is still available above.</div>
-        : cluster !== "devnet" ? <div className="empty-state" style={{ padding: 50 }}>Switch to Solana devnet to view global wallet-committed results.</div>
-        : loading ? <LeaderboardSkeleton />
-        : error ? <div className="empty-state" style={{ padding: 50 }} role="alert">{error}</div>
-        : !rows.length ? <div className="empty-state" style={{ padding: 50 }}>No matching devnet commitments exist for this period yet.</div>
-        : (
+        ) : !programAddress ? (
+          <div className="empty-state roomy">
+            The Result Registry is not configured. Your local browser history is
+            still available above.
+          </div>
+        ) : cluster !== "devnet" ? (
+          <div className="empty-state roomy">
+            Switch to Solana devnet to view global wallet-committed results.
+          </div>
+        ) : loading ? (
+          <LeaderboardSkeleton />
+        ) : error ? (
+          <div className="empty-state roomy" role="alert">
+            {error}
+          </div>
+        ) : !rows.length ? (
+          <div className="empty-state roomy">
+            No matching devnet commitments exist for this period yet.
+          </div>
+        ) : (
           <div className="table-scroll">
             <table className="rank-table">
               <thead>
@@ -358,24 +448,17 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                       {i < 3 ? (
                         <span className="rank-medal">{i + 1}</span>
                       ) : (
-                        <span className="mono muted" style={{ paddingLeft: 9 }}>
-                          {i + 1}
-                        </span>
+                        <span className="rank-plain">{i + 1}</span>
                       )}
                     </td>
                     <td>
                       <div className="trader">
-                        <span className="avatar">{row.walletAddress.slice(0, 1)}</span>
+                        <span className="avatar">
+                          {row.walletAddress.slice(0, 2)}
+                        </span>
                         <div>
                           <strong>{ellipsify(row.walletAddress)}</strong>
-                          <small
-                            className="mono muted"
-                            style={{
-                              display: "block",
-                              fontSize: 9,
-                              marginTop: 4,
-                            }}
-                          >
+                          <small className="trader-time">
                             {new Date(row.submittedAt * 1000).toLocaleString()}
                           </small>
                         </div>
@@ -385,10 +468,24 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                       {row.score.toLocaleString("en-US")}
                     </td>
                     <td>{row.scenarioName}</td>
-                    <td className={`mono ${row.pnlBps >= 0 ? "profit" : "loss"}`}>{row.pnlBps >= 0 ? "+" : ""}{(row.pnlBps / 100).toFixed(2)}%</td>
-                    <td className="mono">{(row.maxDrawdownBps / 100).toFixed(2)}%</td>
+                    <td
+                      className={`mono ${row.pnlBps >= 0 ? "profit" : "loss"}`}
+                    >
+                      {row.pnlBps >= 0 ? "+" : ""}
+                      {(row.pnlBps / 100).toFixed(2)}%
+                    </td>
+                    <td className="mono">
+                      {(row.maxDrawdownBps / 100).toFixed(2)}%
+                    </td>
                     <td>
-                      <a className="btn ghost" href={row.proofUrl} target="_blank" rel="noreferrer">View commitment</a>
+                      <a
+                        className="btn ghost small"
+                        href={row.proofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View commitment
+                      </a>
                     </td>
                   </tr>
                 ))}
@@ -407,7 +504,10 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             setLocalRuns([]);
           }}
         >
-          <p>This permanently removes all saved Strategy Lab runs from this browser. It does not remove any results already committed to devnet.</p>
+          <p>
+            This permanently removes all saved Strategy Lab runs from this
+            browser. It does not remove any results already committed to devnet.
+          </p>
         </AlertModal>
       )}
     </section>
@@ -416,23 +516,53 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
 
 function LeaderboardSkeleton() {
   return (
-    <div className="table-scroll leaderboard-skeleton" aria-busy="true" aria-label="Loading devnet rankings">
+    <div
+      className="table-scroll leaderboard-skeleton"
+      aria-busy="true"
+      aria-label="Loading devnet rankings"
+    >
       <table className="rank-table">
         <thead>
           <tr>
-            <th>Rank</th><th>Wallet</th><th>Score</th><th>Best scenario</th><th>Net P&amp;L</th><th>Drawdown</th><th>Proof</th>
+            <th>Rank</th>
+            <th>Wallet</th>
+            <th>Score</th>
+            <th>Best scenario</th>
+            <th>Net P&amp;L</th>
+            <th>Drawdown</th>
+            <th>Proof</th>
           </tr>
         </thead>
         <tbody>
           {Array.from({ length: 5 }, (_, index) => (
             <tr key={index}>
-              <td><span className="skeleton-line skeleton-rank" /></td>
-              <td><div className="trader"><span className="skeleton-avatar" /><div><span className="skeleton-line skeleton-wallet" /><span className="skeleton-line skeleton-time" /></div></div></td>
-              <td><span className="skeleton-line skeleton-score" /></td>
-              <td><span className="skeleton-line skeleton-scenario" /></td>
-              <td><span className="skeleton-line skeleton-score" /></td>
-              <td><span className="skeleton-line skeleton-score" /></td>
-              <td><span className="skeleton-line skeleton-proof" /></td>
+              <td>
+                <span className="skeleton-line skeleton-rank" />
+              </td>
+              <td>
+                <div className="trader">
+                  <span className="skeleton-avatar" />
+                  <div>
+                    <span className="skeleton-line skeleton-wallet" />
+                    <span className="skeleton-line skeleton-time" />
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-scenario" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-proof" />
+              </td>
             </tr>
           ))}
         </tbody>
