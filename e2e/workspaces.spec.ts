@@ -1,8 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("desktop workspace, challenge completion, and local verification", async ({
-  page,
-}) => {
+test("desktop ranked workspace and challenge selection", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/app");
@@ -15,19 +13,15 @@ test("desktop workspace, challenge completion, and local verification", async ({
     animations: "disabled",
     fullPage: true,
   });
-  await page.getByRole("button", { name: "5×" }).click();
-  await page.getByRole("button", { name: "Start Challenge" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Session debrief" })
-  ).toBeVisible({ timeout: 15000 });
-  await page.screenshot({
-    path: "test-results/spreadforge-results.png",
-    animations: "disabled",
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Verify on Solana" }).click();
-  await expect(page.getByText(/Result hashed locally/)).toBeVisible();
-  await page.getByRole("button", { name: "Run again" }).click();
+    page.getByRole("button", { name: "Start ranked run" })
+  ).toBeDisabled();
+  await expect(
+    page.getByText(/Connect a wallet to approve a ranked run/)
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Choose your parameters and approve a run/)
+  ).toBeVisible();
   await page.getByRole("button", { name: "Choose challenge" }).click();
   await page.getByRole("button", { name: /Flash Crash & Recovery/ }).click();
   await expect(
@@ -40,21 +34,19 @@ test("desktop workspace, challenge completion, and local verification", async ({
   expect(errors).toEqual([]);
 });
 
-test("paper trades, quote cancellation, rankings and architecture preview", async ({
-  page,
-}) => {
+test("paper desk and rankings", async ({ page }) => {
   await page.goto("/app");
   const nav = page.getByRole("navigation", { name: "Primary navigation" });
   await nav.getByRole("button", { name: "Paper Trading" }).click();
-  await page.getByRole("button", { name: /Buy 1 SOL/ }).click();
-  await expect(page.getByText("11.00 SOL", { exact: true })).toBeVisible();
-  await page.getByLabel("Limit price", { exact: true }).fill("100");
-  await page.getByLabel("Size", { exact: true }).fill("0.5");
-  await page.getByRole("button", { name: "Place buy quote" }).click();
   await expect(
-    page.getByRole("button", { name: "Cancel", exact: true })
+    page.getByRole("region", { name: "Paper Trading" })
   ).toBeVisible();
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByLabel("Price feed")).toHaveCount(0);
+  await expect(
+    page
+      .getByText(/Pyth live|Feed loading|Feed unavailable|Exchange fallback/)
+      .first()
+  ).toBeVisible();
   await page.screenshot({
     path: "test-results/spreadforge-paper.png",
     animations: "disabled",
@@ -62,27 +54,40 @@ test("paper trades, quote cancellation, rankings and architecture preview", asyn
   });
   await nav.getByRole("button", { name: "Leaderboard" }).click();
   await expect(
-    page.getByRole("heading", { name: "The Liquidity Gauntlet" })
+    page.getByRole("heading", { name: "Strategy leaderboard" })
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/spreadforge-leaderboard.png",
     animations: "disabled",
     fullPage: true,
   });
-  await nav.getByRole("button", { name: "Paper Trading" }).click();
-  await expect(page.getByText("11.00 SOL", { exact: true })).toBeVisible();
-  await nav.getByRole("button", { name: "MagicBlock" }).click();
-  await page.getByRole("button", { name: "Simulate session" }).click();
+  await page
+    .getByRole("button", { name: "Paper trading", exact: true })
+    .click();
   await expect(
-    page.getByText(
-      "Demo complete. No account was created and no transaction was sent."
-    )
-  ).toBeVisible({ timeout: 10000 });
-  await page.screenshot({
-    path: "test-results/spreadforge-architecture.png",
-    animations: "disabled",
-    fullPage: true,
-  });
+    page.getByRole("heading", { name: "Paper trading leaderboard" })
+  ).toBeVisible();
+});
+
+test("portfolio is available in desktop navigation", async ({ page }) => {
+  await page.goto("/app");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "Portfolio" }).click();
+  await expect(page.getByRole("region", { name: "Portfolio" })).toBeVisible();
+  await expect(page.getByText("Your paper portfolio.")).toBeVisible();
+});
+
+test("syndicates workspace is available and fails closed before deployment", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "Syndicates" }).click();
+  await expect(page.getByRole("region", { name: "Syndicates" })).toBeVisible();
+  await expect(
+    page.getByText("Trade together. Settle transparently.")
+  ).toBeVisible();
+  await expect(page.getByText(/no real value/i)).toBeVisible();
 });
 
 test("mobile navigation, drawer, wallet and horizontal layout", async ({
@@ -93,10 +98,21 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
   await expect(
     page.getByRole("navigation", { name: "Mobile navigation" })
   ).toBeVisible();
+  const strategyOverflow = await page
+    .locator("body *")
+    .evaluateAll((elements) =>
+      elements
+        .filter(
+          (element) => element.getBoundingClientRect().right > innerWidth + 1
+        )
+        .map((element) => `${element.tagName}.${element.className}`)
+        .slice(0, 12)
+    );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth
-    )
+    ),
+    `Strategy Lab horizontal overflow: ${strategyOverflow.join(", ")}`
   ).toBe(true);
   await page.screenshot({
     path: "test-results/spreadforge-mobile.png",
@@ -121,6 +137,11 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
       () => document.documentElement.scrollWidth <= innerWidth
     )
   ).toBe(true);
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("button", { name: "Portfolio" })
+    .click();
+  await expect(page.getByRole("region", { name: "Portfolio" })).toBeVisible();
 });
 
 test("tablet and small mobile layouts fit the viewport", async ({ page }) => {

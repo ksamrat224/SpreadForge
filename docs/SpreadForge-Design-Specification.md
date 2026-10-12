@@ -111,11 +111,10 @@
   - `em` badge: 8px monospaced uppercase, primary border, 3px padding.
 
 #### Header Center: Desktop Navigation
-- 4 primary tabs:
+- 3 primary tabs:
   1. `Strategy Lab` (`IconFlame`)
   2. `Paper Trading` (`IconActivity`)
   3. `Leaderboard` (`IconTrophy`)
-  4. `MagicBlock` (`IconCode`)
 - Active style: Active bottom border (2px `var(--primary)`), text `var(--foreground)`, subtle primary glow background. Inactive: `var(--muted-foreground)` with hover state.
 
 #### Header Right: Action Controls
@@ -128,7 +127,7 @@
 
 #### Mobile Bottom Bar:
 - Fixed to viewport bottom on displays < 820px (`height: 58px; backdrop-filter: blur(18px); z-index: 50;`).
-- 4 icon-only tab buttons distributing space equally.
+- 3 icon-only tab buttons distributing space equally.
 
 ---
 

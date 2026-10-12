@@ -6,6 +6,17 @@ pub const SESSION_SEED: &[u8] = b"session";
 pub const MAX_SESSION_TICKS: u16 = 60;
 pub const SESSION_SCHEMA_VERSION: u8 = 1;
 
+/// Versioned, program-calculated MagicBlock strategy runs. These are distinct
+/// from the legacy hash-only session flow so existing result records remain
+/// decodable while ranked runs gain an authoritative execution path.
+pub const RANKED_RUN_SEED: &[u8] = b"ranked-run";
+pub const RANKED_RUN_SCHEMA_VERSION: u8 = 1;
+pub const RANKED_RUN_TICKS: u16 = 60;
+pub const RANKED_RUN_TTL_SECONDS: i64 = 5 * 60;
+pub const RANKED_RUN_STARTING_PRICE_CENTS: u64 = 15_000;
+pub const RANKED_RUN_STARTING_BASE_MILLI: u64 = 100_000;
+pub const RANKED_RUN_STARTING_QUOTE_CENTS: u64 = 1_500_000;
+
 pub const PAPER_SEED: &[u8] = b"paper";
 pub const PAPER_CONFIG_SEED: &[u8] = b"paper-config";
 pub const PAPER_MARKET_SEED: &[u8] = b"paper-market";

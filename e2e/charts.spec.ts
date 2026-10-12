@@ -57,25 +57,21 @@ test("paper chart supports crosshair, wheel zoom, drag, intervals and mobile lay
   expect(errors).toEqual([]);
 });
 
-test("lab chart renders during simulation and survives resets and theme changes", async ({
+test("ranked lab shows on-chain controls without browser simulation", async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/app");
-  await page
-    .getByRole("combobox", { name: "Chart view", exact: true })
-    .selectOption("candles");
-  const widget = page.locator(".market-chart-widget:visible");
-  await page.getByRole("button", { name: "5×" }).click();
-  await page.getByRole("button", { name: "Start Challenge" }).click();
-  await expect(widget.getByLabel("Chart values")).not.toContainText("T0 ");
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
-  await widget.getByRole("button", { name: "Zoom in chart" }).click();
+  await expect(
+    page.getByRole("button", { name: "Start ranked run" })
+  ).toBeDisabled();
+  await expect(page.getByText(/Program-calculated results only/)).toBeVisible();
+  await expect(page.getByText(/TICK/).first()).toBeVisible();
   await page.getByRole("button", { name: "Toggle theme" }).click();
-  await expect(widget.locator("canvas").first()).toBeVisible();
+  await expect(
+    page.getByText(/Choose your parameters and approve a run/)
+  ).toBeVisible();
   await page.screenshot({ path: "test-results/interactive-lab-chart.png" });
-  await page.getByRole("button", { name: "Reset simulation" }).click();
-  await expect(widget.getByLabel("Chart values")).toContainText("T0 ");
   expect(errors).toEqual([]);
 });

@@ -17,24 +17,32 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  parseAdvanceRankedRunInstruction,
   parseAdvanceSessionInstruction,
   parseConfigurePaperMarketInstruction,
+  parseDelegateRankedRunInstruction,
   parseDelegateSessionInstruction,
+  parseFinalizeRankedRunInstruction,
   parseFinalizeSessionInstruction,
   parseInitializePaperExchangeInstruction,
   parseInitializeSessionInstruction,
   parseOpenPortfolioInstruction,
   parseProcessUndelegationInstruction,
+  parseStartRankedRunInstruction,
   parseSubmitResultInstruction,
   parseTradePortfolioInstruction,
+  type ParsedAdvanceRankedRunInstruction,
   type ParsedAdvanceSessionInstruction,
   type ParsedConfigurePaperMarketInstruction,
+  type ParsedDelegateRankedRunInstruction,
   type ParsedDelegateSessionInstruction,
+  type ParsedFinalizeRankedRunInstruction,
   type ParsedFinalizeSessionInstruction,
   type ParsedInitializePaperExchangeInstruction,
   type ParsedInitializeSessionInstruction,
   type ParsedOpenPortfolioInstruction,
   type ParsedProcessUndelegationInstruction,
+  type ParsedStartRankedRunInstruction,
   type ParsedSubmitResultInstruction,
   type ParsedTradePortfolioInstruction,
 } from "../instructions";
@@ -46,6 +54,7 @@ export enum ResultRegistryAccount {
   PaperAccount,
   PaperExchange,
   PaperMarket,
+  RankedRun,
   ResultRecord,
   SessionState,
 }
@@ -91,6 +100,17 @@ export function identifyResultRegistryAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([251, 17, 121, 113, 45, 231, 171, 9]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryAccount.RankedRun;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([149, 200, 78, 8, 184, 123, 188, 35]),
       ),
       0,
@@ -115,14 +135,18 @@ export function identifyResultRegistryAccount(
 }
 
 export enum ResultRegistryInstruction {
+  AdvanceRankedRun,
   AdvanceSession,
   ConfigurePaperMarket,
+  DelegateRankedRun,
   DelegateSession,
+  FinalizeRankedRun,
   FinalizeSession,
   InitializePaperExchange,
   InitializeSession,
   OpenPortfolio,
   ProcessUndelegation,
+  StartRankedRun,
   SubmitResult,
   TradePortfolio,
 }
@@ -131,6 +155,17 @@ export function identifyResultRegistryInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ResultRegistryInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([89, 71, 135, 29, 184, 147, 77, 249]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.AdvanceRankedRun;
+  }
   if (
     containsBytes(
       data,
@@ -157,12 +192,34 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([168, 168, 159, 248, 246, 53, 70, 93]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.DelegateRankedRun;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([82, 83, 119, 119, 196, 219, 5, 197]),
       ),
       0,
     )
   ) {
     return ResultRegistryInstruction.DelegateSession;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([149, 40, 193, 201, 75, 223, 161, 117]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.FinalizeRankedRun;
   }
   if (
     containsBytes(
@@ -223,6 +280,17 @@ export function identifyResultRegistryInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([3, 205, 49, 77, 174, 75, 87, 42]),
+      ),
+      0,
+    )
+  ) {
+    return ResultRegistryInstruction.StartRankedRun;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([240, 42, 89, 180, 10, 239, 9, 214]),
       ),
       0,
@@ -250,14 +318,23 @@ export type ParsedResultRegistryInstruction<
   TProgram extends string = "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w",
 > =
   | ({
+      instructionType: ResultRegistryInstruction.AdvanceRankedRun;
+    } & ParsedAdvanceRankedRunInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.AdvanceSession;
     } & ParsedAdvanceSessionInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.ConfigurePaperMarket;
     } & ParsedConfigurePaperMarketInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.DelegateRankedRun;
+    } & ParsedDelegateRankedRunInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.DelegateSession;
     } & ParsedDelegateSessionInstruction<TProgram>)
+  | ({
+      instructionType: ResultRegistryInstruction.FinalizeRankedRun;
+    } & ParsedFinalizeRankedRunInstruction<TProgram>)
   | ({
       instructionType: ResultRegistryInstruction.FinalizeSession;
     } & ParsedFinalizeSessionInstruction<TProgram>)
@@ -274,6 +351,9 @@ export type ParsedResultRegistryInstruction<
       instructionType: ResultRegistryInstruction.ProcessUndelegation;
     } & ParsedProcessUndelegationInstruction<TProgram>)
   | ({
+      instructionType: ResultRegistryInstruction.StartRankedRun;
+    } & ParsedStartRankedRunInstruction<TProgram>)
+  | ({
       instructionType: ResultRegistryInstruction.SubmitResult;
     } & ParsedSubmitResultInstruction<TProgram>)
   | ({
@@ -285,6 +365,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
 ): ParsedResultRegistryInstruction<TProgram> {
   const instructionType = identifyResultRegistryInstruction(instruction);
   switch (instructionType) {
+    case ResultRegistryInstruction.AdvanceRankedRun: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.AdvanceRankedRun,
+        ...parseAdvanceRankedRunInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.AdvanceSession: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -299,11 +386,25 @@ export function parseResultRegistryInstruction<TProgram extends string>(
         ...parseConfigurePaperMarketInstruction(instruction),
       };
     }
+    case ResultRegistryInstruction.DelegateRankedRun: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.DelegateRankedRun,
+        ...parseDelegateRankedRunInstruction(instruction),
+      };
+    }
     case ResultRegistryInstruction.DelegateSession: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: ResultRegistryInstruction.DelegateSession,
         ...parseDelegateSessionInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.FinalizeRankedRun: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.FinalizeRankedRun,
+        ...parseFinalizeRankedRunInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.FinalizeSession: {
@@ -339,6 +440,13 @@ export function parseResultRegistryInstruction<TProgram extends string>(
       return {
         instructionType: ResultRegistryInstruction.ProcessUndelegation,
         ...parseProcessUndelegationInstruction(instruction),
+      };
+    }
+    case ResultRegistryInstruction.StartRankedRun: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ResultRegistryInstruction.StartRankedRun,
+        ...parseStartRankedRunInstruction(instruction),
       };
     }
     case ResultRegistryInstruction.SubmitResult: {

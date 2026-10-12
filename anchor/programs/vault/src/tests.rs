@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        constants::{RESULT_SEED, SESSION_SEED},
+        constants::{RANKED_RUN_SEED, RESULT_SEED, RANKED_RUN_SCHEMA_VERSION, SESSION_SEED},
+        state::RankedRun,
         ID as PROGRAM_ID,
     };
-    use anchor_lang::system_program;
+    use anchor_lang::{system_program, AccountDeserialize};
     use litesvm::LiteSVM;
     use solana_sdk::{
         hash::hash,
@@ -60,6 +61,14 @@ mod tests {
     fn session_pda(authority: &Pubkey, run_nonce: u64) -> Pubkey {
         Pubkey::find_program_address(
             &[SESSION_SEED, authority.as_ref(), &run_nonce.to_le_bytes()],
+            &PROGRAM_ID,
+        )
+        .0
+    }
+
+    fn ranked_run_pda(authority: &Pubkey, run_nonce: u64) -> Pubkey {
+        Pubkey::find_program_address(
+            &[RANKED_RUN_SEED, authority.as_ref(), &run_nonce.to_le_bytes()],
             &PROGRAM_ID,
         )
         .0
@@ -133,11 +142,64 @@ mod tests {
         }
     }
 
+    fn start_ranked_run_ix(
+        authority: &Pubkey,
+        ranked_run: &Pubkey,
+        session_signer: &Pubkey,
+        run_nonce: u64,
+    ) -> Instruction {
+        let digest = hash(b"global:start_ranked_run").to_bytes();
+        let mut data = digest[..8].to_vec();
+        data.push(1); // whale-sell scenario
+        data.extend_from_slice(&30_u16.to_le_bytes());
+        data.extend_from_slice(&2_000_u64.to_le_bytes());
+        data.extend_from_slice(&120_000_u64.to_le_bytes());
+        data.extend_from_slice(&2_u16.to_le_bytes());
+        data.extend_from_slice(session_signer.as_ref());
+        data.extend_from_slice(&run_nonce.to_le_bytes());
+        data.push(RANKED_RUN_SCHEMA_VERSION);
+        Instruction {
+            program_id: PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new(*authority, true),
+                AccountMeta::new(*ranked_run, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data,
+        }
+    }
+
+    fn advance_ranked_run_ix(actor: &Pubkey, ranked_run: &Pubkey) -> Instruction {
+        let digest = hash(b"global:advance_ranked_run").to_bytes();
+        Instruction {
+            program_id: PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new_readonly(*actor, true),
+                AccountMeta::new(*ranked_run, false),
+            ],
+            data: digest[..8].to_vec(),
+        }
+    }
+
     fn signed_tx(payer: &Keypair, instruction: Instruction, svm: &LiteSVM) -> Transaction {
         Transaction::new_signed_with_payer(
             &[instruction],
             Some(&payer.pubkey()),
             &[payer],
+            svm.latest_blockhash(),
+        )
+    }
+
+    fn signed_tx_with_actor(
+        payer: &Keypair,
+        actor: &Keypair,
+        instruction: Instruction,
+        svm: &LiteSVM,
+    ) -> Transaction {
+        Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&payer.pubkey()),
+            &[payer, actor],
             svm.latest_blockhash(),
         )
     }
@@ -261,5 +323,61 @@ mod tests {
                 &svm,
             ))
             .is_err());
+    }
+
+    #[test]
+    fn ranked_run_is_calculated_on_chain_and_rejects_an_unscoped_actor() {
+        let mut svm = svm();
+        let authority = Keypair::new();
+        let session_signer = Keypair::new();
+        let attacker = Keypair::new();
+        svm.airdrop(&authority.pubkey(), LAMPORTS_PER_SOL).unwrap();
+        let run_nonce = 19;
+        let ranked_run = ranked_run_pda(&authority.pubkey(), run_nonce);
+
+        svm.send_transaction(signed_tx(
+            &authority,
+            start_ranked_run_ix(
+                &authority.pubkey(),
+                &ranked_run,
+                &session_signer.pubkey(),
+                run_nonce,
+            ),
+            &svm,
+        ))
+        .unwrap();
+
+        let unauthorized = Transaction::new_signed_with_payer(
+            &[advance_ranked_run_ix(&attacker.pubkey(), &ranked_run)],
+            Some(&authority.pubkey()),
+            &[&authority, &attacker],
+            svm.latest_blockhash(),
+        );
+        assert!(svm.send_transaction(unauthorized).is_err());
+
+        for _ in 0..60 {
+            // Each ER tick is a distinct transaction. LiteSVM otherwise keeps
+            // the same blockhash and therefore treats identical instructions
+            // signed by the scoped actor as already processed.
+            svm.expire_blockhash();
+            svm.send_transaction(signed_tx_with_actor(
+                &authority,
+                &session_signer,
+                advance_ranked_run_ix(&session_signer.pubkey(), &ranked_run),
+                &svm,
+            ))
+            .unwrap();
+        }
+
+        let account = svm.get_account(&ranked_run).expect("ranked run exists");
+        let mut data: &[u8] = &account.data;
+        let run = RankedRun::try_deserialize(&mut data).expect("ranked run decodes");
+        assert_eq!(run.tick, 60);
+        assert_eq!(run.fill_count > 0, true);
+        assert!(run.equity_cents > 0);
+        assert!(run.liquidity_ticks > 0);
+        assert!(run.liquidity_ticks <= run.duration_ticks);
+        assert!(run.quote_cents < u64::MAX);
+        assert_eq!(run.status, RankedRun::ACTIVE);
     }
 }

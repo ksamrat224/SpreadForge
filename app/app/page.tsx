@@ -6,39 +6,29 @@ import {
   IconFlame,
   IconActivity,
   IconTrophy,
-  IconCode,
   IconBolt,
   IconShieldCheck,
   IconChevronRight,
+  IconBriefcase,
+  IconUsersGroup,
 } from "@tabler/icons-react";
-import { SimulationLab, ChallengeDrawer } from "../components/simulation-lab";
+import { RankedChallengeDrawer } from "../components/ranked-challenge-drawer";
+import { RankedStrategyLab } from "../components/ranked-strategy-lab";
 import { PaperTradingDesk } from "../components/paper-trading-desk";
-import { Architecture, Leaderboard } from "../components/community-pages";
+import { PaperPortfolio } from "../components/paper-portfolio";
+import { SyndicatesWorkspace } from "../components/syndicates-workspace";
+import { Leaderboard } from "../components/community-pages";
 import { WalletButton } from "../components/wallet-button";
 import { ThemeToggle } from "../components/theme-toggle";
 import { ClusterSelect } from "../components/cluster-select";
 import { type ScenarioId } from "../lib/simulation";
+import type { PaperAsset } from "../lib/simulation/paper";
 const tabs = [
-  {
-    id: "strategy",
-    label: "Strategy Lab",
-    Icon: IconFlame,
-  },
-  {
-    id: "paper",
-    label: "Paper Trading",
-    Icon: IconActivity,
-  },
-  {
-    id: "leaderboard",
-    label: "Leaderboard",
-    Icon: IconTrophy,
-  },
-  {
-    id: "magicblock",
-    label: "MagicBlock",
-    Icon: IconCode,
-  },
+  { id: "strategy", label: "Strategy Lab", Icon: IconFlame },
+  { id: "paper", label: "Paper Trading", Icon: IconActivity },
+  { id: "portfolio", label: "Portfolio", Icon: IconBriefcase },
+  { id: "syndicates", label: "Syndicates", Icon: IconUsersGroup },
+  { id: "leaderboard", label: "Leaderboard", Icon: IconTrophy },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
 const indicatorSpring = {
@@ -51,6 +41,20 @@ export default function Home() {
   const [drawer, setDrawer] = useState(false);
   const [scenario, setScenario] = useState<ScenarioId>("whale-sell");
   const [session, setSession] = useState(0);
+  const [rankedRunBusy, setRankedRunBusy] = useState(false);
+  const [paperAssetRequest, setPaperAssetRequest] = useState<{
+    asset: PaperAsset;
+    requestId: number;
+  }>();
+  const tradeAsset = (asset: PaperAsset) => {
+    setPaperAssetRequest((current) => ({
+      asset,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
+    setTab("paper");
+  };
+  const rankedRunsEnabled =
+    process.env.NEXT_PUBLIC_RANKED_RUNS_ENABLED === "true";
   const current = tabs.find((item) => item.id === tab)!;
   return (
     <MotionConfig reducedMotion="user">
@@ -126,8 +130,9 @@ export default function Home() {
             <div className="header-actions">
               <button
                 className="btn ghost header-challenges"
-                aria-label="Open challenges"
+                aria-label="Choose challenge"
                 onClick={() => setDrawer(true)}
+                disabled={rankedRunBusy}
               >
                 <IconBolt size={15} />
                 <span className="challenge-label">Challenges</span>
@@ -139,21 +144,31 @@ export default function Home() {
           </header>
           <main className="app-content">
             <div className="app-view" hidden={tab !== "strategy"}>
-              <SimulationLab
+              <RankedStrategyLab
                 key={session}
                 initialScenario={scenario}
                 onScenarioChange={setScenario}
+                onBusyChange={setRankedRunBusy}
                 active={tab === "strategy"}
               />
             </div>
             <div className="app-view" hidden={tab !== "paper"}>
-              <PaperTradingDesk active={tab === "paper"} />
+              <PaperTradingDesk
+                active={tab === "paper"}
+                assetRequest={paperAssetRequest}
+              />
+            </div>
+            <div className="app-view" hidden={tab !== "portfolio"}>
+              <PaperPortfolio
+                active={tab === "portfolio"}
+                onTradeAsset={tradeAsset}
+              />
             </div>
             <div className="app-view" hidden={tab !== "leaderboard"}>
               <Leaderboard active={tab === "leaderboard"} />
             </div>
-            <div className="app-view" hidden={tab !== "magicblock"}>
-              <Architecture />
+            <div className="app-view" hidden={tab !== "syndicates"}>
+              <SyndicatesWorkspace active={tab === "syndicates"} />
             </div>
           </main>
           <footer className="app-footer">
@@ -163,7 +178,8 @@ export default function Home() {
             </span>
             <span>
               <span className="status-dot" />
-              Local engine online · Built on Solana
+              {rankedRunsEnabled ? "Devnet ranked engine" : "Ranked runs off"} ·
+              Built on Solana
             </span>
           </footer>
         </div>
@@ -189,10 +205,11 @@ export default function Home() {
           ))}
         </nav>
         {drawer && (
-          <ChallengeDrawer
+          <RankedChallengeDrawer
             selected={scenario}
             onClose={() => setDrawer(false)}
             onSelect={(id) => {
+              if (rankedRunBusy) return;
               setScenario(id);
               setSession((value) => value + 1);
               setTab("strategy");

@@ -4,24 +4,22 @@
 
 **Learn. Simulate. Compete.**
 
-SpreadForge is a Solana DeFi trading playground. Users practice manually with a shared 10,000-USDC simulated portfolio against live BTC, ETH, and SOL reference prices, configure a simple liquidity strategy, run repeatable market-making challenges, and can verify compact run summaries on Solana devnet once the registry is deployed.
+SpreadForge is a Solana DeFi trading playground with devnet paper trading and deterministic market-making challenges.
 
 This is an educational simulation: balances, P&L, orders, and fills are simulated. It does not trade or custody real assets.
 
 ## Current MVP slice
 
-- Deterministic integer-based simulation engine; no `Math.random()` in core logic
+- Program-calculated, deterministic 60-tick ranked-run engine deployed on devnet
 - Stable Market, Whale Sell, and Flash Crash & Recovery scenarios
 - Spread, order-size, inventory-cap, and refresh-cycle strategy controls
-- Live simulated price, quotes, fills, inventory, P&L, drawdown, feedback, and weighted score
+- Settled on-chain strategy score, equity, fills, and drawdown
 - Dark terminal UI with DM Sans, JetBrains Mono, Tabler icons, responsive desktop/tablet/mobile layouts, and a persistent theme preference
-- Paper Desk: BTC/USDC, ETH/USDC, and SOL/USDC markets with live Pyth references, historical replay, shared simulated USDC buying power, reserved balances, and simulated trade history. Faucet SOL is only for devnet transaction fees.
-- Personal browser-backed run history plus a devnet wallet-committed leaderboard (All-time and Weekly); no score is presented as independently verified
-- Challenge drawer, speed controls, radial score meter, execution feed, illustrative depth ladder, and completion dialog
-- Local deterministic runtime plus a MagicBlock runtime adapter with deterministic local fallback
-- Wallet Standard connection, devnet RPC configuration, canonical SHA-256 result commitments, and a typed Anchor Result Registry client are ready
-- Global leaderboard reads and explicit wallet-commit UI activate only after the schema-v2 Result Registry is deployed and `NEXT_PUBLIC_RESULT_REGISTRY_PROGRAM_ID` is configured for devnet
-- MagicBlock session source includes bounded PDA delegation, an in-memory scoped signer, router-discovered ER routing, and terminal commit-and-undelegate; the devnet end-to-end test remains gated on deployment
+- Paper Desk: on-chain virtual portfolios and oracle-priced devnet trades; devnet SOL pays transaction fees only.
+- Forge Syndicates: an isolated MagicBlock ER social-trading program with a worthless devnet fUSD SPL token, proportional pool shares, fixed risk limits, and high-water-mark fee settlement. Its dedicated devnet program is deployed, initialized, and smoke-tested; each frontend still fails closed unless its public program ID is configured.
+- Strategy leaderboard ranks only program-calculated `RankedRun` accounts settled back on devnet; the paper board ranks live oracle-valued portfolios.
+- Wallet Standard connection, MagicBlock router-discovered ER routing, scoped in-memory signer, and terminal commit-and-undelegate client transport.
+- Ranked runs are separately gated by `NEXT_PUBLIC_RANKED_RUNS_ENABLED`; the local devnet configuration enables them after a successful live ER smoke test.
 
 ## Run locally
 
@@ -47,20 +45,29 @@ Browser tests use Chromium at `/usr/bin/chromium` when available. Set
 `npx playwright install chromium`. Screenshots are saved under `test-results/`.
 
 The UI follows [the design specification](docs/SpreadForge-Design-Specification.md).
-Wallet connection uses real detected browser wallets. The result dialog prepares
-local SHA-256 commitments; it does not claim on-chain verification or submit funds.
+The complete product map and system design are documented in [Features and Architecture](docs/features-and-architecture.md).
+Presenter-friendly feature notes and the live walkthrough are in the [Pitch and Demo Guide](docs/pitch/README.md).
+Wallet connection uses real detected browser wallets. Strategy Lab uses only
+the on-chain run flow; if ranked runs are disabled, it cannot start a run.
+Restart or rebuild the app after changing a public flag.
 
 ## Architecture
 
-Local deterministic execution is the current demo-safe path. The deployed production path is implemented behind a runtime abstraction: it delegates only a bounded ephemeral session to MagicBlock, then records only the final, hashed run summary in a compact Solana devnet Result Registry PDA. It is disabled until the deployed program ID and end-to-end validation are available.
+The wallet approves creation and delegation of a `RankedRun` PDA on devnet. A scoped, temporary signer advances its deterministic state on the router-selected MagicBlock Ephemeral Rollup, then commits and undelegates it. The UI and strategy leaderboard accept only the settled program account on base-layer devnet. No browser-computed score can enter these rankings.
 
 The detailed product, architecture, engineering rules, and plan live in [`agents/`](agents/).
-The current Result Registry schema, PDA, verification boundary, and safe devnet deployment checklist are documented in [`docs/result-registry.md`](docs/result-registry.md).
+The legacy Result Registry commitments are documented in [`docs/result-registry.md`](docs/result-registry.md). The new release and smoke-test checklist is in [`docs/ranked-runs.md`](docs/ranked-runs.md).
+
+### Forge Syndicates development
+
+The syndicates program is a separate workspace member under `anchor/programs/forge-syndicates`; it does not change the deployed Result Registry layouts. Its dedicated devnet address is `HPNkzwiFHbWtCJLRhp7oKE1iHttjxCWvDsjtNHT9o1ZM`. Build and deploy that program, then run `npm run syndicates:initialize -- --send` with `SYNDICATES_ADMIN_KEYPAIR` pointing to the devnet admin keypair. The initializer simulates before sending and registers the SOL/USD and ETH/USD feed identities while creating the classic SPL fUSD mint.
+
+Pooled fUSD remains in a base-layer SPL vault while only synthetic session state is delegated to MagicBlock. The custody/economic core, oracle-bound ER trades, delegation, `SessionTokenV2` authorization, expiry-crank registration, permissionless idempotent expiry, commit-and-undelegate, typed client, discovery UI, faucet claim, syndicate creation, and backing deposits are implemented. The dedicated deployment and full live ER lifecycle smoke test are complete; the remaining work is exposing the complete session and withdrawal lifecycle as end-user UI.
 
 ### Leaderboard devnet setup
 
-Deploy the schema-v2 Result Registry to devnet, configure `NEXT_PUBLIC_RESULT_REGISTRY_PROGRAM_ID` with that program address, and select **devnet** in the app. A wallet needs enough devnet SOL to pay the account-creation rent and transaction fee. The leaderboard reads the configured program directly through the devnet RPC and its proof links open the devnet Solana Explorer. Browser-local results work without a wallet and remain only on that browser.
+The Result Registry devnet upgrade and [ranked-run smoke test](docs/ranked-runs.md) are complete. Set `NEXT_PUBLIC_RANKED_RUNS_ENABLED=true` in each frontend deployment, rebuild, and select **devnet**. A wallet needs devnet SOL for account rent and fees. The strategy board scans the configured program directly through devnet RPC and excludes every old self-reported `ResultRecord`.
 
 ## Why Solana and MagicBlock
 
-Solana gives completed simulation runs a durable, publicly verifiable record without persisting every animation tick. MagicBlock is the low-latency execution layer intended for the repeated session mutations; the base layer remains the final settlement and recovery boundary.
+Solana gives each run a durable, publicly verifiable final account. MagicBlock handles the repeated state transitions; base-layer devnet is the final ranking and recovery boundary.

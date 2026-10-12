@@ -63,6 +63,11 @@ import {
   type PaperState,
   type PricePoint,
 } from "../lib/simulation/paper";
+import {
+  milliAssetForNotional,
+  minimumOrderNotionalCents,
+  orderNotionalCents,
+} from "../lib/simulation/paper-orders";
 
 type FeedSource = "pyth" | "replay";
 type OrderBook = {
@@ -157,7 +162,15 @@ function createInitialDesk() {
   return paperReducer(createPaperState(), { type: "restart-feed" });
 }
 
-export function PaperTradingDesk({ active = true }: { active?: boolean }) {
+export type PaperAssetRequest = { asset: PaperAsset; requestId: number };
+
+export function PaperTradingDesk({
+  active = true,
+  assetRequest,
+}: {
+  active?: boolean;
+  assetRequest?: PaperAssetRequest;
+}) {
   const { cluster } = useCluster();
   const { wallet } = useWallet();
   const {
@@ -170,7 +183,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     undefined,
     createInitialDesk
   );
-  const [source, setSource] = useState<FeedSource>("pyth");
+  const [source] = useState<FeedSource>("pyth");
   const [feedStatus, setFeedStatus] = useState(INITIAL_STATUS.pyth);
   const [historicalProvider, setHistoricalProvider] = useState<string | null>(
     null
@@ -198,12 +211,14 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [limit, setLimit] = useState("");
   const [size, setSize] = useState(formatSize(QUICK_SIZE_MILLI.SOL));
+  const [marketNotional, setMarketNotional] = useState("100");
+  const [sellMax, setSellMax] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [walletSnapshot, setWalletSnapshot] = useState<{
     solMilliAsset: number;
     solPriceCents: number;
   } | null>(null);
-  // "chain" executes every trade as a wallet-signed MagicBlock transaction.
+  // Every trade is a wallet-signed base-layer devnet transaction.
   // Portfolio balances and fills always come from the devnet program. Charts
   // remain client-side presentation data only.
   const onChain = true;
@@ -278,6 +293,19 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     (source === "replay" && feedStatus !== "HISTORICAL REPLAY") ||
     chain.status !== "ready" ||
     !!chain.busy;
+  const handledAssetRequest = useRef(0);
+
+  useEffect(() => {
+    if (!assetRequest || assetRequest.requestId === handledAssetRequest.current)
+      return;
+    handledAssetRequest.current = assetRequest.requestId;
+    dispatch({ type: "select-asset", asset: assetRequest.asset });
+    setLimit("");
+    setSize(formatSize(QUICK_SIZE_MILLI[assetRequest.asset]));
+    setMarketNotional("100");
+    setSellMax(false);
+    setFeedStatus(INITIAL_STATUS.pyth);
+  }, [assetRequest]);
 
   // A virtual snapshot is meaningful only for the devnet wallet it came from.
   // Switching clusters returns the desk to its normal fixed practice balance.
@@ -547,7 +575,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     if (!trade || key === lastToast.current) return;
     lastToast.current = key;
     toast.success(
-      `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.sizeMilliAsset / 1000} simulated ${trade.asset} at ${money(trade.priceCents)}${onChain ? " on MagicBlock" : ""}`
+      `${trade.side === "buy" ? "Bought" : "Sold"} ${trade.sizeMilliAsset / 1000} simulated ${trade.asset} at ${money(trade.priceCents)} on Solana devnet`
     );
   }, [desk.trades, onChain]);
   // The on-chain account is the source of truth for balances and fills.
@@ -612,12 +640,6 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
       setReplayEpoch((epoch) => epoch + 1);
     }
   }
-  function changeSource(next: FeedSource) {
-    if (next === source) return;
-    setSource(next);
-    setTimeframe(next === "replay" ? 240 : 15);
-    restartFeed(next);
-  }
   function changeAsset(next: PaperAsset) {
     if (next === asset) return;
     dispatch({ type: "select-asset", asset: next });
@@ -664,7 +686,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
   // Orders are stamped on the market's clock, so replayed history and live
   // polls line up with trades when analytics rebuild the portfolio.
   const marketNow = () => market.points.at(-1)?.at ?? now();
-  /** Fills at the current reference: locally, or as a wallet-signed MagicBlock trade. */
+  /** Fills at the current reference as a wallet-approved devnet trade. */
   function submitMarket(order: {
     asset: PaperAsset;
     side: "buy" | "sell";
@@ -727,8 +749,31 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
     );
   }
 
-  const quickSizeMilliAsset = QUICK_SIZE_MILLI[asset];
-  const quickSizeLabel = formatSize(quickSizeMilliAsset);
+  const marketNotionalCents = Math.round(Number(marketNotional) * 100);
+  const marketSizeMilliAsset = milliAssetForNotional(
+    marketNotionalCents,
+    market.priceCents
+  );
+  const sellSizeMilliAsset = sellMax
+    ? position.quantityMilliAsset
+    : marketSizeMilliAsset;
+  const buyActualCents = orderNotionalCents(
+    marketSizeMilliAsset,
+    market.priceCents
+  );
+  const sellActualCents = orderNotionalCents(
+    sellSizeMilliAsset,
+    market.priceCents
+  );
+  const minimumCents = minimumOrderNotionalCents(market.priceCents);
+  const buyUnavailable =
+    tradingPaused ||
+    marketSizeMilliAsset < 1 ||
+    buyActualCents > desk.usdcCents;
+  const sellUnavailable =
+    tradingPaused ||
+    sellSizeMilliAsset < 1 ||
+    sellSizeMilliAsset > position.quantityMilliAsset;
   const distance = Number.isFinite(priceCents)
     ? (priceCents / market.priceCents - 1) * 100
     : 0;
@@ -927,7 +972,7 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             </strong>
             <small>
               {onChain
-                ? "Uses the current live SOL/USD reference. Your wallet signs one MagicBlock trade; no SOL leaves your wallet."
+                ? "Uses the current live SOL/USD reference. Your wallet signs one devnet paper trade; no SOL leaves your wallet."
                 : "Uses the current live SOL/USD reference. This does not sign or send a wallet transaction."}
             </small>
           </div>
@@ -1021,29 +1066,19 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
                 activeAsset={asset}
                 onSelectMarket={changeAsset}
               />
-              <ThemedSelect
-                className="cluster-select"
-                label="Price feed"
-                value={source}
-                options={[
-                  // On-chain trades need a fresh price, so replay is local only.
-                  ...(onChain
-                    ? []
-                    : [
-                        {
-                          value: "replay" as const,
-                          label: "Historical replay",
-                          icon: <IconHistory size={14} />,
-                        },
-                      ]),
-                  {
-                    value: "pyth",
-                    label: "Live Pyth",
-                    icon: <IconActivity size={14} />,
-                  },
-                ]}
-                onChange={changeSource}
-              />
+              <span
+                className={`feed-status-badge ${currentQuoteState}`}
+                role="status"
+              >
+                <span className="status-dot" />
+                {feedStatus === "PYTH LIVE"
+                  ? "Pyth live"
+                  : feedStatus === "LIVE FALLBACK"
+                    ? "Exchange fallback"
+                    : feedStatus === "CONNECTING"
+                      ? "Feed loading"
+                      : "Feed unavailable"}
+              </span>
             </div>
           </div>
           {source === "pyth" ? (
@@ -1109,37 +1144,123 @@ export function PaperTradingDesk({ active = true }: { active?: boolean }) {
             book={source === "pyth" && book?.asset === asset ? book : null}
             readoutActions={playbackControls}
           />
-          <div className="quick-trade">
-            <button
-              className="btn buy"
-              disabled={tradingPaused}
-              onClick={() =>
-                submitMarket({
-                  asset,
-                  side: "buy",
-                  sizeMilliAsset: quickSizeMilliAsset,
-                })
-              }
-            >
-              <IconArrowUpRight size={17} />
-              Buy {quickSizeLabel} {asset}{" "}
-              <span className="mono">{money(market.priceCents)}</span>
-            </button>
-            <button
-              className="btn sell"
-              disabled={tradingPaused}
-              onClick={() =>
-                submitMarket({
-                  asset,
-                  side: "sell",
-                  sizeMilliAsset: quickSizeMilliAsset,
-                })
-              }
-            >
-              <IconArrowDownRight size={17} />
-              Sell {quickSizeLabel} {asset}{" "}
-              <span className="mono">{money(market.priceCents)}</span>
-            </button>
+          <div className="market-order-ticket">
+            <div className="market-order-heading">
+              <div>
+                <p className="eyebrow">MARKET ORDER</p>
+                <strong>USD notional</strong>
+              </div>
+              <span>
+                {money(desk.usdcCents)} USDC ·{" "}
+                {formatSize(position.quantityMilliAsset)} {asset}
+              </span>
+            </div>
+            <div className="notional-presets" aria-label="USD amount presets">
+              {[25, 50, 100].map((amount) => {
+                const presetCents = amount * 100;
+                const disabled =
+                  milliAssetForNotional(presetCents, market.priceCents) < 1;
+                return (
+                  <button
+                    key={amount}
+                    type="button"
+                    disabled={disabled}
+                    title={
+                      disabled ? `Below the 0.001 ${asset} minimum` : undefined
+                    }
+                    className={
+                      marketNotional === String(amount) && !sellMax
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() => {
+                      setMarketNotional(String(amount));
+                      setSellMax(false);
+                    }}
+                  >
+                    ${amount}
+                  </button>
+                );
+              })}
+              <label>
+                <span>$</span>
+                <input
+                  aria-label="Custom USD notional"
+                  inputMode="decimal"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={marketNotional}
+                  onChange={(event) => {
+                    setMarketNotional(event.target.value);
+                    setSellMax(false);
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className={sellMax ? "active" : ""}
+                disabled={position.quantityMilliAsset < 1}
+                onClick={() => setSellMax(true)}
+              >
+                Sell max
+              </button>
+            </div>
+            <div className="order-preview">
+              <span>
+                {marketSizeMilliAsset < 1
+                  ? `Minimum is 0.001 ${asset} (about ${money(minimumCents)})`
+                  : `Buy preview: ${formatSize(marketSizeMilliAsset)} ${asset} · ${money(buyActualCents)} after 0.001-unit rounding`}
+              </span>
+              {sellMax && (
+                <span>
+                  Sell preview: all {formatSize(sellSizeMilliAsset)} {asset} ·{" "}
+                  {money(sellActualCents)}
+                </span>
+              )}
+            </div>
+            <div className="market-order-actions">
+              <button
+                className="btn buy"
+                disabled={buyUnavailable}
+                title={
+                  buyActualCents > desk.usdcCents
+                    ? "Insufficient USDC"
+                    : undefined
+                }
+                onClick={() =>
+                  submitMarket({
+                    asset,
+                    side: "buy",
+                    sizeMilliAsset: marketSizeMilliAsset,
+                  })
+                }
+              >
+                <IconArrowUpRight size={17} /> Buy {asset}
+              </button>
+              <button
+                className="btn sell"
+                disabled={sellUnavailable}
+                title={
+                  sellSizeMilliAsset > position.quantityMilliAsset
+                    ? `Insufficient ${asset}`
+                    : undefined
+                }
+                onClick={() =>
+                  submitMarket({
+                    asset,
+                    side: "sell",
+                    sizeMilliAsset: sellSizeMilliAsset,
+                  })
+                }
+              >
+                <IconArrowDownRight size={17} /> Sell {asset}
+              </button>
+            </div>
+            <small>
+              Wallet approval will show this simulated devnet order before it is
+              submitted.
+            </small>
           </div>
         </section>
         <section className="panel order-ticket">
@@ -1489,9 +1610,8 @@ function PaperChart({
       return (
         <div className="empty-state paper-chart">
           <IconChartDots size={24} />
-          Real order book data comes from the live exchange feed. Switch the
-          price feed to Live Pyth to see {asset}{" "}
-          {view === "depth" ? "depth" : "spread"}.
+          Live {asset} {view === "depth" ? "depth" : "spread"} is temporarily
+          unavailable. The exchange feed will retry automatically.
         </div>
       );
     if (view === "depth")

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconArrowRight,
   IconBolt,
@@ -13,23 +13,18 @@ import {
   IconShieldCheck,
   IconUsers,
   IconWallet,
-  IconFlask,
-  IconTrash,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { AlertModal, PanelHeading } from "./terminal-ui";
+import { PanelHeading } from "./terminal-ui";
 import { useCluster } from "./cluster-context";
 import { ellipsify } from "../lib/explorer";
 import {
-  clearLocalRuns,
-  createRpcLeaderboardRepository,
-  getSupportedScenarioHashes,
-  LOCAL_RUNS_UPDATED_EVENT,
-  listLocalRuns,
-  rankRecords,
+  createRpcPaperLeaderboardRepository,
+  createRpcRankedRunRepository,
+  rankSettledRuns,
   type LeaderboardEntry,
   type LeaderboardPeriod,
-  type LocalSimulationRun,
+  type PaperLeaderboardSnapshot,
 } from "../lib/leaderboard";
 import { getResultRegistryProgramAddress } from "../lib/results/registry";
 const terminalSteps = [
@@ -237,40 +232,34 @@ function FlowItem({
   );
 }
 export function Leaderboard({ active = true }: { active?: boolean }) {
-  const [tab, setTab] = useState<"global" | "friends">("global");
+  const [section, setSection] = useState<"strategy" | "paper">("strategy");
+  const [strategyTab, setStrategyTab] = useState<"global" | "friends">(
+    "global"
+  );
   const [period, setPeriod] = useState<LeaderboardPeriod>("weekly");
-  const [localRuns, setLocalRuns] = useState<LocalSimulationRun[]>([]);
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [paperBoard, setPaperBoard] = useState<PaperLeaderboardSnapshot | null>(
+    null
+  );
+  const [paperLoading, setPaperLoading] = useState(false);
+  const [paperError, setPaperError] = useState("");
   const { cluster } = useCluster();
   const programAddress = getResultRegistryProgramAddress();
-  const localBest = useMemo(
-    () =>
-      [...localRuns]
-        .sort((a, b) => b.commitment.totalScore - a.commitment.totalScore)
-        .slice(0, 5),
-    [localRuns]
-  );
-  const refresh = async () => {
-    setLocalRuns(listLocalRuns());
+  const refreshStrategy = async () => {
     if (!programAddress || cluster !== "devnet") return;
     setLoading(true);
     setError("");
     try {
-      const [records, hashes] = await Promise.all([
-        createRpcLeaderboardRepository({
-          programAddress,
-          cluster: "devnet",
-        }).listRecords(),
-        getSupportedScenarioHashes(),
-      ]);
+      const records = await createRpcRankedRunRepository({
+        programAddress,
+        cluster: "devnet",
+      }).listSettledRuns();
       setRows(
-        rankRecords({
+        rankSettledRuns({
           records,
           period,
-          scenarioHashes: hashes,
           cluster: "devnet",
         })
       );
@@ -284,231 +273,319 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       setLoading(false);
     }
   };
+  const refreshPaper = async () => {
+    if (!programAddress || cluster !== "devnet") return;
+    setPaperLoading(true);
+    setPaperError("");
+    try {
+      setPaperBoard(
+        await createRpcPaperLeaderboardRepository({
+          programAddress,
+          cluster: "devnet",
+        }).list()
+      );
+    } catch (reason) {
+      setPaperError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not load paper-trading rankings."
+      );
+    } finally {
+      setPaperLoading(false);
+    }
+  };
   useEffect(() => {
-    if (!active) return;
-    const timer = window.setTimeout(() => void refresh(), 0);
+    if (!active || section !== "strategy") return;
+    const timer = window.setTimeout(() => void refreshStrategy(), 0);
     return () => window.clearTimeout(timer);
-  }, [active, period, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, section, period, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const syncLocalRuns = () => setLocalRuns(listLocalRuns());
-    window.addEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
-    return () =>
-      window.removeEventListener(LOCAL_RUNS_UPDATED_EVENT, syncLocalRuns);
-  }, []);
+    if (!active || section !== "paper") return;
+    const initial = window.setTimeout(() => void refreshPaper(), 0);
+    const timer = window.setInterval(() => void refreshPaper(), 15_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [active, section, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="page-shell" aria-label="Leaderboard">
       <header className="page-header">
         <div>
-          <p className="eyebrow">WALLET-COMMITTED RESULTS · DEVNET</p>
-          <h1>Strategy leaderboard</h1>
+          <p className="eyebrow">
+            {section === "strategy"
+              ? "Program-calculated settled strategy runs"
+              : "Oracle-priced on-chain paper portfolios"}
+          </p>
+          <h1>
+            {section === "strategy"
+              ? "Strategy leaderboard"
+              : "Paper trading leaderboard"}
+          </h1>
           <p className="page-lede">
-            Compare your strategy runs. Best result per wallet across Stable
-            Market, Whale Sell, and Flash Crash. Global entries are public
-            wallet commitments on Solana devnet.
+            {section === "strategy"
+              ? "Compare your strategy runs. Best settled on-chain run per wallet across all three challenges."
+              : "Compare live paper portfolios. Ranked by live total return from fresh, verified Pyth prices."}{" "}
+            Rankings are read from Solana devnet.
           </p>
         </div>
+        <span className="tag warning">DEVNET</span>
       </header>
-      <section className="panel rankings">
-        <PanelHeading title="Your local runs">
-          <button
-            className="btn ghost small"
-            onClick={() => setConfirmingClear(true)}
-            disabled={!localRuns.length}
+      <div className="rank-tabs section-tabs" aria-label="Leaderboard type">
+        <button
+          className={section === "strategy" ? "active" : ""}
+          onClick={() => setSection("strategy")}
+        >
+          Strategy simulations
+        </button>
+        <button
+          className={section === "paper" ? "active" : ""}
+          onClick={() => setSection("paper")}
+        >
+          Paper trading
+        </button>
+      </div>
+      {section === "strategy" ? (
+        <>
+          <section className="panel rankings">
+            <PanelHeading eyebrow="SETTLED RANKED RUNS" title="Global rankings">
+              <div className="rank-tabs">
+                <button
+                  className={
+                    strategyTab === "global" && period === "weekly"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() => {
+                    setStrategyTab("global");
+                    setPeriod("weekly");
+                  }}
+                >
+                  Weekly
+                </button>
+                <button
+                  className={
+                    strategyTab === "global" && period === "all-time"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() => {
+                    setStrategyTab("global");
+                    setPeriod("all-time");
+                  }}
+                >
+                  All time
+                </button>
+                <button
+                  className={strategyTab === "friends" ? "active" : ""}
+                  onClick={() => setStrategyTab("friends")}
+                >
+                  Friends · soon
+                </button>
+                <button
+                  className="icon-button leaderboard-refresh"
+                  aria-label="Refresh strategy rankings"
+                  onClick={() => void refreshStrategy()}
+                >
+                  <IconRefresh size={17} />
+                </button>
+              </div>
+            </PanelHeading>
+            {strategyTab === "friends" ? (
+              <div className="empty-state roomy">
+                <IconUsers size={20} />
+                <h3>Build your trading circle</h3>
+                Friend rankings are coming later. SpreadForge does not yet store
+                profiles or friend lists.
+              </div>
+            ) : !programAddress ? (
+              <div className="empty-state roomy">
+                The Result Registry is not configured.
+              </div>
+            ) : cluster !== "devnet" ? (
+              <div className="empty-state roomy">
+                Switch to Solana devnet to view settled strategy runs.
+              </div>
+            ) : loading ? (
+              <LeaderboardSkeleton />
+            ) : error ? (
+              <div className="empty-state roomy" role="alert">
+                {error}
+              </div>
+            ) : !rows.length ? (
+              <div className="empty-state roomy">
+                No settled devnet ranked runs exist for this period yet.
+              </div>
+            ) : (
+              <div className="table-scroll">
+                <table className="rank-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Wallet</th>
+                      <th>Score</th>
+                      <th>Best scenario</th>
+                      <th>Net P&L</th>
+                      <th>Drawdown</th>
+                      <th>Proof</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => (
+                      <tr key={row.resultAddress}>
+                        <td>
+                          {i < 3 ? (
+                            <span className="rank-medal">{i + 1}</span>
+                          ) : (
+                            <span className="rank-plain">{i + 1}</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="trader">
+                            <span className="avatar">
+                              {row.walletAddress.slice(0, 1)}
+                            </span>
+                            <div>
+                              <strong>{ellipsify(row.walletAddress)}</strong>
+                              <small className="trader-time">
+                                {new Date(
+                                  row.submittedAt * 1000
+                                ).toLocaleString()}
+                              </small>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="mono profit">
+                          {row.score.toLocaleString("en-US")}
+                        </td>
+                        <td>{row.scenarioName}</td>
+                        <td
+                          className={`mono ${row.pnlBps >= 0 ? "profit" : "loss"}`}
+                        >
+                          {row.pnlBps >= 0 ? "+" : ""}
+                          {(row.pnlBps / 100).toFixed(2)}%
+                        </td>
+                        <td className="mono">
+                          {(row.maxDrawdownBps / 100).toFixed(2)}%
+                        </td>
+                        <td>
+                          <a
+                            className="btn ghost small"
+                            href={row.proofUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            View run
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="panel rankings">
+          <PanelHeading
+            eyebrow="LIVE DEVNET VALUATION"
+            title="Paper-trading rankings"
           >
-            <IconTrash size={14} />
-            Clear history
-          </button>
-        </PanelHeading>
-        {localBest.length ? (
-          <div className="table-scroll">
-            <table className="rank-table">
-              <thead>
-                <tr>
-                  <th>Scenario</th>
-                  <th>Score</th>
-                  <th>P&L</th>
-                  <th>Status</th>
-                  <th>Completed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {localBest.map((run) => (
-                  <tr key={run.id}>
-                    <td>{run.scenarioId.replaceAll("-", " ")}</td>
-                    <td className="mono profit">
-                      {run.commitment.totalScore.toLocaleString()}
-                    </td>
-                    <td className="mono">
-                      {(run.commitment.pnlBps / 100).toFixed(2)}%
-                    </td>
-                    <td>
-                      <span className="tag">{run.status}</span>
-                    </td>
-                    <td className="mono muted">
-                      {new Date(run.completedAt).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="empty-state">
-            <IconFlask size={20} />
-            Complete a Strategy Lab session to save your first private local
-            result.
-          </div>
-        )}
-      </section>
-      <section className="panel rankings">
-        <PanelHeading eyebrow="THE BEST OF THE LAB" title="Global rankings">
-          <div className="rank-tabs">
-            <button
-              className={
-                tab === "global" && period === "weekly" ? "active" : ""
-              }
-              onClick={() => {
-                setTab("global");
-                setPeriod("weekly");
-              }}
-            >
-              Weekly
-            </button>
-            <button
-              className={
-                tab === "global" && period === "all-time" ? "active" : ""
-              }
-              onClick={() => {
-                setTab("global");
-                setPeriod("all-time");
-              }}
-            >
-              All time
-            </button>
-            <button
-              className={tab === "friends" ? "active" : ""}
-              onClick={() => setTab("friends")}
-            >
-              Friends · soon
-            </button>
             <button
               className="icon-button leaderboard-refresh"
-              aria-label="Refresh rankings"
-              title="Refresh rankings"
-              onClick={() => void refresh()}
+              aria-label="Refresh paper-trading rankings"
+              onClick={() => void refreshPaper()}
             >
               <IconRefresh size={17} />
             </button>
-          </div>
-        </PanelHeading>
-        {tab === "friends" ? (
-          <div className="empty-state roomy">
-            <IconUsers size={20} />
-            <h3>Build your trading circle</h3>
-            Friend rankings are coming later. SpreadForge does not yet store
-            profiles or friend lists.
-          </div>
-        ) : !programAddress ? (
-          <div className="empty-state roomy">
-            The Result Registry is not configured. Your local browser history is
-            still available above.
-          </div>
-        ) : cluster !== "devnet" ? (
-          <div className="empty-state roomy">
-            Switch to Solana devnet to view global wallet-committed results.
-          </div>
-        ) : loading ? (
-          <LeaderboardSkeleton />
-        ) : error ? (
-          <div className="empty-state roomy" role="alert">
-            {error}
-          </div>
-        ) : !rows.length ? (
-          <div className="empty-state roomy">
-            No matching devnet commitments exist for this period yet.
-          </div>
-        ) : (
-          <div className="table-scroll">
-            <table className="rank-table">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Wallet</th>
-                  <th>Score</th>
-                  <th>Best scenario</th>
-                  <th>Net P&L</th>
-                  <th>Drawdown</th>
-                  <th>Proof</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={row.resultAddress}>
-                    <td>
-                      {i < 3 ? (
-                        <span className="rank-medal">{i + 1}</span>
-                      ) : (
-                        <span className="rank-plain">{i + 1}</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="trader">
-                        <span className="avatar">
-                          {row.walletAddress.slice(0, 2)}
-                        </span>
-                        <div>
-                          <strong>{ellipsify(row.walletAddress)}</strong>
-                          <small className="trader-time">
-                            {new Date(row.submittedAt * 1000).toLocaleString()}
-                          </small>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="mono profit">
-                      {row.score.toLocaleString("en-US")}
-                    </td>
-                    <td>{row.scenarioName}</td>
-                    <td
-                      className={`mono ${row.pnlBps >= 0 ? "profit" : "loss"}`}
-                    >
-                      {row.pnlBps >= 0 ? "+" : ""}
-                      {(row.pnlBps / 100).toFixed(2)}%
-                    </td>
-                    <td className="mono">
-                      {(row.maxDrawdownBps / 100).toFixed(2)}%
-                    </td>
-                    <td>
-                      <a
-                        className="btn ghost small"
-                        href={row.proofUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        View commitment
-                      </a>
-                    </td>
+          </PanelHeading>
+          {!programAddress ? (
+            <div className="empty-state roomy">
+              The Result Registry is not configured.
+            </div>
+          ) : cluster !== "devnet" ? (
+            <div className="empty-state roomy">
+              Switch to Solana devnet to view paper-trading rankings.
+            </div>
+          ) : paperLoading && !paperBoard ? (
+            <PaperLeaderboardSkeleton />
+          ) : paperError ? (
+            <div className="empty-state roomy" role="alert">
+              {paperError}
+            </div>
+          ) : !paperBoard?.entries.length ? (
+            <div className="empty-state roomy">
+              No traded portfolios with fresh oracle prices are ranked yet.
+            </div>
+          ) : (
+            <div className="table-scroll">
+              <table className="rank-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Wallet</th>
+                    <th>Return</th>
+                    <th>Equity</th>
+                    <th>Realized P&amp;L</th>
+                    <th>Trades</th>
+                    <th>Last activity</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-      {confirmingClear && (
-        <AlertModal
-          title="Clear local history?"
-          confirmLabel="Clear history"
-          onClose={() => setConfirmingClear(false)}
-          onConfirm={() => {
-            clearLocalRuns();
-            setLocalRuns([]);
-          }}
-        >
-          <p>
-            This permanently removes all saved Strategy Lab runs from this
-            browser. It does not remove any results already committed to devnet.
-          </p>
-        </AlertModal>
+                </thead>
+                <tbody>
+                  {paperBoard.entries.map((row, index) => (
+                    <tr key={row.walletAddress}>
+                      <td>
+                        {index < 3 ? (
+                          <span className="rank-medal">{index + 1}</span>
+                        ) : (
+                          <span className="rank-plain">{index + 1}</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="trader">
+                          <span className="avatar">
+                            {row.walletAddress.slice(0, 1)}
+                          </span>
+                          <strong>{ellipsify(row.walletAddress)}</strong>
+                        </div>
+                      </td>
+                      <td
+                        className={`mono ${row.returnBps >= 0 ? "profit" : "loss"}`}
+                      >
+                        {row.returnBps >= 0 ? "+" : ""}
+                        {(row.returnBps / 100).toFixed(2)}%
+                      </td>
+                      <td className="mono">
+                        {formatPaperUsd(row.equityCents)}
+                      </td>
+                      <td
+                        className={`mono ${row.realizedPnlCents >= 0 ? "profit" : "loss"}`}
+                      >
+                        {row.realizedPnlCents >= 0 ? "+" : ""}
+                        {formatPaperUsd(row.realizedPnlCents)}
+                      </td>
+                      <td className="mono">{row.tradeCount}</td>
+                      <td className="mono muted">
+                        {new Date(row.lastActivityAt * 1000).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!!paperBoard?.excludedUnpricedPortfolios && (
+            <p className="sample-note">
+              {paperBoard.excludedUnpricedPortfolios} traded{" "}
+              {paperBoard.excludedUnpricedPortfolios === 1
+                ? "portfolio is"
+                : "portfolios are"}{" "}
+              temporarily unranked because one or more held assets lack a fresh
+              verified price.
+            </p>
+          )}
+        </section>
       )}
     </section>
   );
@@ -570,4 +647,65 @@ function LeaderboardSkeleton() {
       <span className="sr-only">Loading devnet result records.</span>
     </div>
   );
+}
+
+function PaperLeaderboardSkeleton() {
+  return (
+    <div
+      className="table-scroll leaderboard-skeleton"
+      aria-busy="true"
+      aria-label="Loading paper-trading rankings"
+    >
+      <table className="rank-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Wallet</th>
+            <th>Return</th>
+            <th>Equity</th>
+            <th>Realized P&amp;L</th>
+            <th>Trades</th>
+            <th>Last activity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }, (_, index) => (
+            <tr key={index}>
+              <td>
+                <span className="skeleton-line skeleton-rank" />
+              </td>
+              <td>
+                <div className="trader">
+                  <span className="skeleton-avatar" />
+                  <span className="skeleton-line skeleton-wallet" />
+                </div>
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-score" />
+              </td>
+              <td>
+                <span className="skeleton-line skeleton-time" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatPaperUsd(cents: number) {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
 }
