@@ -34,12 +34,18 @@ test("desktop ranked workspace and challenge selection", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("paper desk, rankings and architecture preview", async ({ page }) => {
+test("paper desk and rankings", async ({ page }) => {
   await page.goto("/app");
   const nav = page.getByRole("navigation", { name: "Primary navigation" });
   await nav.getByRole("button", { name: "Paper Trading" }).click();
   await expect(
     page.getByRole("region", { name: "Paper Trading" })
+  ).toBeVisible();
+  await expect(page.getByLabel("Price feed")).toHaveCount(0);
+  await expect(
+    page
+      .getByText(/Pyth live|Feed loading|Feed unavailable|Exchange fallback/)
+      .first()
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/spreadforge-paper.png",
@@ -61,18 +67,27 @@ test("paper desk, rankings and architecture preview", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Paper trading leaderboard" })
   ).toBeVisible();
-  await nav.getByRole("button", { name: "MagicBlock" }).click();
-  await page.getByRole("button", { name: "Simulate session" }).click();
+});
+
+test("portfolio is available in desktop navigation", async ({ page }) => {
+  await page.goto("/app");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "Portfolio" }).click();
+  await expect(page.getByRole("region", { name: "Portfolio" })).toBeVisible();
+  await expect(page.getByText("Your paper portfolio.")).toBeVisible();
+});
+
+test("syndicates workspace is available and fails closed before deployment", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "Syndicates" }).click();
+  await expect(page.getByRole("region", { name: "Syndicates" })).toBeVisible();
   await expect(
-    page.getByText(
-      "Demo complete. No account was created and no transaction was sent."
-    )
-  ).toBeVisible({ timeout: 10000 });
-  await page.screenshot({
-    path: "test-results/spreadforge-architecture.png",
-    animations: "disabled",
-    fullPage: true,
-  });
+    page.getByText("Trade together. Settle transparently.")
+  ).toBeVisible();
+  await expect(page.getByText(/no real value/i)).toBeVisible();
 });
 
 test("mobile navigation, drawer, wallet and horizontal layout", async ({
@@ -83,11 +98,20 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
   await expect(
     page.getByRole("navigation", { name: "Mobile navigation" })
   ).toBeVisible();
-  const strategyOverflow = await page.locator("body *").evaluateAll((elements) =>
-    elements.filter((element) => element.getBoundingClientRect().right > innerWidth + 1).map((element) => `${element.tagName}.${element.className}`).slice(0, 12)
-  );
+  const strategyOverflow = await page
+    .locator("body *")
+    .evaluateAll((elements) =>
+      elements
+        .filter(
+          (element) => element.getBoundingClientRect().right > innerWidth + 1
+        )
+        .map((element) => `${element.tagName}.${element.className}`)
+        .slice(0, 12)
+    );
   expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    ),
     `Strategy Lab horizontal overflow: ${strategyOverflow.join(", ")}`
   ).toBe(true);
   await page.screenshot({
@@ -113,6 +137,11 @@ test("mobile navigation, drawer, wallet and horizontal layout", async ({
       () => document.documentElement.scrollWidth <= innerWidth
     )
   ).toBe(true);
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("button", { name: "Portfolio" })
+    .click();
+  await expect(page.getByRole("region", { name: "Portfolio" })).toBeVisible();
 });
 
 test("tablet and small mobile layouts fit the viewport", async ({ page }) => {

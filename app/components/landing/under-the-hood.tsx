@@ -51,7 +51,7 @@ export function UnderTheHood() {
               Solana.
             </p>
             <Link href="/app" className="landing-link">
-              Explore the architecture
+              Open ranked lab
               <IconArrowRight size={16} />
             </Link>
             <dl className="landing-hood-stats">
