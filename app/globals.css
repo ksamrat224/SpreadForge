@@ -1067,6 +1067,76 @@
   color: var(--muted-foreground);
 }
 
+/* Info tooltip: notes behind an "i" icon, shown on hover, focus or tap. */
+.info-tooltip {
+  position: relative;
+  flex: 0 0 auto;
+}
+.info-tooltip-trigger {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.info-tooltip-trigger:hover,
+.info-tooltip:focus-within .info-tooltip-trigger {
+  background: var(--surface-2);
+  color: var(--foreground);
+}
+.info-tooltip.attention .info-tooltip-trigger {
+  color: var(--warning);
+}
+/* The panel starts flush under the icon so the pointer can travel onto it. */
+.info-tooltip-panel {
+  position: absolute;
+  z-index: 30;
+  top: 100%;
+  right: 0;
+  width: 232px;
+  padding-top: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.2s var(--ease),
+    visibility 0s linear 0.2s;
+}
+.info-tooltip:hover .info-tooltip-panel,
+.info-tooltip:focus-within .info-tooltip-panel {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+.info-tooltip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--popover);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+}
+.info-tooltip-card .control-hint {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.info-tooltip-card .control-hint + .control-hint {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
 /* KPI cards */
 .metric {
   min-width: 0;
@@ -5164,6 +5234,139 @@ tr:nth-child(3) .rank-medal {
   }
 }
 
+/* Trimmed copy: pages open on their content. Taglines, restated sub-text and
+   how-it-works explainers are hidden; the facts and statuses stay. */
+.workspace-top,
+.context-banner .tip,
+.ranked-workspace .hud-grid .metric small,
+.ranked-workspace .panel.risk-grid .metric small,
+.ranked-workspace .control-footnote,
+.ranked-quotes .control-hint,
+.market-order-ticket > small,
+.portfolio-state:not(:has(.btn)) p,
+.syndicate-hero p:not(.eyebrow),
+.syndicate-principles,
+.syndicate-flow,
+.drawer .guide-steps,
+.drawer .dialog-body > .eyebrow:first-child {
+  display: none;
+}
+/* The challenge header is one line: name, level, then length and volatility. */
+.context-banner {
+  align-items: center;
+  gap: 8px 32px;
+}
+.context-banner > div:first-child {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+/* The challenge name doubles as a borderless scenario picker, in the same
+   style as the chart type selector. */
+/* The offset that lines the text up with the page edge sits on the wrapper:
+   on the button it would shrink the wrapper and cut the name short. */
+.scenario-picker.themed-select {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: calc(100% + 10px);
+  margin-left: -10px;
+}
+/* The name is never cut off: one line, wrapping only if the screen is too
+   narrow to hold it. */
+.scenario-picker .themed-select-value > span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.scenario-picker.themed-select > button {
+  min-height: 0;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+.scenario-picker.themed-select > button:hover:not(:disabled),
+.scenario-picker.themed-select > button[aria-expanded="true"] {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+.scenario-picker.themed-select > button:disabled {
+  opacity: 1;
+}
+.scenario-picker.themed-select > button:disabled > svg {
+  opacity: 0.35;
+}
+.scenario-picker .themed-select-value > svg {
+  display: none;
+}
+.scenario-picker .themed-select-menu {
+  left: 0;
+  right: auto;
+  min-width: 240px;
+}
+.banner-stats > div {
+  flex-direction: row-reverse;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .banner-stats {
+    flex-wrap: wrap;
+    gap: 4px 20px;
+  }
+  .banner-stats > div + div {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+.ranked-workspace .hud-grid .metric {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+.ranked-workspace .hud-grid .metric strong {
+  margin-bottom: 0;
+}
+.ranked-quotes {
+  padding-bottom: 0;
+}
+.syndicate-hero h1 {
+  margin: 6px 0 0;
+  font-size: 22px;
+}
+.syndicate-hero > div {
+  padding: 22px 24px;
+}
+.syndicate-hero > div:first-child {
+  align-self: center;
+}
+.syndicate-token-card {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: stretch;
+}
+/* The portfolio panel is short, so its tooltip must be free to overflow. */
+.wallet-practice.panel {
+  overflow: visible;
+}
+.wallet-practice h1,
+.wallet-practice h2 {
+  margin-bottom: 0;
+}
+.wallet-practice h1 {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
 /* Markets */
 .markets-toolbar {
   display: flex;
@@ -5173,6 +5376,12 @@ tr:nth-child(3) .rank-medal {
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
+}
+.markets-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 .markets-toolbar .market-search {
   width: min(320px, 100%);
@@ -5282,8 +5491,12 @@ th[aria-sort="descending"] .sort-button svg {
     padding-left: 18px;
     padding-right: 18px;
   }
-  .markets-toolbar .market-search {
+  .markets-toolbar-end {
     width: 100%;
+  }
+  .markets-toolbar .market-search {
+    flex: 1;
+    width: auto;
   }
   .markets-toolbar .rank-tabs {
     max-width: 100%;

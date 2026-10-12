@@ -2,6 +2,7 @@
 
 import { IconExternalLink, IconInfoCircle } from "@tabler/icons-react";
 import { useCluster } from "./cluster-context";
+import { InfoTooltip } from "./terminal-ui";
 import type { usePaperChain } from "../lib/hooks/use-paper-chain";
 
 type PaperChain = ReturnType<typeof usePaperChain>;
@@ -25,6 +26,8 @@ export function PaperChainPanel({ chain }: { chain: PaperChain }) {
     : null;
   const tone =
     chain.busy || chain.status === "loading" ? "pending" : chain.status;
+  // Errors and "why is this unavailable" stay visible; routine notes do not.
+  const notice = chain.error ?? chain.unavailableReason;
   return (
     <section
       className="wallet-practice panel"
@@ -34,10 +37,6 @@ export function PaperChainPanel({ chain }: { chain: PaperChain }) {
         <div>
           <p className="eyebrow">DEVNET PAPER PORTFOLIO</p>
           <h2>Trade with virtual $10,000</h2>
-          <p>
-            Every buy and sell is wallet-approved, priced by a verified oracle,
-            and recorded permanently on Solana devnet.
-          </p>
         </div>
       </div>
       <div className="wallet-practice-stats">
@@ -83,25 +82,37 @@ export function PaperChainPanel({ chain }: { chain: PaperChain }) {
             Retry
           </button>
         )}
-      </div>
-      <small className="control-hint" role={chain.error ? "alert" : undefined}>
-        <IconInfoCircle size={14} />
-        <span>
-          {chain.error ??
-            chain.unavailableReason ??
-            (chain.status === "ready"
+        <InfoTooltip label="About the paper portfolio">
+          <p className="control-hint">
+            Every buy and sell is wallet-approved, priced by a verified oracle,
+            and recorded permanently on Solana devnet.
+          </p>
+          <p className="control-hint">
+            {chain.status === "ready"
               ? "Every order opens a devnet wallet approval and updates your on-chain portfolio."
-              : "Opening a portfolio is a one-time devnet transaction.")}
-          {signatureUrl && (
-            <>
-              {" "}
-              <a href={signatureUrl} target="_blank" rel="noreferrer">
-                Last transaction <IconExternalLink size={12} />
-              </a>
-            </>
-          )}
-        </span>
-      </small>
+              : "Opening a portfolio is a one-time devnet transaction."}
+          </p>
+        </InfoTooltip>
+      </div>
+      {(notice || signatureUrl) && (
+        <small
+          className="control-hint"
+          role={chain.error ? "alert" : undefined}
+        >
+          {notice && <IconInfoCircle size={14} />}
+          <span>
+            {notice}
+            {signatureUrl && (
+              <>
+                {notice && " "}
+                <a href={signatureUrl} target="_blank" rel="noreferrer">
+                  Last transaction <IconExternalLink size={12} />
+                </a>
+              </>
+            )}
+          </span>
+        </small>
+      )}
     </section>
   );
 }

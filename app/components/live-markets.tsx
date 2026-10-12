@@ -208,50 +208,16 @@ export function LiveMarkets({
     );
   const sortLabel = (key: SortKey): "none" | "ascending" | "descending" =>
     sort.key !== key ? "none" : sort.descending ? "descending" : "ascending";
-  const scopeLabel =
-    filter === "all"
-      ? "All markets"
-      : FILTERS.find((item) => item.value === filter)!.label;
-
   return (
     <section className="page-shell live-markets" aria-label="Markets">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">LIVE MARKETS · SOLANA</p>
-          <h1>Markets</h1>
-          <p className="page-lede">
-            Live prices for tokenized stocks, crypto and memecoins, read from
-            the Solana pools they trade in.
-          </p>
-        </div>
-        <span
-          className={`live ${snapshot && !delayed ? "" : "idle"}`}
-          role="status"
-        >
-          <i />
-          {!snapshot
-            ? failed
-              ? "UNAVAILABLE"
-              : "CONNECTING"
-            : delayed
-              ? "DELAYED"
-              : "LIVE"}
-        </span>
-      </header>
-
       <div className="stat-row">
         <div className="stat">
-          <Metric
-            label="MARKETS"
-            value={snapshot ? counts[filter] : "—"}
-            detail={scopeLabel}
-          />
+          <Metric label="MARKETS" value={snapshot ? counts[filter] : "—"} />
         </div>
         <div className="stat">
           <Metric
             label="24H VOLUME"
             value={snapshot ? formatCompact(summary.volume) : "—"}
-            detail="Across listed pools"
           />
         </div>
         <div className="stat">
@@ -260,8 +226,8 @@ export function LiveMarkets({
             value={summary.gainer?.symbol ?? "—"}
             detail={
               summary.gainer
-                ? `${formatChange(summary.gainer.change24hPercent)} in 24h`
-                : "Waiting for prices"
+                ? formatChange(summary.gainer.change24hPercent)
+                : undefined
             }
             tone={summary.gainer ? "profit" : ""}
           />
@@ -272,8 +238,8 @@ export function LiveMarkets({
             value={summary.loser?.symbol ?? "—"}
             detail={
               summary.loser
-                ? `${formatChange(summary.loser.change24hPercent)} in 24h`
-                : "Waiting for prices"
+                ? formatChange(summary.loser.change24hPercent)
+                : undefined
             }
             tone={summary.loser ? "loss" : ""}
           />
@@ -306,15 +272,30 @@ export function LiveMarkets({
               </button>
             ))}
           </div>
-          <label className="market-search">
-            <IconSearch size={15} />
-            <span className="sr-only">Search markets</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by ticker or name"
-            />
-          </label>
+          <div className="markets-toolbar-end">
+            <span
+              className={`live ${snapshot && !delayed ? "" : "idle"}`}
+              role="status"
+            >
+              <i />
+              {!snapshot
+                ? failed
+                  ? "UNAVAILABLE"
+                  : "CONNECTING"
+                : delayed
+                  ? "DELAYED"
+                  : "LIVE"}
+            </span>
+            <label className="market-search">
+              <IconSearch size={15} />
+              <span className="sr-only">Search markets</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by ticker or name"
+              />
+            </label>
+          </div>
         </div>
 
         {!snapshot ? (
@@ -430,12 +411,9 @@ export function LiveMarkets({
           </div>
         )}
         <p className="sample-note">
-          Tokenized stocks are xStock tokens quoted from their Solana pools
-          through Jupiter. Crypto and memecoins are priced from their own
-          on-chain pools. Prices refresh every {REFRESH_MS / 1000} seconds
+          Prices from Jupiter, refreshed every {REFRESH_MS / 1000}s
           {snapshot &&
-            ` · last update ${new Date(snapshot.asOf).toLocaleTimeString()}`}
-          .
+            ` · updated ${new Date(snapshot.asOf).toLocaleTimeString()}`}
         </p>
       </section>
     </section>

@@ -27,7 +27,13 @@ import {
   type ChartBar,
   type PriceView,
 } from "./interactive-market-chart";
-import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
+import {
+  InfoTooltip,
+  Metric,
+  PanelHeading,
+  money,
+  signedMoney,
+} from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
@@ -858,17 +864,7 @@ export function PaperTradingDesk({
 
   return (
     <section className="page-shell paper" aria-label="Paper Trading">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">PAPER TRADING DESK</p>
-          <h1>Your edge starts with practice.</h1>
-          <p className="page-lede">
-            Every trade here is simulated. Prices are live, funds are virtual.
-          </p>
-        </div>
-        <span className="tag profit">ON-CHAIN · DEVNET</span>
-      </header>
-
+      <p className="sr-only">ON-CHAIN · DEVNET</p>
       <PaperChainPanel chain={chain} />
       {false && isDevnet && (
         <section
@@ -937,22 +933,10 @@ export function PaperTradingDesk({
           />
         </div>
         <div className="stat">
-          <Metric
-            label="USDC BALANCE"
-            value={money(desk.usdcCents)}
-            detail={
-              onChain
-                ? "On-chain simulated buying power"
-                : "Simulated buying power"
-            }
-          />
+          <Metric label="USDC BALANCE" value={money(desk.usdcCents)} />
         </div>
         <div className="stat">
-          <Metric
-            label="PORTFOLIO VALUE"
-            value={money(equity)}
-            detail="Cash + BTC + ETH + SOL"
-          />
+          <Metric label="PORTFOLIO VALUE" value={money(equity)} />
         </div>
         <div className="stat">
           <Metric
@@ -1264,7 +1248,15 @@ export function PaperTradingDesk({
           </div>
         </section>
         <section className="panel order-ticket">
-          <PanelHeading eyebrow="ORDER ENTRY" title="Limit Quote" />
+          <PanelHeading eyebrow="ORDER ENTRY" title="Limit Quote">
+            <InfoTooltip label="About limit quotes">
+              <p className="control-hint">
+                {onChain
+                  ? `Marketable limits fill now at the market price. Resting quotes reserve USDC or ${asset} here and ask your wallet to sign when the market reaches them.`
+                  : `Simulated execution only. Open quotes reserve USDC or ${asset} until filled or cancelled.`}
+              </p>
+            </InfoTooltip>
+          </PanelHeading>
           <form className="quote-form" onSubmit={place}>
             <div className="segmented">
               <button
@@ -1368,11 +1360,6 @@ export function PaperTradingDesk({
             >
               Place {side} {asset} quote
             </button>
-            <p className="control-hint" style={{ marginTop: 14 }}>
-              {onChain
-                ? `Marketable limits fill now at the market price. Resting quotes reserve USDC or ${asset} here and ask your wallet to sign when the market reaches them.`
-                : `Simulated execution only. Open quotes reserve USDC or ${asset} until filled or cancelled.`}
-            </p>
             {!onChain && (
               <button
                 type="button"
@@ -1445,7 +1432,7 @@ export function PaperTradingDesk({
           {!desk.quotes.length && (
             <div className="empty-state">
               <IconActivity size={20} />
-              No open quotes. Set your price and let the market come to you.
+              No open quotes.
             </div>
           )}
         </section>
@@ -1489,7 +1476,7 @@ export function PaperTradingDesk({
           {!desk.trades.length && (
             <div className="empty-state">
               <IconHistory size={20} />
-              Your first trade starts the story. Buy or sell to begin.
+              No fills yet.
             </div>
           )}
         </section>

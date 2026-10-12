@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useId, useState, type ReactNode } from "react";
 import {
+  IconInfoCircle,
   IconAlertTriangle,
   IconFlame,
   IconHexagon,
@@ -131,6 +132,37 @@ export function AlertModal({
         </div>
       )}
     </Modal>
+  );
+}
+/**
+ * An info icon whose notes open on hover, keyboard focus or tap. The notes
+ * stay in the document so screen readers and status announcements still work.
+ */
+export function InfoTooltip({
+  label,
+  children,
+  attention = false,
+}: {
+  label: string;
+  children: ReactNode;
+  /** Tints the icon when the notes explain why something is unavailable. */
+  attention?: boolean;
+}) {
+  const id = useId();
+  return (
+    <div className={`info-tooltip ${attention ? "attention" : ""}`}>
+      <button
+        type="button"
+        className="info-tooltip-trigger"
+        aria-label={label}
+        aria-describedby={id}
+      >
+        <IconInfoCircle size={17} aria-hidden="true" />
+      </button>
+      <div className="info-tooltip-panel" role="tooltip" id={id}>
+        <div className="info-tooltip-card">{children}</div>
+      </div>
+    </div>
   );
 }
 export function PanelHeading({

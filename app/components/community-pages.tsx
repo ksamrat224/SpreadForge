@@ -15,7 +15,7 @@ import {
   IconWallet,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { PanelHeading } from "./terminal-ui";
+import { InfoTooltip, PanelHeading } from "./terminal-ui";
 import { useCluster } from "./cluster-context";
 import { ellipsify } from "../lib/explorer";
 import {
@@ -308,29 +308,63 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       window.clearInterval(timer);
     };
   }, [active, section, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Summary for the heading card, derived from the board being shown.
+  const boardLoading =
+    section === "strategy" ? loading : paperLoading && !paperBoard;
+  const boardError = section === "strategy" ? error : paperError;
+  const board = {
+    ranked:
+      section === "strategy" ? rows.length : (paperBoard?.entries.length ?? 0),
+    ...(!programAddress
+      ? { tone: "error", label: "Not configured" }
+      : cluster !== "devnet"
+        ? { tone: "none", label: "Switch to devnet" }
+        : boardLoading
+          ? { tone: "pending", label: "Loading…" }
+          : boardError
+            ? { tone: "error", label: "Unavailable" }
+            : { tone: "ready", label: "Live on devnet" }),
+  };
   return (
     <section className="page-shell" aria-label="Leaderboard">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">
-            {section === "strategy"
-              ? "Program-calculated settled strategy runs"
-              : "Oracle-priced on-chain paper portfolios"}
-          </p>
-          <h1>
-            {section === "strategy"
-              ? "Strategy leaderboard"
-              : "Paper trading leaderboard"}
-          </h1>
-          <p className="page-lede">
-            {section === "strategy"
-              ? "Compare your strategy runs. Best settled on-chain run per wallet across all three challenges."
-              : "Compare live paper portfolios. Ranked by live total return from fresh, verified Pyth prices."}{" "}
-            Rankings are read from Solana devnet.
-          </p>
+      <section
+        className="wallet-practice panel"
+        aria-label="Leaderboard overview"
+      >
+        <div className="wallet-practice-main">
+          <div>
+            <p className="eyebrow">DEVNET LEADERBOARD</p>
+            <h1>
+              {section === "strategy"
+                ? "Strategy leaderboard"
+                : "Paper trading leaderboard"}
+            </h1>
+          </div>
         </div>
-        <span className="tag warning">DEVNET</span>
-      </header>
+        <div className="wallet-practice-stats">
+          <span>
+            <small>STATUS</small>
+            <b className={`chain-status ${board.tone}`}>
+              <i />
+              {board.label}
+            </b>
+          </span>
+          <span>
+            <small>RANKED</small>
+            <b>{board.tone === "ready" ? board.ranked : "—"}</b>
+          </span>
+          <InfoTooltip label="About the leaderboard">
+            <p className="control-hint">
+              {section === "strategy"
+                ? "Best settled on-chain run per wallet across all three challenges."
+                : "Ranked by live total return from fresh, verified Pyth prices."}
+            </p>
+            <p className="control-hint">
+              Rankings are read from Solana devnet.
+            </p>
+          </InfoTooltip>
+        </div>
+      </section>
       <div className="rank-tabs section-tabs" aria-label="Leaderboard type">
         <button
           className={section === "strategy" ? "active" : ""}
