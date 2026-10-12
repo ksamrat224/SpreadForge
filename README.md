@@ -16,6 +16,7 @@ This is an educational simulation: balances, P&L, orders, and fills are simulate
 - Settled on-chain strategy score, equity, fills, and drawdown
 - Dark terminal UI with DM Sans, JetBrains Mono, Tabler icons, responsive desktop/tablet/mobile layouts, and a persistent theme preference
 - Paper Desk: on-chain virtual portfolios and oracle-priced devnet trades; devnet SOL pays transaction fees only.
+- Forge Syndicates: an isolated MagicBlock ER social-trading program with a worthless devnet fUSD SPL token, proportional pool shares, fixed risk limits, and high-water-mark fee settlement. Its dedicated devnet program is deployed, initialized, and smoke-tested; each frontend still fails closed unless its public program ID is configured.
 - Strategy leaderboard ranks only program-calculated `RankedRun` accounts settled back on devnet; the paper board ranks live oracle-valued portfolios.
 - Wallet Standard connection, MagicBlock router-discovered ER routing, scoped in-memory signer, and terminal commit-and-undelegate client transport.
 - Ranked runs are separately gated by `NEXT_PUBLIC_RANKED_RUNS_ENABLED`; the local devnet configuration enables them after a successful live ER smoke test.
@@ -44,6 +45,7 @@ Browser tests use Chromium at `/usr/bin/chromium` when available. Set
 `npx playwright install chromium`. Screenshots are saved under `test-results/`.
 
 The UI follows [the design specification](docs/SpreadForge-Design-Specification.md).
+The complete product map and system design are documented in [Features and Architecture](docs/features-and-architecture.md).
 Wallet connection uses real detected browser wallets. Strategy Lab uses only
 the on-chain run flow; if ranked runs are disabled, it cannot start a run.
 Restart or rebuild the app after changing a public flag.
@@ -54,6 +56,12 @@ The wallet approves creation and delegation of a `RankedRun` PDA on devnet. A sc
 
 The detailed product, architecture, engineering rules, and plan live in [`agents/`](agents/).
 The legacy Result Registry commitments are documented in [`docs/result-registry.md`](docs/result-registry.md). The new release and smoke-test checklist is in [`docs/ranked-runs.md`](docs/ranked-runs.md).
+
+### Forge Syndicates development
+
+The syndicates program is a separate workspace member under `anchor/programs/forge-syndicates`; it does not change the deployed Result Registry layouts. Its dedicated devnet address is `HPNkzwiFHbWtCJLRhp7oKE1iHttjxCWvDsjtNHT9o1ZM`. Build and deploy that program, then run `npm run syndicates:initialize -- --send` with `SYNDICATES_ADMIN_KEYPAIR` pointing to the devnet admin keypair. The initializer simulates before sending and registers the SOL/USD and ETH/USD feed identities while creating the classic SPL fUSD mint.
+
+Pooled fUSD remains in a base-layer SPL vault while only synthetic session state is delegated to MagicBlock. The custody/economic core, oracle-bound ER trades, delegation, `SessionTokenV2` authorization, expiry-crank registration, permissionless idempotent expiry, commit-and-undelegate, typed client, discovery UI, faucet claim, syndicate creation, and backing deposits are implemented. The dedicated deployment and full live ER lifecycle smoke test are complete; the remaining work is exposing the complete session and withdrawal lifecycle as end-user UI.
 
 ### Leaderboard devnet setup
 

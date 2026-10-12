@@ -77,6 +77,19 @@ test("portfolio is available in desktop navigation", async ({ page }) => {
   await expect(page.getByText("Your paper portfolio.")).toBeVisible();
 });
 
+test("syndicates workspace is available and fails closed before deployment", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: "Syndicates" }).click();
+  await expect(page.getByRole("region", { name: "Syndicates" })).toBeVisible();
+  await expect(
+    page.getByText("Trade together. Settle transparently.")
+  ).toBeVisible();
+  await expect(page.getByText(/no real value/i)).toBeVisible();
+});
+
 test("mobile navigation, drawer, wallet and horizontal layout", async ({
   page,
 }) => {
