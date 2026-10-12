@@ -9,7 +9,8 @@ import labDark from "./screens/strategy-lab-dark.webp";
 import labLight from "./screens/strategy-lab-light.webp";
 import { useMediaQuery } from "./use-reduced-motion";
 
-// Full-page captures of /app after a finished Whale Sell run, one per theme.
+// Full-page captures of the /app Strategy Lab showing a finished Whale Sell
+// run, one per theme.
 const screens = [
   { theme: "dark", src: labDark },
   { theme: "light", src: labLight },
@@ -87,7 +88,7 @@ export function LabPreview() {
                         <Image
                           key={theme}
                           src={src}
-                          alt="The SpreadForge Strategy Lab after a finished Whale Sell run: quote and risk controls, the SOL / USDC price chart with fills, the strategy score, depth ladder and execution feed."
+                          alt="The SpreadForge Strategy Lab after a finished Whale Sell run: quote and risk controls, the SOL / USDC price chart, the settled strategy score, live quotes and execution activity."
                           sizes="(min-width: 1280px) 1040px, 82vw"
                           className={`is-${theme}`}
                         />
