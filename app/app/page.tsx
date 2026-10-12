@@ -11,11 +11,13 @@ import {
   IconChevronRight,
   IconBriefcase,
   IconUsersGroup,
+  IconTrendingUp,
 } from "@tabler/icons-react";
 import { RankedChallengeDrawer } from "../components/ranked-challenge-drawer";
 import { RankedStrategyLab } from "../components/ranked-strategy-lab";
 import { PaperTradingDesk } from "../components/paper-trading-desk";
 import { PaperPortfolio } from "../components/paper-portfolio";
+import { LiveMarkets } from "../components/live-markets";
 import { SyndicatesWorkspace } from "../components/syndicates-workspace";
 import { Leaderboard } from "../components/community-pages";
 import { WalletButton } from "../components/wallet-button";
@@ -26,6 +28,7 @@ import type { PaperAsset } from "../lib/simulation/paper";
 const tabs = [
   { id: "strategy", label: "Strategy Lab", Icon: IconFlame },
   { id: "paper", label: "Paper Trading", Icon: IconActivity },
+  { id: "markets", label: "Markets", Icon: IconTrendingUp },
   { id: "portfolio", label: "Portfolio", Icon: IconBriefcase },
   { id: "syndicates", label: "Syndicates", Icon: IconUsersGroup },
   { id: "leaderboard", label: "Leaderboard", Icon: IconTrophy },
@@ -156,6 +159,12 @@ export default function Home() {
               <PaperTradingDesk
                 active={tab === "paper"}
                 assetRequest={paperAssetRequest}
+              />
+            </div>
+            <div className="app-view" hidden={tab !== "markets"}>
+              <LiveMarkets
+                active={tab === "markets"}
+                onTradeAsset={tradeAsset}
               />
             </div>
             <div className="app-view" hidden={tab !== "portfolio"}>

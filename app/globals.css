@@ -5164,6 +5164,152 @@ tr:nth-child(3) .rank-medal {
   }
 }
 
+/* Markets */
+.markets-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.markets-toolbar .market-search {
+  width: min(320px, 100%);
+}
+.markets-toolbar .market-search input {
+  min-height: 40px;
+  font-size: 13.5px;
+}
+.tab-count {
+  margin-left: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .market-table th,
+.app-shell .market-table td {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.market-table .numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.sort-button svg {
+  opacity: 0.55;
+}
+.sort-button:hover,
+th[aria-sort="ascending"] .sort-button,
+th[aria-sort="descending"] .sort-button {
+  color: var(--foreground);
+}
+th[aria-sort="ascending"] .sort-button svg,
+th[aria-sort="descending"] .sort-button svg {
+  color: var(--primary);
+  opacity: 1;
+}
+.market-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.market-cell > span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.market-cell strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.market-cell small {
+  max-width: 240px;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+.market-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--surface-2);
+  object-fit: cover;
+}
+.market-icon.fallback {
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 700;
+}
+.price-tick {
+  display: inline-block;
+  font-weight: 600;
+}
+.price-tick.up {
+  animation: tick-up 1.4s ease-out;
+}
+.price-tick.down {
+  animation: tick-down 1.4s ease-out;
+}
+@keyframes tick-up {
+  from {
+    color: var(--profit);
+  }
+}
+@keyframes tick-down {
+  from {
+    color: var(--loss);
+  }
+}
+@media (max-width: 819px) {
+  .markets-toolbar {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .markets-toolbar .market-search {
+    width: 100%;
+  }
+  .markets-toolbar .rank-tabs {
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .markets-toolbar .rank-tabs button {
+    flex: 0 0 auto;
+  }
+  .mobile-nav {
+    gap: 2px;
+  }
+  .mobile-nav button {
+    min-width: 0;
+    padding-inline: 2px;
+    font-size: 9.5px;
+    letter-spacing: -0.01em;
+  }
+  .mobile-nav button span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* ───────────────────────── Landing page ───────────────────────── */
 /* Landing-only type and shape, modelled on the product prototype: Syne
    display type, mono labels and square panels. Colours are the app's own
