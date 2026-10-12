@@ -7,6 +7,7 @@ skip-lint = false
 
 [programs.devnet]
 result_registry = "2EXN7tmfAekEn2Noq8j8AkVx9bTi96zuakHUKSsW4u9w"
+forge_syndicates = "HPNkzwiFHbWtCJLRhp7oKE1iHttjxCWvDsjtNHT9o1ZM"
 
 [provider]
 cluster = "devnet"
