@@ -2,6 +2,8 @@
 
 SpreadForge is an educational Solana trading playground. It combines deterministic strategy challenges, oracle-priced paper trading, portfolio analytics, public rankings, and experimental social trading through MagicBlock Ephemeral Rollups.
 
+For short presentation notes, feature talking points, and a timed demo flow, use the [Pitch and Demo Guide](pitch/README.md).
+
 All balances and positions are simulations. Devnet SOL is used only for transaction fees and account rent. The application does not trade or custody real assets.
 
 ## Product map

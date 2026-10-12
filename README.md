@@ -46,6 +46,7 @@ Browser tests use Chromium at `/usr/bin/chromium` when available. Set
 
 The UI follows [the design specification](docs/SpreadForge-Design-Specification.md).
 The complete product map and system design are documented in [Features and Architecture](docs/features-and-architecture.md).
+Presenter-friendly feature notes and the live walkthrough are in the [Pitch and Demo Guide](docs/pitch/README.md).
 Wallet connection uses real detected browser wallets. Strategy Lab uses only
 the on-chain run flow; if ranked runs are disabled, it cannot start a run.
 Restart or rebuild the app after changing a public flag.
