@@ -6,13 +6,17 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./advanceRankedRun";
 export * from "./advanceSession";
 export * from "./configurePaperMarket";
+export * from "./delegateRankedRun";
 export * from "./delegateSession";
+export * from "./finalizeRankedRun";
 export * from "./finalizeSession";
 export * from "./initializePaperExchange";
 export * from "./initializeSession";
 export * from "./openPortfolio";
 export * from "./processUndelegation";
+export * from "./startRankedRun";
 export * from "./submitResult";
 export * from "./tradePortfolio";

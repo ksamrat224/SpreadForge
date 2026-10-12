@@ -58,6 +58,24 @@ export const RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE = 0x1783; // 6019
 export const RESULT_REGISTRY_ERROR__PAPER_SLIPPAGE_EXCEEDED = 0x1784; // 6020
 /** PaperPortfolioAlreadyExists: This wallet already has its one paper portfolio. */
 export const RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS = 0x1785; // 6021
+/** InvalidRankedRunScenario: This ranked-run scenario is not supported. */
+export const RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_SCENARIO = 0x1786; // 6022
+/** InvalidRankedRunStrategy: The ranked-run strategy is outside the supported bounds. */
+export const RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_STRATEGY = 0x1787; // 6023
+/** UnsupportedRankedRunSchemaVersion: The ranked-run schema version is not supported. */
+export const RESULT_REGISTRY_ERROR__UNSUPPORTED_RANKED_RUN_SCHEMA_VERSION = 0x1788; // 6024
+/** UnauthorizedRankedRunActor: The ranked run may only be advanced by its owner or scoped session signer. */
+export const RESULT_REGISTRY_ERROR__UNAUTHORIZED_RANKED_RUN_ACTOR = 0x1789; // 6025
+/** RankedRunExpired: The ranked run has expired. */
+export const RESULT_REGISTRY_ERROR__RANKED_RUN_EXPIRED = 0x178a; // 6026
+/** RankedRunNotActive: The ranked run is not active. */
+export const RESULT_REGISTRY_ERROR__RANKED_RUN_NOT_ACTIVE = 0x178b; // 6027
+/** RankedRunNotComplete: The ranked run can only be finalized after all ticks are complete. */
+export const RESULT_REGISTRY_ERROR__RANKED_RUN_NOT_COMPLETE = 0x178c; // 6028
+/** RankedRunMathOverflow: Ranked-run arithmetic overflowed. */
+export const RESULT_REGISTRY_ERROR__RANKED_RUN_MATH_OVERFLOW = 0x178d; // 6029
+/** InvalidRankedRunAccount: The ranked-run account is not owned by this program or has invalid PDA seeds. */
+export const RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_ACCOUNT = 0x178e; // 6030
 
 export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INSUFFICIENT_PAPER_BALANCE
@@ -66,6 +84,9 @@ export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE
   | typeof RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER
+  | typeof RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_ACCOUNT
+  | typeof RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_SCENARIO
+  | typeof RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_STRATEGY
   | typeof RESULT_REGISTRY_ERROR__INVALID_SCORE
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION
   | typeof RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION
@@ -73,13 +94,19 @@ export type ResultRegistryError =
   | typeof RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW
   | typeof RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS
   | typeof RESULT_REGISTRY_ERROR__PAPER_SLIPPAGE_EXCEEDED
+  | typeof RESULT_REGISTRY_ERROR__RANKED_RUN_EXPIRED
+  | typeof RESULT_REGISTRY_ERROR__RANKED_RUN_MATH_OVERFLOW
+  | typeof RESULT_REGISTRY_ERROR__RANKED_RUN_NOT_ACTIVE
+  | typeof RESULT_REGISTRY_ERROR__RANKED_RUN_NOT_COMPLETE
   | typeof RESULT_REGISTRY_ERROR__SESSION_EXPIRED
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE
   | typeof RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE
   | typeof RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_ADMIN
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER
+  | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_RANKED_RUN_ACTOR
   | typeof RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR
+  | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_RANKED_RUN_SCHEMA_VERSION
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION
   | typeof RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION;
 
@@ -93,6 +120,9 @@ if (process.env.NODE_ENV !== "production") {
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_FUNDING]: `Paper accounts are funded with fixed USDC or by mirroring wallet SOL.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORACLE]: `The oracle update is invalid, stale, or does not match this market.`,
     [RESULT_REGISTRY_ERROR__INVALID_PAPER_ORDER]: `Paper orders need a valid side, source, positive price, and positive size.`,
+    [RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_ACCOUNT]: `The ranked-run account is not owned by this program or has invalid PDA seeds.`,
+    [RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_SCENARIO]: `This ranked-run scenario is not supported.`,
+    [RESULT_REGISTRY_ERROR__INVALID_RANKED_RUN_STRATEGY]: `The ranked-run strategy is outside the supported bounds.`,
     [RESULT_REGISTRY_ERROR__INVALID_SCORE]: `The result score must be between 0 and 10,000.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_AUTHORIZATION]: `The session signer or expiry is invalid.`,
     [RESULT_REGISTRY_ERROR__INVALID_SESSION_DURATION]: `A session must contain between 1 and 60 ticks.`,
@@ -100,13 +130,19 @@ if (process.env.NODE_ENV !== "production") {
     [RESULT_REGISTRY_ERROR__PAPER_MATH_OVERFLOW]: `The paper trade overflows the account's balances.`,
     [RESULT_REGISTRY_ERROR__PAPER_PORTFOLIO_ALREADY_EXISTS]: `This wallet already has its one paper portfolio.`,
     [RESULT_REGISTRY_ERROR__PAPER_SLIPPAGE_EXCEEDED]: `The verified execution price exceeded the order's slippage tolerance.`,
+    [RESULT_REGISTRY_ERROR__RANKED_RUN_EXPIRED]: `The ranked run has expired.`,
+    [RESULT_REGISTRY_ERROR__RANKED_RUN_MATH_OVERFLOW]: `Ranked-run arithmetic overflowed.`,
+    [RESULT_REGISTRY_ERROR__RANKED_RUN_NOT_ACTIVE]: `The ranked run is not active.`,
+    [RESULT_REGISTRY_ERROR__RANKED_RUN_NOT_COMPLETE]: `The ranked run can only be finalized after all ticks are complete.`,
     [RESULT_REGISTRY_ERROR__SESSION_EXPIRED]: `The session has expired.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_ACTIVE]: `The session is not active.`,
     [RESULT_REGISTRY_ERROR__SESSION_NOT_COMPLETE]: `The session can be finalized only after all ticks are complete.`,
     [RESULT_REGISTRY_ERROR__STALE_PAPER_PRICE]: `The reference price is too old or too far in the future.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_ADMIN]: `Only the configured paper exchange administrator may change market feeds.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_PAPER_TRADER]: `Only the wallet that owns this paper account may trade or settle it.`,
+    [RESULT_REGISTRY_ERROR__UNAUTHORIZED_RANKED_RUN_ACTOR]: `The ranked run may only be advanced by its owner or scoped session signer.`,
     [RESULT_REGISTRY_ERROR__UNAUTHORIZED_SESSION_ACTOR]: `Only the wallet authority or the scoped session signer may advance this session.`,
+    [RESULT_REGISTRY_ERROR__UNSUPPORTED_RANKED_RUN_SCHEMA_VERSION]: `The ranked-run schema version is not supported.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SCHEMA_VERSION]: `This result schema version is not supported.`,
     [RESULT_REGISTRY_ERROR__UNSUPPORTED_SESSION_SCHEMA_VERSION]: `The session schema version is not supported.`,
   };

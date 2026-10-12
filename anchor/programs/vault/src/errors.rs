@@ -46,4 +46,22 @@ pub enum ResultRegistryError {
     PaperSlippageExceeded,
     #[msg("This wallet already has its one paper portfolio.")]
     PaperPortfolioAlreadyExists,
+    #[msg("This ranked-run scenario is not supported.")]
+    InvalidRankedRunScenario,
+    #[msg("The ranked-run strategy is outside the supported bounds.")]
+    InvalidRankedRunStrategy,
+    #[msg("The ranked-run schema version is not supported.")]
+    UnsupportedRankedRunSchemaVersion,
+    #[msg("The ranked run may only be advanced by its owner or scoped session signer.")]
+    UnauthorizedRankedRunActor,
+    #[msg("The ranked run has expired.")]
+    RankedRunExpired,
+    #[msg("The ranked run is not active.")]
+    RankedRunNotActive,
+    #[msg("The ranked run can only be finalized after all ticks are complete.")]
+    RankedRunNotComplete,
+    #[msg("Ranked-run arithmetic overflowed.")]
+    RankedRunMathOverflow,
+    #[msg("The ranked-run account is not owned by this program or has invalid PDA seeds.")]
+    InvalidRankedRunAccount,
 }
