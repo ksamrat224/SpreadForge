@@ -11,6 +11,7 @@ import {
   IconPlayerPlay,
   IconRefresh,
   IconShieldCheck,
+  IconTrendingDown,
 } from "@tabler/icons-react";
 import type { Address } from "@solana/kit";
 import type { RankedRun } from "../generated/result_registry";
@@ -37,7 +38,14 @@ import {
 import { RankedChallengeDrawer } from "./ranked-challenge-drawer";
 import { SolanaLogo } from "./solana-logo";
 import { ThemedSelect } from "./themed-select";
-import { Metric, Modal, PanelHeading, money, signedMoney } from "./terminal-ui";
+import {
+  InfoTooltip,
+  Metric,
+  Modal,
+  PanelHeading,
+  money,
+  signedMoney,
+} from "./terminal-ui";
 
 type Stage =
   "idle" | "approval" | "delegating" | "executing" | "settling" | "complete";
@@ -186,10 +194,28 @@ export function RankedStrategyLab({
       </div>
       <div className="context-banner">
         <div>
-          <p className="eyebrow">
-            ACTIVE CHALLENGE · {meta.level.toUpperCase()}
-          </p>
-          <h1>{scenario.name}</h1>
+          <h1 className="sr-only">{scenario.name}</h1>
+          <ThemedSelect
+            className="scenario-picker"
+            label="Challenge"
+            value={scenarioId}
+            disabled={busy}
+            onChange={selectScenario}
+            options={(Object.keys(SCENARIOS) as ScenarioId[]).map((id) => {
+              const ScenarioIcon =
+                id === "stable-market"
+                  ? IconChartLine
+                  : id === "whale-sell"
+                    ? IconTrendingDown
+                    : IconBolt;
+              return {
+                value: id,
+                label: SCENARIOS[id].name,
+                icon: <ScenarioIcon size={15} aria-hidden="true" />,
+              };
+            })}
+          />
+          <span className={`tag ${meta.tone}`}>{meta.level}</span>
           <p className="tip">
             <IconBolt size={14} aria-hidden="true" /> {meta.tip}
           </p>
@@ -209,7 +235,20 @@ export function RankedStrategyLab({
       </div>
       <div className="lab-grid">
         <aside className="panel controls-panel">
-          <PanelHeading eyebrow="PARAMETERS" title="Quote & Risk" />
+          <PanelHeading eyebrow="PARAMETERS" title="Quote & Risk">
+            <InfoTooltip label="About ranked runs" attention={!enabled}>
+              {!enabled && (
+                <p className="control-hint" role="status">
+                  Ranked runs require devnet, a configured registry program, and
+                  the MagicBlock and ranked-run feature flags.
+                </p>
+              )}
+              <p className="control-hint">
+                One wallet approval funds the run and a temporary signer with
+                0.001 devnet SOL. No real trading assets move.
+              </p>
+            </InfoTooltip>
+          </PanelHeading>
           <div className="control-body">
             <div className="field">
               <span>Scenario</span>
@@ -321,16 +360,6 @@ export function RankedStrategyLab({
                 Connect a wallet to approve a ranked run.
               </p>
             )}
-            {!enabled && (
-              <p className="control-hint" role="status">
-                Ranked runs require devnet, a configured registry program, and
-                the MagicBlock and ranked-run feature flags.
-              </p>
-            )}
-            <p className="control-hint">
-              One wallet approval funds the run and a temporary signer with
-              0.001 devnet SOL. No real trading assets move.
-            </p>
           </div>
           <div className="control-footnote">
             <IconShieldCheck size={13} aria-hidden="true" /> Program-calculated

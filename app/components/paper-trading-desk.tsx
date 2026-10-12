@@ -27,7 +27,13 @@ import {
   type ChartBar,
   type PriceView,
 } from "./interactive-market-chart";
-import { Metric, PanelHeading, money, signedMoney } from "./terminal-ui";
+import {
+  InfoTooltip,
+  Metric,
+  PanelHeading,
+  money,
+  signedMoney,
+} from "./terminal-ui";
 import { ChartViewPicker, type ChartViewOption } from "./chart-view-picker";
 import { ThemedSelect } from "./themed-select";
 import { AssetLogo } from "./crypto-logos";
@@ -857,15 +863,8 @@ export function PaperTradingDesk({
   );
 
   return (
-    <section className="page-shell" aria-label="Paper Trading">
-      <div className="workspace-top">
-        <span>
-          <strong>Your edge starts with practice.</strong> · Every trade here is
-          simulated.
-        </span>
-        <span className="tag">ON-CHAIN · DEVNET</span>
-      </div>
-
+    <section className="page-shell paper" aria-label="Paper Trading">
+      <p className="sr-only">ON-CHAIN · DEVNET</p>
       <PaperChainPanel chain={chain} />
       {false && isDevnet && (
         <section
@@ -925,32 +924,28 @@ export function PaperTradingDesk({
           </small>
         </section>
       )}
-      <div className="paper-portfolio panel">
-        <Metric
-          label={`${asset} BALANCE`}
-          value={`${(position.quantityMilliAsset / 1000).toFixed(3)} ${asset}`}
-          detail={`${money(getPositionValueCents(desk, asset))} notional`}
-        />
-        <Metric
-          label="USDC BALANCE"
-          value={money(desk.usdcCents)}
-          detail={
-            onChain
-              ? "On-chain simulated buying power"
-              : "Simulated buying power"
-          }
-        />
-        <Metric
-          label="PORTFOLIO VALUE"
-          value={money(equity)}
-          detail="Cash + BTC + ETH + SOL"
-        />
-        <Metric
-          label="TOTAL P&L"
-          value={signedMoney(pnl)}
-          detail={`Realized ${signedMoney(desk.realizedPnlCents)} · Unrealized ${signedMoney(pnl - desk.realizedPnlCents)}`}
-          tone={pnl >= 0 ? "profit" : "loss"}
-        />
+      <div className="stat-row paper-portfolio">
+        <div className="stat">
+          <Metric
+            label={`${asset} BALANCE`}
+            value={`${(position.quantityMilliAsset / 1000).toFixed(3)} ${asset}`}
+            detail={`${money(getPositionValueCents(desk, asset))} notional`}
+          />
+        </div>
+        <div className="stat">
+          <Metric label="USDC BALANCE" value={money(desk.usdcCents)} />
+        </div>
+        <div className="stat">
+          <Metric label="PORTFOLIO VALUE" value={money(equity)} />
+        </div>
+        <div className="stat">
+          <Metric
+            label="TOTAL P&L"
+            value={signedMoney(pnl)}
+            detail={`Realized ${signedMoney(desk.realizedPnlCents)} · Unrealized ${signedMoney(pnl - desk.realizedPnlCents)}`}
+            tone={pnl >= 0 ? "profit" : "loss"}
+          />
+        </div>
       </div>
       {convertMilli > 0 && (
         <div className="wallet-convert panel">
@@ -1011,7 +1006,7 @@ export function PaperTradingDesk({
         </div>
       )}
       <div className="paper-grid">
-        <section className="panel">
+        <section className="panel market-panel">
           <div className="market-header">
             <div>
               <div className="market-pair">
@@ -1252,9 +1247,15 @@ export function PaperTradingDesk({
             </small>
           </div>
         </section>
-        <section className="panel">
+        <section className="panel order-ticket">
           <PanelHeading eyebrow="ORDER ENTRY" title="Limit Quote">
-            <IconActivity size={17} />
+            <InfoTooltip label="About limit quotes">
+              <p className="control-hint">
+                {onChain
+                  ? `Marketable limits fill now at the market price. Resting quotes reserve USDC or ${asset} here and ask your wallet to sign when the market reaches them.`
+                  : `Simulated execution only. Open quotes reserve USDC or ${asset} until filled or cancelled.`}
+              </p>
+            </InfoTooltip>
           </PanelHeading>
           <form className="quote-form" onSubmit={place}>
             <div className="segmented">
@@ -1359,11 +1360,6 @@ export function PaperTradingDesk({
             >
               Place {side} {asset} quote
             </button>
-            <p className="control-hint" style={{ marginTop: 14 }}>
-              {onChain
-                ? `Marketable limits fill now at the market price. Resting quotes reserve USDC or ${asset} here and ask your wallet to sign when the market reaches them.`
-                : `Simulated execution only. Open quotes reserve USDC or ${asset} until filled or cancelled.`}
-            </p>
             {!onChain && (
               <button
                 type="button"
@@ -1435,15 +1431,13 @@ export function PaperTradingDesk({
           </div>
           {!desk.quotes.length && (
             <div className="empty-state">
-              <IconActivity size={24} />
-              No open quotes. Set your price and let the market come to you.
+              <IconActivity size={20} />
+              No open quotes.
             </div>
           )}
         </section>
         <section className="panel">
-          <PanelHeading title="Recent fills">
-            <IconHistory size={16} />
-          </PanelHeading>
+          <PanelHeading title="Recent fills" />
           <div className="table-scroll">
             <table>
               <thead>
@@ -1481,8 +1475,8 @@ export function PaperTradingDesk({
           </div>
           {!desk.trades.length && (
             <div className="empty-state">
-              <IconHistory size={24} />
-              Your first trade starts the story. Buy or sell to begin.
+              <IconHistory size={20} />
+              No fills yet.
             </div>
           )}
         </section>

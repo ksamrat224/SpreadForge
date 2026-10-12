@@ -11,12 +11,11 @@ import {
   IconPlayerPlay,
   IconRefresh,
   IconShieldCheck,
-  IconTrophy,
   IconUsers,
   IconWallet,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { PanelHeading } from "./terminal-ui";
+import { InfoTooltip, PanelHeading } from "./terminal-ui";
 import { useCluster } from "./cluster-context";
 import { ellipsify } from "../lib/explorer";
 import {
@@ -57,24 +56,14 @@ export function Architecture() {
   const activeNode = step === 0 ? 0 : step < 2 ? 1 : step < 5 ? 2 : 3;
   return (
     <section className="page-shell" aria-label="MagicBlock architecture">
-      <div className="page-title">
+      <header className="page-header">
         <div>
-          <p className="eyebrow profit">THE ENGINE BENEATH THE EDGE</p>
+          <p className="eyebrow">MAGICBLOCK · EPHEMERAL ROLLUPS · DEMO</p>
           <h1>Fast by design. Verifiable by default.</h1>
-          <p>
+          <p className="page-lede">
             Explore the journey from an ephemeral session to a permanent Solana
-            record.
-          </p>
-        </div>
-        <span className="tag warning">INTERACTIVE DEMO</span>
-      </div>
-      <div className="context-banner">
-        <div>
-          <p className="eyebrow">MAGICBLOCK · EPHEMERAL ROLLUPS</p>
-          <h1>Speed meets settlement.</h1>
-          <p className="tip">
-            <IconBolt size={14} />
-            High-frequency state transitions. One compact result commitment.
+            record. High-frequency state transitions, one compact result
+            commitment.
           </p>
         </div>
         <button
@@ -86,9 +75,9 @@ export function Architecture() {
           }}
         >
           {step === 5 ? (
-            <IconRefresh size={15} />
+            <IconRefresh size={16} />
           ) : (
-            <IconPlayerPlay size={15} />
+            <IconPlayerPlay size={16} />
           )}
           {running && step < 5
             ? "Simulating…"
@@ -96,7 +85,7 @@ export function Architecture() {
               ? "Replay session"
               : "Simulate session"}
         </button>
-      </div>
+      </header>
       <div className="architecture-flow">
         {[
           {
@@ -124,7 +113,7 @@ export function Architecture() {
             title={title}
             description={description}
             code={code}
-            icon={<Icon size={27} />}
+            icon={<Icon size={20} stroke={1.6} />}
             active={activeNode >= i + 1}
           />
         ))}
@@ -319,46 +308,64 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
       window.clearInterval(timer);
     };
   }, [active, section, cluster, programAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Summary for the heading card, derived from the board being shown.
+  const boardLoading =
+    section === "strategy" ? loading : paperLoading && !paperBoard;
+  const boardError = section === "strategy" ? error : paperError;
+  const board = {
+    ranked:
+      section === "strategy" ? rows.length : (paperBoard?.entries.length ?? 0),
+    ...(!programAddress
+      ? { tone: "error", label: "Not configured" }
+      : cluster !== "devnet"
+        ? { tone: "none", label: "Switch to devnet" }
+        : boardLoading
+          ? { tone: "pending", label: "Loading…" }
+          : boardError
+            ? { tone: "error", label: "Unavailable" }
+            : { tone: "ready", label: "Live on devnet" }),
+  };
   return (
     <section className="page-shell" aria-label="Leaderboard">
-      <div className="workspace-top">
-        <span>
-          <strong>
-            {section === "strategy"
-              ? "Compare your strategy runs."
-              : "Compare live paper portfolios."}
-          </strong>{" "}
-          · Rankings are read from Solana devnet.
-        </span>
-        <span className="tag warning">DEVNET</span>
-      </div>
-      <div className="context-banner">
-        <div>
-          <div className="leaderboard-kicker">
-            <IconTrophy className="tournament-icon" size={18} stroke={2.2} />
-            <p className="eyebrow">
-              {section === "strategy"
-                ? "Program-calculated settled strategy runs"
-                : "Oracle-priced on-chain paper portfolios"}
-            </p>
-          </div>
-          <h1>
-            {section === "strategy"
-              ? "Strategy leaderboard"
-              : "Paper trading leaderboard"}
-          </h1>
-          <p className="tip">
-            {section === "strategy"
-              ? "Best settled on-chain run per wallet across all three challenges."
-              : "Ranked by live total return from fresh, verified Pyth prices."}
-          </p>
-        </div>
-      </div>
-      <div
-        className="rank-tabs"
-        aria-label="Leaderboard type"
-        style={{ marginBottom: 16 }}
+      <section
+        className="wallet-practice panel"
+        aria-label="Leaderboard overview"
       >
+        <div className="wallet-practice-main">
+          <div>
+            <p className="eyebrow">DEVNET LEADERBOARD</p>
+            <h1>
+              {section === "strategy"
+                ? "Strategy leaderboard"
+                : "Paper trading leaderboard"}
+            </h1>
+          </div>
+        </div>
+        <div className="wallet-practice-stats">
+          <span>
+            <small>STATUS</small>
+            <b className={`chain-status ${board.tone}`}>
+              <i />
+              {board.label}
+            </b>
+          </span>
+          <span>
+            <small>RANKED</small>
+            <b>{board.tone === "ready" ? board.ranked : "—"}</b>
+          </span>
+          <InfoTooltip label="About the leaderboard">
+            <p className="control-hint">
+              {section === "strategy"
+                ? "Best settled on-chain run per wallet across all three challenges."
+                : "Ranked by live total return from fresh, verified Pyth prices."}
+            </p>
+            <p className="control-hint">
+              Rankings are read from Solana devnet.
+            </p>
+          </InfoTooltip>
+        </div>
+      </section>
+      <div className="rank-tabs section-tabs" aria-label="Leaderboard type">
         <button
           className={section === "strategy" ? "active" : ""}
           onClick={() => setSection("strategy")}
@@ -414,41 +421,33 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                   aria-label="Refresh strategy rankings"
                   onClick={() => void refreshStrategy()}
                 >
-                  <IconRefresh size={19} stroke={2.25} />
+                  <IconRefresh size={17} />
                 </button>
               </div>
             </PanelHeading>
             {strategyTab === "friends" ? (
-              <div className="empty-state" style={{ padding: 70 }}>
-                <IconUsers size={32} />
-                <h3
-                  style={{
-                    fontSize: 16,
-                    color: "var(--foreground)",
-                    marginBottom: 8,
-                  }}
-                >
-                  Build your trading circle
-                </h3>
+              <div className="empty-state roomy">
+                <IconUsers size={20} />
+                <h3>Build your trading circle</h3>
                 Friend rankings are coming later. SpreadForge does not yet store
                 profiles or friend lists.
               </div>
             ) : !programAddress ? (
-              <div className="empty-state" style={{ padding: 50 }}>
+              <div className="empty-state roomy">
                 The Result Registry is not configured.
               </div>
             ) : cluster !== "devnet" ? (
-              <div className="empty-state" style={{ padding: 50 }}>
+              <div className="empty-state roomy">
                 Switch to Solana devnet to view settled strategy runs.
               </div>
             ) : loading ? (
               <LeaderboardSkeleton />
             ) : error ? (
-              <div className="empty-state" style={{ padding: 50 }} role="alert">
+              <div className="empty-state roomy" role="alert">
                 {error}
               </div>
             ) : !rows.length ? (
-              <div className="empty-state" style={{ padding: 50 }}>
+              <div className="empty-state roomy">
                 No settled devnet ranked runs exist for this period yet.
               </div>
             ) : (
@@ -472,12 +471,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                           {i < 3 ? (
                             <span className="rank-medal">{i + 1}</span>
                           ) : (
-                            <span
-                              className="mono muted"
-                              style={{ paddingLeft: 9 }}
-                            >
-                              {i + 1}
-                            </span>
+                            <span className="rank-plain">{i + 1}</span>
                           )}
                         </td>
                         <td>
@@ -487,14 +481,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                             </span>
                             <div>
                               <strong>{ellipsify(row.walletAddress)}</strong>
-                              <small
-                                className="mono muted"
-                                style={{
-                                  display: "block",
-                                  fontSize: 9,
-                                  marginTop: 4,
-                                }}
-                              >
+                              <small className="trader-time">
                                 {new Date(
                                   row.submittedAt * 1000
                                 ).toLocaleString()}
@@ -517,7 +504,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                         </td>
                         <td>
                           <a
-                            className="btn ghost"
+                            className="btn ghost small"
                             href={row.proofUrl}
                             target="_blank"
                             rel="noreferrer"
@@ -544,25 +531,25 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
               aria-label="Refresh paper-trading rankings"
               onClick={() => void refreshPaper()}
             >
-              <IconRefresh size={19} stroke={2.25} />
+              <IconRefresh size={17} />
             </button>
           </PanelHeading>
           {!programAddress ? (
-            <div className="empty-state" style={{ padding: 50 }}>
+            <div className="empty-state roomy">
               The Result Registry is not configured.
             </div>
           ) : cluster !== "devnet" ? (
-            <div className="empty-state" style={{ padding: 50 }}>
+            <div className="empty-state roomy">
               Switch to Solana devnet to view paper-trading rankings.
             </div>
           ) : paperLoading && !paperBoard ? (
             <PaperLeaderboardSkeleton />
           ) : paperError ? (
-            <div className="empty-state" style={{ padding: 50 }} role="alert">
+            <div className="empty-state roomy" role="alert">
               {paperError}
             </div>
           ) : !paperBoard?.entries.length ? (
-            <div className="empty-state" style={{ padding: 50 }}>
+            <div className="empty-state roomy">
               No traded portfolios with fresh oracle prices are ranked yet.
             </div>
           ) : (
@@ -586,12 +573,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
                         {index < 3 ? (
                           <span className="rank-medal">{index + 1}</span>
                         ) : (
-                          <span
-                            className="mono muted"
-                            style={{ paddingLeft: 9 }}
-                          >
-                            {index + 1}
-                          </span>
+                          <span className="rank-plain">{index + 1}</span>
                         )}
                       </td>
                       <td>
@@ -628,7 +610,7 @@ export function Leaderboard({ active = true }: { active?: boolean }) {
             </div>
           )}
           {!!paperBoard?.excludedUnpricedPortfolios && (
-            <p className="tip" style={{ marginTop: 16 }}>
+            <p className="sample-note">
               {paperBoard.excludedUnpricedPortfolios} traded{" "}
               {paperBoard.excludedUnpricedPortfolios === 1
                 ? "portfolio is"

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { IconShieldCheck } from "@tabler/icons-react";
 import { LandingNav } from "./landing-nav";
 import { Hero } from "./hero";
+import { LabPreview } from "./lab-preview";
 import { MarketTicker } from "./market-ticker";
 import { Experience } from "./experience";
 import { Workflow } from "./workflow";
@@ -18,6 +19,7 @@ export function LandingPage() {
       <LandingNav />
       <main>
         <Hero />
+        <LabPreview />
         <Experience />
         <Workflow />
         <Challenges />

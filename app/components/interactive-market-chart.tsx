@@ -569,13 +569,13 @@ export function InteractiveMarketChart({
           layout: {
             background: {
               type: lib.ColorType.Solid,
-              color: dark ? "#10151b" : "#ffffff",
+              color: dark ? "#12161c" : "#ffffff",
             },
-            textColor: dark ? "#94a3b8" : "#475569",
+            textColor: dark ? "#8b95a5" : "#64748b",
           },
           grid: {
-            vertLines: { color: dark ? "#1b2530" : "#edf0f3" },
-            horzLines: { color: dark ? "#1b2530" : "#edf0f3" },
+            vertLines: { color: dark ? "#1a1f27" : "#f1f3f6" },
+            horzLines: { color: dark ? "#1a1f27" : "#f1f3f6" },
           },
         });
       };

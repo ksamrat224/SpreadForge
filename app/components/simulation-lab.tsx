@@ -8,9 +8,6 @@ import {
   IconBolt,
   IconCrown,
   IconShieldCheck,
-  IconArrowUpRight,
-  IconBrandDatabricks,
-  IconGauge,
   IconCheck,
   IconChartLine,
   IconChartAreaLine,
@@ -273,36 +270,76 @@ export function SimulationLab({
   const varCents = Math.round(
     (state.baseMilliSol / 1000) * state.referencePriceCents * volatility * 1.645
   );
+  const status = finished
+    ? "COMPLETE"
+    : running
+      ? "RUNNING"
+      : state.tick
+        ? "PAUSED"
+        : "IDLE";
+  const inventoryUse = state.baseMilliSol / strategy.maxInventoryMilliSol;
   return (
-    <section className="workspace" aria-label="Strategy Lab">
-      <div className="workspace-top">
-        <span>
-          <strong>Learn. Simulate. Compete.</strong> · Solana DeFi Market-Making
-          Laboratory
-        </span>
-        <span className="mono">DETERMINISTIC ENGINE / V1.0</span>
-      </div>
-      <div className="context-banner">
+    <section className="workspace lab" aria-label="Strategy Lab">
+      <header className="page-header">
         <div>
           <p className="eyebrow">
             ACTIVE CHALLENGE · {meta.level.toUpperCase()}
           </p>
           <h1>{scenario.name}</h1>
-          <p className="tip">
-            <IconBolt size={14} />
-            {meta.tip}
-          </p>
+          <p className="page-lede">{meta.tip}</p>
         </div>
-        <div className="banner-stats">
+        <dl className="page-meta">
           <div>
-            <strong>
-              60 <span className="muted">TICKS</span>
-            </strong>
-            <small>SESSION LENGTH</small>
+            <dt>Session</dt>
+            <dd>60 ticks</dd>
           </div>
           <div>
-            <strong className={meta.tone}>{meta.volatility}</strong>
-            <small>VOLATILITY</small>
+            <dt>Volatility</dt>
+            <dd className={meta.tone}>{meta.volatility}</dd>
+          </div>
+          <div>
+            <dt>Engine</dt>
+            <dd>Deterministic v1.0</dd>
+          </div>
+        </dl>
+      </header>
+      <div className="stat-row lab-stats">
+        <div className="stat">
+          <Metric
+            label="YOUR BID"
+            value={money(state.bidCents)}
+            detail={`${Math.round(strategy.spreadBps / 2)} bps below`}
+            tone="profit"
+          />
+        </div>
+        <div className="stat">
+          <Metric
+            label="YOUR ASK"
+            value={money(state.askCents)}
+            detail={`${Math.round(strategy.spreadBps / 2)} bps above`}
+            tone="loss"
+          />
+        </div>
+        <div className="stat">
+          <Metric
+            label="TOTAL FILLS"
+            value={
+              <span className="value-tick" key={state.fills.length}>
+                {state.fills.length}
+              </span>
+            }
+            detail={`${volume.toFixed(1)} SOL volume`}
+          />
+        </div>
+        <div className="stat">
+          <Metric
+            label="INVENTORY"
+            value={`${(state.baseMilliSol / 1000).toFixed(1)} SOL`}
+            detail={`${((strategy.maxInventoryMilliSol - state.baseMilliSol) / 1000).toFixed(1)} SOL headroom`}
+            tone={inventoryUse > 0.9 ? "loss" : ""}
+          />
+          <div className="headroom">
+            <i style={{ width: `${inventoryUse * 100}%` }} />
           </div>
         </div>
       </div>
@@ -377,13 +414,6 @@ export function SimulationLab({
                 disabled={running && !finished}
                 onChange={(v) => update("maxInventoryMilliSol", v)}
               />
-              <div className="headroom">
-                <i
-                  style={{
-                    width: `${(state.baseMilliSol / strategy.maxInventoryMilliSol) * 100}%`,
-                  }}
-                />
-              </div>
               <p className="control-hint">
                 {(
                   (strategy.maxInventoryMilliSol - state.baseMilliSol) /
@@ -422,14 +452,14 @@ export function SimulationLab({
             </div>
             <div className="action-row">
               <button
-                className="btn primary"
+                className={`btn primary ${running && !finished ? "is-running" : ""}`}
                 disabled={finished}
                 onClick={() => setRunning(!running)}
               >
                 {running && !finished ? (
-                  <IconPlayerPause size={15} />
+                  <IconPlayerPause size={16} />
                 ) : (
-                  <IconPlayerPlay size={15} />
+                  <IconPlayerPlay size={16} />
                 )}
                 {finished
                   ? "Complete"
@@ -440,26 +470,27 @@ export function SimulationLab({
                       : "Start Challenge"}
               </button>
               <button
-                className="icon-button"
+                className="icon-button reset-button"
                 onClick={() => reset()}
                 aria-label="Reset simulation"
+                title="Reset simulation"
               >
-                <IconRefresh size={16} />
+                <IconRefresh size={17} />
               </button>
             </div>
           </div>
           <div className="control-footnote">
-            <IconShieldCheck size={13} />
+            <IconShieldCheck size={14} />
             Simulated funds. Real learning.
           </div>
         </aside>
         <div className="market-column">
-          <section className="panel">
+          <section className="panel market-panel">
             <div className="market-header">
               <div>
                 <div className="market-pair">
                   <span className="pair-icon">
-                    <SolanaLogo size={24} />
+                    <SolanaLogo size={22} />
                   </span>
                   <div>
                     <h2>SOL / USDC</h2>
@@ -474,20 +505,20 @@ export function SimulationLab({
                   </span>
                 </div>
               </div>
-              <div className="market-extremes">
+              <dl className="market-extremes">
                 <div>
-                  <small>SESSION HIGH</small>
-                  <b>{money(Math.max(...history))}</b>
+                  <dt>Session high</dt>
+                  <dd>{money(Math.max(...history))}</dd>
                 </div>
                 <div>
-                  <small>SESSION LOW</small>
-                  <b>{money(Math.min(...history))}</b>
+                  <dt>Session low</dt>
+                  <dd>{money(Math.min(...history))}</dd>
                 </div>
-              </div>
+              </dl>
             </div>
             <div className="tick-row">
               <span>
-                TICK <b>{String(state.tick).padStart(2, "0")}</b> /{" "}
+                Tick <b>{String(state.tick).padStart(2, "0")}</b> /{" "}
                 {scenario.durationTicks}
               </span>
               <div className="bar-track">
@@ -497,15 +528,7 @@ export function SimulationLab({
                   }}
                 />
               </div>
-              <b>
-                {finished
-                  ? "COMPLETE"
-                  : running
-                    ? "RUNNING"
-                    : state.tick
-                      ? "PAUSED"
-                      : "IDLE"}
-              </b>
+              <b className={`run-status ${status.toLowerCase()}`}>{status}</b>
             </div>
             <ChartSwitcher
               view={chartView}
@@ -515,91 +538,24 @@ export function SimulationLab({
               strategy={strategy}
             />
           </section>
-          <div className="hud-grid">
-            <Metric
-              label="YOUR BID"
-              value={money(state.bidCents)}
-              detail={`${Math.round(strategy.spreadBps / 2)} bps below`}
-              tone="profit"
-            />
-            <Metric
-              label="YOUR ASK"
-              value={money(state.askCents)}
-              detail={`${Math.round(strategy.spreadBps / 2)} bps above`}
-              tone="loss"
-            />
-            <Metric
-              label="TOTAL FILLS"
-              value={state.fills.length}
-              detail={`${volume.toFixed(1)} SOL volume`}
-            />
-            <Metric
-              label="INVENTORY"
-              value={`${(state.baseMilliSol / 1000).toFixed(1)} SOL`}
-              detail={`${((strategy.maxInventoryMilliSol - state.baseMilliSol) / 1000).toFixed(1)} SOL headroom`}
-              tone={
-                state.baseMilliSol / strategy.maxInventoryMilliSol > 0.9
-                  ? "loss"
-                  : ""
-              }
-            />
-          </div>
-          <div className="bottom-grid">
-            <DepthLadder state={state} strategy={strategy} />
-            <section className="panel terminal">
-              <PanelHeading title="Execution feed">
-                <span className="live">
-                  <i />
-                  {running && !finished ? "LIVE" : "LOCAL"}
-                </span>
-              </PanelHeading>
-              <div
-                className="terminal-lines"
-                role="log"
-                aria-label="Execution activity"
-              >
-                {state.activity
-                  .slice()
-                  .reverse()
-                  .map((line, i) => (
-                    <div className="terminal-line" key={`${state.tick}-${i}`}>
-                      <time>
-                        00:00:
-                        {String(Math.max(0, state.tick - i)).padStart(2, "0")}
-                      </time>
-                      <span
-                        className={
-                          /Bought|Sold/.test(line)
-                            ? "terminal-fill"
-                            : /Whale|crash/.test(line)
-                              ? "warning"
-                              : ""
-                        }
-                      >
-                        {line}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </section>
-          </div>
         </div>
-        <aside className="score-column">
-          <section className="panel pnl-card">
+        <aside className="panel score-column">
+          <div className="score-section pnl-card">
             <p className="eyebrow">NET SIMULATED P&L</p>
-            <strong className={pnl >= 0 ? "profit" : "loss"}>
-              {signedMoney(pnl)}
+            <strong className={`mono ${pnl >= 0 ? "profit" : "loss"}`}>
+              <span className="value-tick" key={pnl}>
+                {signedMoney(pnl)}
+              </span>
             </strong>
-            <small className={pnl >= 0 ? "profit" : "loss"}>
-              <IconArrowUpRight size={13} />
-              {((pnl / state.startingEquityCents) * 100).toFixed(2)}%{" "}
-              <span className="muted">session return</span>
+            <small>
+              <span className={pnl >= 0 ? "profit" : "loss"}>
+                {((pnl / state.startingEquityCents) * 100).toFixed(2)}%
+              </span>{" "}
+              session return
             </small>
-          </section>
-          <section className="panel score-card">
-            <p className="eyebrow">
-              STRATEGY SCORE <IconGauge size={12} style={{ float: "right" }} />
-            </p>
+          </div>
+          <div className="score-section score-card">
+            <p className="eyebrow">STRATEGY SCORE</p>
             <div
               className="score-ring"
               style={
@@ -607,29 +563,28 @@ export function SimulationLab({
               }
             >
               <div>
-                <strong>{breakdown.total.toLocaleString("en-US")}</strong>
+                <strong className="mono">
+                  {breakdown.total.toLocaleString("en-US")}
+                </strong>
                 <small>/ 10,000</small>
               </div>
             </div>
-            <span className="tier-badge">
-              <IconCrown size={12} />
-              {tier(breakdown.total).toUpperCase()} PACE
-            </span>
+            <span className="tier-label">{tier(breakdown.total)} pace</span>
             {finished && dismissed && (
               <button
-                className="btn primary score-results-button"
+                className="btn primary wide score-results-button"
                 onClick={() => setDismissed(false)}
               >
                 <IconCrown size={15} />
                 View results
               </button>
             )}
-          </section>
-          <section className="panel breakdown">
-            <div className="breakdown-heading">
-              <p className="eyebrow">SCORE QUALITY</p>
-              <span>WEIGHTED</span>
-            </div>
+          </div>
+          <div className="score-section-heading">
+            <h2>Score quality</h2>
+            <span className="heading-note">Weighted</span>
+          </div>
+          <div className="breakdown-body">
             {dimensions.map(([key, label, weight, target]) => (
               <ScoreBar
                 key={key}
@@ -639,8 +594,8 @@ export function SimulationLab({
                 target={target}
               />
             ))}
-          </section>
-          <div className="panel risk-grid">
+          </div>
+          <div className="risk-grid">
             <Metric
               label="MAX DRAWDOWN"
               value={`${(state.maxDrawdownBps / 100).toFixed(2)}%`}
@@ -654,6 +609,45 @@ export function SimulationLab({
             />
           </div>
         </aside>
+      </div>
+      <div className="bottom-grid">
+        <DepthLadder state={state} strategy={strategy} />
+        <section className="panel terminal">
+          <PanelHeading title="Execution feed">
+            <span className={`live ${running && !finished ? "" : "idle"}`}>
+              <i />
+              {running && !finished ? "LIVE" : "LOCAL"}
+            </span>
+          </PanelHeading>
+          <div
+            className="terminal-lines"
+            role="log"
+            aria-label="Execution activity"
+          >
+            {state.activity
+              .slice()
+              .reverse()
+              .map((line, i) => (
+                <div className="terminal-line" key={`${state.tick}-${i}`}>
+                  <time>
+                    00:00:
+                    {String(Math.max(0, state.tick - i)).padStart(2, "0")}
+                  </time>
+                  <span
+                    className={
+                      /Bought|Sold/.test(line)
+                        ? "terminal-fill"
+                        : /Whale|crash/.test(line)
+                          ? "warning"
+                          : ""
+                    }
+                  >
+                    {line}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </section>
       </div>
       {active && finished && !dismissed && (
         <Modal
@@ -1135,9 +1129,7 @@ function DepthLadder({
   const gap = Math.max(1, state.askCents - state.bidCents);
   return (
     <section className="panel orderbook">
-      <PanelHeading title="Depth ladder">
-        <IconBrandDatabricks size={15} />
-      </PanelHeading>
+      <PanelHeading title="Depth ladder" />
       <div className="book-labels">
         <span>PRICE (USDC)</span>
         <span>SIZE (SOL)</span>
@@ -1156,10 +1148,7 @@ function DepthLadder({
         </div>
       ))}
       <div className="book-mid">
-        <span>
-          {money(state.referencePriceCents)}{" "}
-          <IconArrowUpRight size={12} style={{ display: "inline" }} />
-        </span>
+        <span>{money(state.referencePriceCents)}</span>
         <small>ILLUSTRATIVE DEPTH</small>
       </div>
       {[1, 2, 3].map((n) => (
